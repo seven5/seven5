@@ -2,58 +2,98 @@
 Seven 5
 =======
 
-Seven5 is a web microframework for go. It has a number of design objectives:
+**Seven5** is a web microframework for go. It has a number of design objectives:
 
-* Don't repeat yourself.  Don't repeat others work; remove an item from the one stack if it exists elsewhere.
+* Don't repeat yourself.  Don't repeat others' work; remove an item from the  
+stack if it exists elsewhere.
 * Use go's strong typing and fast compiler as an advantage for web developers.
-* Make all parts of the application easy to test by a single developer on a single machine.
+* Make all parts of the application easy to test by a single developer on a 
+single machine.
+* Make the resulting system deploy and scale nicely on cloud-like 
+infrastructure.
+
+Data Model
+----------
+**Seven5** has neither the inevitable ORM nor SQL mapping so often associated
+with other frameworks.  99% of the world doesn't need SQL for a website.  Because 
+of convenient ORMs, developers end up with SQL databases simply because that's 
+the easiest path in the web framework.
+
+**Seven5** makes a different strategy easy.  Your data model is just, well,
+your data model.  You use go's data structures and store them, unmodified,
+in a big blob of RAM called [memcached](http://memcached.org/).  There is no 
+disk storage, because disk is slow, expensive to manage, and generally more 
+trouble than it's worth in the age of server machines with 64 or 128GB of 
+RAM.  **Seven5** allows easy provision of 
+redundant memcacheds in different locales, if you are really paranoid about
+server crash.  You can, of course, make periodic backups if you choose to 
+(although don't be surprised if we don't recommend it).  Memcached is directly 
+supported today by cloud infrastructures like Amazon EC2 for production systems.
+
+By default, we use [gobs](http://blog.golang.org/2011/03/gobs-of-data.html) for
+storing our data because [Rob Pike](http://en.wikipedia.org/wiki/Rob_Pike) is a
+righteous dude. If you prefer to flatten your datastructures to bytes with 
+things like [protobufs](http://en.wikipedia.org/wiki/Protobuf) or even 
+[JSON](http://json.org) that's up to you.
+
 
 Guises
 ------
 
-A notion that is critical to Seven5's operation is the notion of a 'guise' (pronounced "geez" not 
-"guys").  A guise is a bit of code that allows a computation to look like a file or other http-level
-resource.  Some example guise types are detailed below.  A correctly written guise insures that 
-any input it needs from the filesystem is always "up to date."  Further, correctly-written guises 
-cache their results in memory.   These two properties insure there is never any confusion for the
-developer of the form "which version of the file is this?"
+A notion that is critical to **Seven5**'s operation is the notion of a 'guise' 
+(rhymes with cheese, not fries).  A guise is a bit of code that allows a 
+computation to look like a file or other http-level resource.  Some example 
+guise types are detailed  below.  A correctly written guise insures that any 
+input it needs from the filesystem is always "up to date."  Further, 
+correctly-written guises cache their results in memory.   These two properties 
+insure there is never any confusion for the developer of the form 
+"which version of the file is this?"
 
 ### CSS Guise
 
-A CSS guise called the `SassGuise` allows HTTP-level resources like foo.css to be generated automatically from
-a file like `foo.sass`.  
+A CSS guise called the `SassGuise` allows HTTP-level resources like foo.css to 
+be generated automatically from a file like `foo.sass`.  
 
 ### Image Guises
 
-An example guise has been provided, the `ParisTimeGuise` which will respond to requests for any gif
-file (ignoring the requested name!) with an image of the current time in Paris.  This guise uses
-the go library `svg` to render the image dynamically.  One can easily imagine a guise such as a
-`BarCodeGuise` that generates a particular bar code, on the fly, needed for a web application or perhaps
-from a csv file present on the filesystem.
+An example guise has been provided, the `ParisTimeGuise` which will respond to 
+requests for any gif file (ignoring the requested name!) with an image of the 
+current time in Paris.  This guise uses the go library `svg` to render the 
+image dynamically.  One can easily imagine a guise such as a `BarCodeGuise` 
+that generates a particular bar code, on the fly, needed for a web application 
+or perhaps from a csv file present on the filesystem.
 
 ### JS Guise
 
-A critical guise that is supported by Seven5 is the `JavascriptGuise` for go.  This allows a developer
-to do some simple programming tasks for the _client_ side of an application in go.  The code written
-is compiled by the `JavascriptGuise` to javascript code when it is requested by a client.  The intent
-of this guise is not to allow arbitrary Javascript code to be written, but as a simple "bridge" that
-allows typical event handlers and DOM manipulation to be done in go.
+#### Nota bene: There is a lot of discussion about this point and it may be
+utterly misguided.
 
-If you are wondering how this compiler actually works, read on about vues and you'll figure it out.
+A critical guise that is supported by **Seven5** is the `JavascriptGuise` for 
+go.  This allows a developer to do some simple programming tasks for the 
+_client_ side of an application in go.  The code written is compiled by the 
+`JavascriptGuise` to javascript code when it is requested by a client.  The 
+intent of this guise is not to allow arbitrary Javascript code to be written, 
+but as a simple "bridge" that allows typical event handlers and DOM 
+manipulation to be done in go.
+
+If you are wondering how this compiler actually works, read on about 
+vues and you'll figure it out.
 
 
 Vues
 ----
 
-Vues are not the same as "views" in many other web toolkits, although they perform a similar action.
-The use of the spelling v-u-e is to emphasize the differences as well as suggest that a vue (unlike
-a view?) takes a point of, well, view.  _Vue_ in French, like View in English, represents either 
-something seen with the eyes **or** an opinion, "In my view, the Seahawks will win the SuperBowl
-this year."  It seems that many web toolkits have forgotten the latter choice of meaning.
+Vues are not the same as "views" in many other web toolkits, although they 
+perform a similar action.  The use of the spelling v-u-e is to emphasize the 
+differences as well as suggest that a vue (unlike a view?) takes a point of, 
+well, view.  _Vue_ in French, like View in English, represents either 
+something seen with the eyes **or** an opinion, "In my view, the Seahawks will 
+win the SuperBowl this year."  It seems that many web toolkits have forgotten 
+the latter choice of meaning.
 
-Vues are a programmatic way to express the desired output of an HTTP request.  They are related
-to, but the inverse of, "templates" in many web development systems.  Consider this template (in
-the syntax of go's template language):
+Vues are a programmatic way to express the desired output of an HTTP request.  
+They are related to, but the inverse of, "templates" in many web development 
+systems.  Consider this template (in the syntax of go's template language):
 
 	{{if user_is_logged_in $some_context}} 
 	<strong>Hello {{.User}}, welcome to my world!</strong>
@@ -62,25 +102,27 @@ the syntax of go's template language):
 	{{/* fixme: need to add some CSS */}}
 	{{end}}
 
-The view (!) of Seven5 is that this is horrifying.  This opinion is shared by many other efforts,
-such as the quixotic [mustache](http://mustache.github.com/), in their attempts to 'simplify', 'clarify', 
-or 'improve' the template
-writing experience.   Anyone who has written ASP, JSP, go templates, ERB, etc.  will 
-certainly agree that at a minimum such work is unpleasant and at worst impossible.  The key difference
-between all the other systems and Seven5 is this:
+The view (!) of **Seven5** is that this is horrifying.  This opinion is shared 
+by many other efforts, such as the quixotic 
+[mustache](http://mustache.github.com/), in their attempts to 'simplify', 
+'clarify', or 'improve' the template writing experience.   Anyone who has 
+written ASP, JSP, go templates, ERB, etc.  will  certainly agree that at a 
+minimum such work is unpleasant and at worst impossible.  The key difference
+between all the other systems and **Seven5** is this:
 
->>> Seven5 considers this a task for a software developer. 
+>>> **Seven5** considers this a task for a software developer. 
  
 With this difference clearly in mind,
-it is natural to proceed to the idea that programming tools---unable to make progress with 
-horrors like the template above---should be brought to bear.
+it is natural to proceed to the idea that programming tools---unable to make 
+progress with horrors like the template above---should be brought to bear.
 
-In Seven5, deciding what result, typically HTML, should be emitted for a given request is the
-business of a programmer.  This developer can, at his or her discretion, chose to do this in a
-way that allows other folks--such as pixel weasels, web standards weasels, mobile browsing weasels--
-to work closely with him or her.  To do so would almost certainly require well-structured 
-HTML combined with carefully considered use of CSS. This type of output is supported, but not 
-required, by Seven5. 
+In **Seven5**, deciding what result, typically HTML, should be emitted for a 
+given request is the business of a programmer.  This developer can, at his or 
+her discretion, chose to do this in a way that allows other folks--such as 
+pixel weasels, web standards weasels, mobile browsing weasels--to work closely 
+with him or her.  To do so would almost certainly require well-structured HTML 
+combined with carefully considered use of CSS. This type of output is 
+supported, but not required, by **Seven5**. 
 
 Consider the inevitable 'hello world example' of how to write a vue:
 
@@ -94,9 +136,9 @@ Consider the inevitable 'hello world example' of how to write a vue:
 	}
 	
 
-(The above is a valid Seven5 application!)  However, because this is actually go code--not 
-some horrible conflation of unstructured text and programming constructs--this is another 
-vue that produces the same output.
+(The above is a valid **Seven5** application!)  However, because this is 
+actually go code--not some horrible conflation of unstructured text and 
+programming constructs--this is another vue that produces the same output.
 
 	package sample
 	import "seven5"
@@ -107,11 +149,13 @@ vue that produces the same output.
 		self.Literal("hello wor"+string('l')+"d")
 	}
 
-Naturally, the weasels mentioned above will complain that they can't participate in the "design
-process" because this "all in go code" and "we can't run the compiler" (why?).  Seven5 allows external 
-resources, such as those written by said weasels, to be integrated into the backseat of the work 
-of responding to a request; go code stays in the 
-front seat.  Here's an example that may help you see how we might integrate other people's work:
+Naturally, the weasels mentioned above will complain that they can't participate 
+in the "design process" because this "all in go code" and "we can't run the 
+compiler" (why?).  **Seven5** allows external 
+resources, such as those written by said weasels, to be integrated into the 
+backseat of the work of responding to a request; go code stays in the 
+front seat.  Here's an example that may help you see how we might integrate 
+other people's work:
 
 	package sample
 	import "seven5"
@@ -133,10 +177,12 @@ front seat.  Here's an example that may help you see how we might integrate othe
 
 ### Times are a changing
 
-A Vue expresses the *compile-time* information that is known about the result--usually some type
-of layout or "framing" of the result--plus some logic about how to combine that information with information that
-is known only at *run-time*, such as the current user of the website's name.  (You're a go 
-programmer, you can handle this.)   Let's give an example to show the difference. 
+A Vue expresses the *compile-time* information that is known about the result--
+usually some type of layout or "framing" of the result--plus some logic about 
+how to combine that information with information that is known only at 
+*run-time*, such as the current user of the website's name.  (You're a go 
+programmer, you can handle this.)   Let's give an example to show the 
+difference. 
 
 	package sample
 	import "seven5"
@@ -151,30 +197,55 @@ programmer, you can handle this.)   Let's give an example to show the difference
 		}
 	}
 
-Given this vue, the text "hello world..." will be displayed no matter what.  This is known at "compile
-time."  However, based on who the actual web requested is made by, some other HTML might be emitted that
-welcomes the user back.  
+Given this vue, the text "hello world..." will be displayed no matter what.  
+This is known at "compile time."  However, based on who the actual web 
+requested is made by, some other HTML might be emitted that welcomes the 
+user back.  
 
 How Does It Work?
 -----------------
 
-A vue is actually compiled by Seven5 into a go template (see above! ugh!) because, in fact, a go
-template expresses exactly the same things---but in a way that doesn't let us bring our development
-knowlege and tools to bear so easily.  The data needed by the vue is
-fed to the resulting go template at the time the final result is needed, a.k.a. run-time.  
+A vue is actually compiled by **Seven5** into a go template (see above! ugh!) 
+because, in fact, a go template expresses exactly the same things---but in a 
+way that doesn't let us bring our development experience and tools to bear so 
+easily.  The data needed by the vue is fed to the resulting go template at the 
+time the final result is needed, a.k.a. run-time.  
 
-This "trick" is possible primarily because go is easy to parse and go comes with the 
-necessary tools to do this "out of the box."  The vue "compiler" can also exploit the use of
-eclipse and other IDEs that do automatic compilation and thus type-checking.  Because your
-vue is part of go program that you are writing in eclipse, the type system applies to it,
-allowing you to "check" your vue in a way you could never do with a template! 
+This "trick" is possible primarily because go is easy to parse and go comes 
+with the necessary tools to do this "out of the box."  The vue "compiler" can 
+also exploit the use of eclipse and other IDEs that do automatic compilation 
+and thus type-checking.  Because your vue is part of go program that you are 
+writing in eclipse, the type system applies to it, allowing you to "check" 
+your vue in a way you could never do with a template! 
 
-The vue "compiler" can, and will, generate bogus templates that will die horribly *if* you fail to
-make sure your go program, vues and all, compiles.  You _can_ do this with make, but you are
-probably using something already that shows a little red stop sign whenever you type any
-character that causes the compile to break.  So, the go functions in the examples above are actually
-no-ops in terms of the "program" you are working on.  They are simply there to force typechecking,
-correct numbers of arguments are present, etc.  The vue compiler will dutifully copy __whatever__
-is inside the parenthesis of `Literal` without the least concern because it assumes that you
+The vue "compiler" can, and will, generate bogus templates that will die 
+horribly *if* you fail to make sure your go program, vues and all, compiles.  
+You _can_ do this with make, but you are probably using something already that 
+shows a little red stop sign whenever you type any character that causes the 
+compile to break.  So, the go functions in the examples above are actually
+no-ops in terms of the "program" you are working on.  They are simply there to 
+force typechecking, the correct numbers of arguments to be present, etc.  The 
+vue compiler will dutifully copy __whatever__ is inside the parenthesis of 
+`Literal` without the least concern because it assumes that you
 have run the standard compiler _a priori_.
+
+Naming
+------
+
+The framework is called **Seven5** because the originator lives in Paris, France.
+All the postal codes for Paris, proper, begin with 75.  Besides, names don't
+matter that much.
+
+The use of the strange pronounciation of guise is because it sounds cooler.
+Plus, the originator lives very close to the residence (compound?) of the 
+[House de Guise](http://en.wikipedia.org/wiki/House_of_Guise) which is 
+pronounced in this way.   The English word that is spelled the same way comes
+from the rumor that a dis_guise_ was used by the Duc an attempt to mask his
+involvement in the attempted assassination of 
+[Gaspard de Coligny](http://en.wikipedia.org/wiki/Gaspard_de_Coligny) that
+lead directly to the 
+[St. Bartholomew's Day Massacre]
+(http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre)
+
+Web frameworks may educate in many ways.
 
