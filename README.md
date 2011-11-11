@@ -5,7 +5,7 @@ Current Dev Setup
 * [Weekly](http://golang.org/doc/devel/weekly.html) drops of 
 [go](http://golang.org).
 * [Mongrel 2](https://github.com/zedshaw/mongrel2) version 1.7.5
-** [Gocode](https://github.com/nsf/gocode) has to be regularly updated to keep
+* [Gocode](https://github.com/nsf/gocode) has to be regularly updated to keep
 up with the weeklies.  This is usually just a pull as the author keeps it up
 to date.  The version that ships with goclipse will **not** work with the 
 weeklies.
