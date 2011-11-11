@@ -7,7 +7,6 @@ Seven5 is a web microframework for go. It has a number of design objectives:
 * Don't repeat yourself.  Don't repeat others work; remove an item from the one stack if it exists elsewhere.
 * Use go's strong typing and fast compiler as an advantage for web developers.
 * Make all parts of the application easy to test by a single developer on a single machine.
-* Don't bother with parts of the stack that are needed in today's web development.
 
 Guises
 ------
