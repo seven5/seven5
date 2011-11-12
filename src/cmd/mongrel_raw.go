@@ -3,47 +3,62 @@ package main
 import (
 	"fmt"
 	"github.com/alecthomas/gozmq"
+	"mongrel2"
 	"os"
-	"seven5"
+	"time"
 )
-
+//Simple demo program that processes one request and returns one response to
+//the server and client that sent the request.
 func main() {
 
 	// do a version check
 	x, y, z := gozmq.Version()
-	if x!=2 && y!=1 {
+	if x != 2 && y != 1 {
 		fmt.Printf("version of zmq is %d.%d.%d and this code was tested primarily on 2.1.10\n", x, y, z)
 	}
-	// we need to register our version with the ZMQ infrastructure
-	me, err := seven5.Type4UUID()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "unable to get new UUID:%s\n", err)
-	}
+	// we need to pick a name and register it
+	addr, err := mongrel2.GetHandlerAddress("some_name") //we dont really care
 
-	// this is the "raw" abstraction for talking to a mongrel server
-	mongrel2 := seven5.NewMongrel2("tcp://127.0.0.1:9997", "tcp://127.0.0.1:9996", me)
-	// don't forget to clean up various resources when done
-	defer mongrel2.Shutdown()
-
-	//read a single request
-	req, err := mongrel2.ReadMessage()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error reading message:%s\n", err)
+		fmt.Fprintf(os.Stderr, "unable to get an address for our handler:%s\n", err)
 		return
 	}
+
+	//allocate channels so we can talk to the mongrel2 system with go
+	// abstractions
+	in := make(chan *mongrel2.Request)
+	out := make(chan *mongrel2.Response)
+
+	// this allocates the "raw" abstraction for talking to a mongrel server
+	// mongrel doc refers to this as a "handler"
+	handler, err := mongrel2.NewHandler(addr, in, out)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error initializing mongrel connection:%s\n", err)
+		return
+	}
+		
+	// don't forget to clean up various resources when done
+	defer handler.Shutdown()
+
+	//block until we get a message from the server
+	req := <- in 
+			
 	// there are many interesting fields in req, but we just print out a couple
 	fmt.Printf("server %s sent %s from client %d\n", req.ServerId, req.Path, req.ClientId)
 
 	//create a response to go back to the client
-	response := new(seven5.Response)
-	response.UUID = req.ServerId
+	response := new(mongrel2.Response)
+	response.ServerId = req.ServerId
 	response.ClientId = []int{req.ClientId}
 	response.Body = fmt.Sprintf("<pre>hello there, %s with client %d!</pre>", req.ServerId, req.ClientId)
 
-	//send it via the mongrel server
-	err = mongrel2.WriteMessage(response)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error reading message:%s\n", err)
-		return
-	}
+	//send it via the other channel
+	fmt.Printf("Responding to server with %d bytes of content\n",len(response.Body))
+	out <- response
+	
+	//this is what we have to do to make sure the sent message gets delivered
+	//before we shut down.  we tried to use ZMQ_LINGER(-1) at init time but
+	//this is generating an error right now.
+	time.Sleep(1000000000)
 }

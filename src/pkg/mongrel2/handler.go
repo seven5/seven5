@@ -1,9 +1,10 @@
-package seven5
+package mongrel2
 
 import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/alecthomas/gozmq"
 	"io"
@@ -11,14 +12,29 @@ import (
 	"strings"
 )
 
-//Mongrel is a low-level abstraction for connecting, via 0MQ, to a mongrel2 server.
+//Handler is a low-level abstraction for connecting, via 0MQ, to a mongrel2 
+//server.  This Handler type maps directly to the mongrel2 notion from the
+//mongrel2 documentation.  The class uses one go routine to read messages from
+//a mongrel2 server (or a pack of servers) and send them through a channel for
+//higher level processing.  Similarly, it has a goroutine that reads from a
+//channel in go and then queues messages for transmission to mongrel.  Although
+//callers of NewHandler() may supply buffered channels, this is not advised.
+//The Out channel is asynchronous with respect to mongrel2, so buffering on this
+//channel should not be necessary.  The caller should create enough goroutines
+//to read in the In channel to insure that this Handler will not block.  The
+//purpose of this type is to turn the mongrel2 handler protocol into go 
+//abstractions, not to implement semantics.
+//
 //Because this abstraction uses 0MQ and Mongrel2's (small) protocol on top of it,
 //it is possible to do N:M communication by creating several of these structs with
-//different identities.  See http://mongrel2.org/static/mongrel2-manual.html#x1-680005.1.7
-type Mongrel2 struct {
+//different HandlerAddresses.  
+//See http://mongrel2.org/static/mongrel2-manual.html#x1-680005.1.7
+type Handler struct {
 	Context                     gozmq.Context
 	InSocket, OutSocket         gozmq.Socket
 	PullSpec, PubSpec, Identity string
+	In                          chan *Request
+	Out                         chan *Response
 }
 
 //Request structs are the "raw" information sent to the handler by the Mongrel2 server.
@@ -46,7 +62,7 @@ type Request struct {
 //to correctly target a Response is by looking at the values supplied in a Request
 //struct.
 type Response struct {
-	UUID       string
+	ServerId   string
 	ClientId   []int
 	Body       string
 	StatusCode int
@@ -56,7 +72,7 @@ type Response struct {
 
 //initZMQ creates the necessary ZMQ machinery and sets the fields of the
 //Mongrel2 struct.
-func (self *Mongrel2) initZMQ() error {
+func (self *Handler) initZMQ() error {
 
 	c, err := gozmq.NewContext()
 	if err != nil {
@@ -86,6 +102,12 @@ func (self *Mongrel2) initZMQ() error {
 		return err
 	}
 
+	//not sure why this generates an error... seems legit
+//	err = self.OutSocket.SetSockOptInt64(gozmq.LINGER, int64(-1))
+//	if err != nil {
+//		return err
+//	}
+
 	err = self.OutSocket.Connect(self.PubSpec)
 	if err != nil {
 		return err
@@ -94,27 +116,75 @@ func (self *Mongrel2) initZMQ() error {
 	return nil
 }
 
-//NewMongrel2 creates a Mongrel2 struct that can handle requests from a Mongrel2
-//server.  The pullSpec and pubSpec parameters must be the same as those supplied
-//in the Mongrel2 configuration.  The ID string is a unique id associated with this
-//handler;  normally this can safely be the result of calling Type4UUID().
-func NewMongrel2(pullSpec string, pubSpec string, id string) *Mongrel2 {
+//NewHandler creates a Handler struct that can handle requests from a Mongrel2
+//server and returns a pointer to the initialized connection.  The address
+//parameter is typically created by a call to the function GetHandlerAddress().
+//Clients must supply the two channels used to communicate with the raw level
+//of the mongrel2 protocol.
+func NewHandler(address *HandlerAddr, in chan *Request, out chan *Response) (*Handler, error) {
 
-	result := new(Mongrel2)
-	result.PullSpec = pullSpec
-	result.PubSpec = pubSpec
-	result.Identity = id
-	result.initZMQ()
-	return result
+	result := new(Handler)
+	result.PullSpec = address.PullSpec
+	result.PubSpec = address.PubSpec
+	result.Identity = address.UUID
+	result.In = in
+	result.Out = out
+	err := result.initZMQ()
+	if err != nil {
+		return nil, errors.New("0mq init:" + err.Error())
+	}
+	//read loop
+	go result.readloop()
+	//write loop
+	go result.writeloop()
+	return result, nil
+}
+
+// readloop is a loop that reads mongrel two message until it gets an error.
+func (self *Handler) readloop() {
+	for {
+		r, err := self.ReadMessage()
+		if err != nil {
+			e := err.(gozmq.ZmqErrno)
+			if (e==gozmq.ETERM) {
+				//fmt.Printf("read loop ignoring ETERM...\n")
+				return
+			}
+			panic(err)
+		}
+		self.In <- r
+	}
+}
+// writeloop is a loop that sends mongrel two message until it gets an error
+// or a message to close.
+func (self *Handler) writeloop() {
+	for {
+		m := <-self.Out
+		if m == nil {
+			return //end of goroutine b/c of shutdown
+		}
+
+		err := self.WriteMessage(m)
+		if err != nil {
+			e := err.(gozmq.ZmqErrno)
+			if (e==gozmq.ETERM) {
+				//fmt.Printf("write loop ignoring ETERM...\n")
+				return
+			}
+			panic(err)
+		}
+	}
+
 }
 
 //ReadMessage creates a new Request struct based on the values sent from a Mongrel2
 //instance. This call blocks until it receives a Request.  Note that you can have
-//several different Mongrel2 structs all waiting on messages and they will be 
+//several different Handler structs all waiting on messages from the same
+//server and they will be 
 //delivered in a round-robin fashion.  This call tries to be efficient and look
 //at each byte only when necessary.  The body of the request is not examined by
 //this method.
-func (self *Mongrel2) ReadMessage() (*Request, error) {
+func (self *Handler) ReadMessage() (*Request, error) {
 	req, err := self.InSocket.Recv(0)
 	if err != nil {
 		return nil, err
@@ -181,10 +251,10 @@ func readSome(terminationChar byte, req []byte, start int) int {
 
 //WriteMessage takes a Response structs and enques it for transmission.  This call 
 //does _not_ block.  The Response struct must be targeted for a specific server
-//(ServerId) and one or more clients (ClientID).  The Response object may be received
-//by many Mongrel2 instances, but only the addressed instance will transmit the
-//response on to the client or clients.
-func (self *Mongrel2) WriteMessage(response *Response) error {
+//(ServerId) and one or more clients (ClientID).  The Response struct may be received
+//by many Mongrel2 server instances, but only the server addressed in the Request
+//will transmit process the response --sending the result on to the client or clients.
+func (self *Handler) WriteMessage(response *Response) error {
 	c := make([]string, len(response.ClientId), len(response.ClientId))
 	for i, x := range response.ClientId {
 		c[i] = strconv.Itoa(x)
@@ -211,7 +281,7 @@ func (self *Mongrel2) WriteMessage(response *Response) error {
 	buffer.WriteString(response.Body)
 
 	//now we have the true size the body and can put it all together
-	msg := fmt.Sprintf("%s %d:%s, %s", response.UUID, len(clientList), clientList, buffer.String())
+	msg := fmt.Sprintf("%s %d:%s, %s", response.ServerId, len(clientList), clientList, buffer.String())
 
 	buffer = new(bytes.Buffer)
 	buffer.WriteString(msg)
@@ -236,15 +306,24 @@ func Type4UUID() (string, error) {
 //Shutdown cleans up the resources associated with this mongrel2 connection.
 //Normally this function should be part of a defer call that is immediately after
 //allocating the resources, like this:
-//	mongrel:=NewMongrel(...)
+//	mongrel:=NewHandler(...)
 //  defer mongrel.Shutdown()
-func (self *Mongrel2) Shutdown() error {
+func (self *Handler) Shutdown() error {
+
+	//tell writeloop to exit
+	close(self.Out)
+
+	//tell everybody listening on the input channel to exit
+	close(self.In)
+
+	//dump the ZMQ level sockets
 	if err := self.InSocket.Close(); err != nil {
 		return err
 	}
 	if err := self.OutSocket.Close(); err != nil {
 		return err
 	}
+
 	self.Context.Close()
 	return nil
 }
