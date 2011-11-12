@@ -50,198 +50,258 @@ things like <a href="http://en.wikipedia.org/wiki/Protobuf">protobufs</a> or eve
 
 <p>A notion that is critical to <strong>Seven5</strong>&rsquo;s operation is the notion of a &lsquo;guise&rsquo;
 (rhymes with cheese, not fries).  A guise is a bit of code that allows a
-computation to look like a file or other http-level resource.  Some example
+computation to look like a file, a part of a file or other http-level
+resource.  Some important
 guise types are detailed  below.  A correctly written guise insures that any
 input it needs from the filesystem is always &ldquo;up to date.&rdquo;  Further,
 correctly-written guises cache their results in memory.   These two properties
 insure there is never any confusion for the developer of the form
 &ldquo;which version of the file is this?&rdquo;</p>
 
-<h3>CSS Guise</h3>
+<p>A simple, fictional guise is the <code>WhatTimeIsItInParisGuise</code>.  This guise takes
+requests for any gif file and returns an image of a clock with the hands set to
+the appropriate current time in Paris. (It&rsquo;s easy to do with go&rsquo;s image file
+support!)</p>
 
-<p>A CSS guise called the <code>SassGuise</code> allows HTTP-level resources like foo.css to
-be generated automatically from a file like <code>foo.sass</code>.</p>
+<h2>Two DSLs And A Microphone</h2>
 
-<h3>Image Guises</h3>
+<p><strong>Seven5</strong> has three carefully interlocking pieces to make web app development
+more pleasant, and blindingly fast. <em>Time may, in fact, slow down for you because
+of the speed of your development.</em>  The first two are
+<a href="http://en.wikipedia.org/wiki/Domain-specific_language">DSLs</a>, implemented
+as go entities, that generate
+CSS and HTML, respectively.  The third is a carefully crafted Javascript
+library that understands how to interact with the results of the <strong>source</strong>
+of these two DSLs.  All of these are implemented as Guises; the final one,
+though, is visible to a developer only by programming in Javascript.</p>
 
-<p>An example guise has been provided, the <code>ParisTimeGuise</code> which will respond to
-requests for any gif file (ignoring the requested name!) with an image of the
-current time in Paris.  This guise uses the go library <code>svg</code> to render the
-image dynamically.  One can easily imagine a guise such as a <code>BarCodeGuise</code>
-that generates a particular bar code, on the fly, needed for a web application
-or perhaps from a csv file present on the filesystem.</p>
+<h3>CSSGuise</h3>
 
-<h3>JS Guise</h3>
+<p>We will first discuss the <code>CSSGuise</code> and its accompanying DSL.  This guise takes
+an input which is a CSS file to return, such as <code>foo.css</code>, from the browser. It
+finds the appropriate CSS file in the current project and combines that text
+(unmodified) with the output of the DSL.  Let&rsquo;s look at an example of the DSL,
+implemented in go code.</p>
 
-<h4>Nota bene: There is a lot of discussion about this point and it may be</h4>
+<pre><code>var (
+    On = BinaryClassSelector{attribute:&quot;visible&quot;, trueValue:&quot;yes&quot;, falseValue:&quot;no&quot;}
+)
 
-<p>utterly misguided.</p>
+func Foo_css() {
+    return ON.css()
+}
+</code></pre>
 
-<p>A critical guise that is supported by <strong>Seven5</strong> is the <code>JavascriptGuise</code> for
-go.  This allows a developer to do some simple programming tasks for the
-<em>client</em> side of an application in go.  The code written is compiled by the
-<code>JavascriptGuise</code> to javascript code when it is requested by a client.  The
-intent of this guise is not to allow arbitrary Javascript code to be written,
-but as a simple &ldquo;bridge&rdquo; that allows typical event handlers and DOM
-manipulation to be done in go.</p>
+<p>When the browser/client receives the CSS resulting from its request, it is the
+contents of the static file plus this suffix:</p>
 
-<p>If you are wondering how this compiler actually works, read on about
-vues and you&rsquo;ll figure it out.</p>
+<pre><code>.On { visible: yes}
+._On { visible: no}
+</code></pre>
 
-<h2>Vues</h2>
+<p>Some key things to note about this simple example:</p>
 
-<p>Vues are not the same as &ldquo;views&rdquo; in many other web toolkits, although they
-perform a similar action.  The use of the spelling v-u-e is to emphasize the
-differences as well as suggest that a vue (unlike a view?) takes a point of,
-well, view.  <em>Vue</em> in French, like View in English, represents either
-something seen with the eyes <strong>or</strong> an opinion, &ldquo;In my view, the Seahawks will
-win the SuperBowl this year.&rdquo;  It seems that many web toolkits have forgotten
-the latter choice of meaning.</p>
+<ul>
+<li><p>Changes in the go code are immediately reflected in the CSS code. Once
+and only once.  It&rsquo;s hard, but not impossible, to end up with a program that
+uses the wrong string for &ldquo;On&rdquo; as a CSS class name.</p></li>
 
-<p>Vues are a programmatic way to express the desired output of an HTTP request.<br />
-They are related to, but the inverse of, &ldquo;templates&rdquo; in many web development
-systems.  Consider this template (in the syntax of go&rsquo;s template language):</p>
+<li><p>The DSL allows common idioms to be expressed cleanly.  In our example here,
+we are using the common CSS approach of having two classes that control whether
+a particular object is visible on the screen.  Because it&rsquo;s encoded as an idiom
+(see below) there is no way to become confused&hellip; is the class name
+for turning something off <code>invisible</code> or <code>notvisible</code> or <code>not_visible</code>?  The
+<code>BinaryChoiceSelector</code> creates the second choice, <code>_On</code> programmatically.</p></li>
+
+<li><p>The resulting code in CSS uses names that are identical to the names in the
+go code (via go&rsquo;s reflection mechanism).  You can say &ldquo;css class &lsquo;capital-O-n&rsquo;
+is all frobbed up&rdquo; to another developer without ambiguity.</p></li>
+
+<li><p>Because CSS has no run-time component, the DSL output is controlled by a
+simple function call, css() on an object you want to use in your app.</p></li>
+
+<li><p>Objects such as <code>On</code> arrive in the go code because are needed
+<a href="http://programming-motherfucker.com/"><strong>by programmers</strong></a>.  If other types
+things are needed by web designers, graphic artists, or other parts of the
+team, they should go in the static file, <code>foo.css</code>.</p></li>
+</ul>
+
+<h3>HTML Guise</h3>
+
+<p>The DSL associated with the HTML guise takes the place of &ldquo;templates&rdquo; in other
+web frameworks. Consider this template, in the go template language:</p>
 
 <pre><code>{{if user_is_logged_in $some_context}} 
 &lt;strong&gt;Hello {{.User}}, welcome to my world!&lt;/strong&gt;
 {{else}} 
-&lt;strong&gt;Hello Anonymous,&lt;/string&gt; would you like to &lt;A HREF=&quot;newuser&quot;&gt;create an account&lt;/A&gt;
+&lt;strong&gt;Hello Anonymous&lt;/strong&gt;
 {{/* fixme: need to add some CSS */}}
 {{end}}
 </code></pre>
 
-<p>The view (!) of <strong>Seven5</strong> is that this is horrifying.  This opinion is shared
-by many other efforts, such as the quixotic
-<a href="http://mustache.github.com/">mustache</a>, in their attempts to &lsquo;simplify&rsquo;,
-&lsquo;clarify&rsquo;, or &lsquo;improve&rsquo; the template writing experience.   Anyone who has
-written ASP, JSP, go templates, ERB, etc.  will  certainly agree that at a
-minimum such work is unpleasant and at worst impossible.  The key difference
-between all the other systems and <strong>Seven5</strong> is this:</p>
+<p><strong>Seven5</strong> takes the position that this is broken and wrong. It is not lost on
+<strong>Seven5</strong> that many people have also identified the pain and suffering that
+templating like the above causes, particularly as websites grow to reasonable
+sizes or have several different developers.  The <strong>Seven5</strong> developers
+smile slightly in quixotic reflection at the efforts of
+<a href="http://mustache.github.com/">mustache</a>: an effort to build a templating
+system without the pain of a templating system. Tilt on, brothers!</p>
 
-<blockquote>
-<blockquote>
-<blockquote>
-<p><strong>Seven5</strong> considers this a task for a software developer.</p>
-</blockquote>
-</blockquote>
-</blockquote>
+<p>The author of the template above is attempting to do programming, not write HTML
+code&mdash;note the &lsquo;fixme&rsquo; comment to remind him or herself go back
+later!   <strong>Seven5</strong>&rsquo;s DSL for HTML means that
+code uses the best tools and practices we know of for building software.  Put
+in the negative, &ldquo;How can a development environment or a best practice like
+once and only once help you with the conflation of ideas and technologies in the
+cesspool above?&rdquo;</p>
 
-<p>With this difference clearly in mind,
-it is natural to proceed to the idea that programming tools&mdash;unable to make
-progress with horrors like the template above&mdash;should be brought to bear.</p>
+<p>Let&rsquo;s consider the same attempted programming task using the HTML guise&rsquo;s DSL:</p>
 
-<p>In <strong>Seven5</strong>, deciding what result, typically HTML, should be emitted for a
-given request is the business of a programmer.  This developer can, at his or
-her discretion, chose to do this in a way that allows other folks&ndash;such as
-pixel weasels, web standards weasels, mobile browsing weasels&ndash;to work closely
-with him or her.  To do so would almost certainly require well-structured HTML
-combined with carefully considered use of CSS. This type of output is
-supported, but not required, by <strong>Seven5</strong>.</p>
+<pre><code>var (
+    Welcome = NewId()  // create a unique ID within the page
+    WelcomeSection = Div(Welcome, On) // On? See above!
+)
 
-<p>Consider the inevitable &lsquo;hello world example&rsquo; of how to write a vue:</p>
-
-<pre><code>package sample
-import &quot;seven5&quot;
-type HWVue struct {
-    seven5.SimpleVue
-}
-func (self *HWVue) render(context map[string]interface{}) {
-    self.Literal(&quot;hello world&quot;)
-}
-</code></pre>
-
-<p>(The above is a valid <strong>Seven5</strong> application!)  However, because this is
-actually go code&ndash;not some horrible conflation of unstructured text and
-programming constructs&ndash;this is another vue that produces the same output.</p>
-
-<pre><code>package sample
-import &quot;seven5&quot;
-type HWVue2 struct {
-    seven5.SimpleVue
-}
-func (self *HWVue2) render(context map[string]interface{}) {
-    self.Literal(&quot;hello wor&quot;+string('l')+&quot;d&quot;)
-}
-</code></pre>
-
-<p>Naturally, the weasels mentioned above will complain that they can&rsquo;t participate
-in the &ldquo;design process&rdquo; because this &ldquo;all in go code&rdquo; and &ldquo;we can&rsquo;t run the
-compiler&rdquo; (why?).  <strong>Seven5</strong> allows external
-resources, such as those written by said weasels, to be integrated into the
-backseat of the work of responding to a request; go code stays in the
-front seat.  Here&rsquo;s an example that may help you see how we might integrate
-other people&rsquo;s work:</p>
-
-<pre><code>package sample
-import &quot;seven5&quot;
-type HWVue3 struct {
-    seven5.SimpleVue
-}
-func (self *HWVue3) render(context map[string]interface{}) {
-
-    self.Fragment(&quot;page_header.html&quot;)
-    self.Markdown(&quot;long_bloated_intro.md&quot;)
-
-    //add some CSS machinery to the literal result
-    self.Literal(&quot;hello world&quot;,&quot;.helloclass&quot;,&quot;#helloid&quot;)
-
-    self.Fragment(&quot;page_footer.html&quot;)
-}
-</code></pre>
-
-<h3>Times are a changing</h3>
-
-<p>A Vue expresses the <em>compile-time</em> information that is known about the result&ndash;
-usually some type of layout or &ldquo;framing&rdquo; of the result&ndash;plus some logic about
-how to combine that information with information that is known only at
-<em>run-time</em>, such as the current user of the website&rsquo;s name.  (You&rsquo;re a go
-programmer, you can handle this.)   Let&rsquo;s give an example to show the
-difference.</p>
-
-<pre><code>package sample
-import &quot;seven5&quot;
-type HWVue4 struct {
-    seven5.SimpleVue
-}
-func (self *HWVue4) render(context map[string]interface{}) {
-    self.Literal(&quot;hello world...&quot;)
-
-    if context[&quot;user&quot;]!=nil {
-        self.Literal(&quot;...and welcome back!&quot;)
+func welcome_message(ctx Context) {
+    if is_logged_in(ctx[User]) {
+        return WelcomeSection.html(Strong(&quot;Hello,&quot; + ctx[User]+ &quot;welcome to my world!&quot;))
+    } else {
+        return WelcomeSection.html(Strong(&quot;Hello, Anonymous welcome to my world!&quot;))
     }
 }
 </code></pre>
 
-<p>Given this vue, the text &ldquo;hello world&hellip;&rdquo; will be displayed no matter what.<br />
-This is known at &ldquo;compile time.&rdquo;  However, based on who the actual web
-requested is made by, some other HTML might be emitted that welcomes the
-user back.</p>
+<p>One can certainly make the argument that writing a &ldquo;template&rdquo; in this form
+keeps other parts of the project team who do not code in go &ldquo;out in the cold.&rdquo;
+This is both correct and proper.   <strong>Seven5</strong> states that the task being
+attempted above is programming, and should be dealt with as such; in the amount
+of time you save by not messing with stupid template files, you can teach people
+enough to write in the DSL!</p>
 
-<h2>How Does It Work?</h2>
+<h3>How Does It Work?</h3>
 
-<p>A vue is actually compiled by <strong>Seven5</strong> into a go template (see above! ugh!)
-because, in fact, a go template expresses exactly the same things&mdash;but in a
-way that doesn&rsquo;t let us bring our development experience and tools to bear so
-easily.  The data needed by the vue is fed to the resulting go template at the
-time the final result is needed, a.k.a. run-time.</p>
+<p>The DSL above is actually translated, by the <code>HTMLGuise</code>, into the horrific
+template shown originally! The construction of the <code>HTMLGuise</code> is analogous to
+the poor sod who had to write the go compiler; his pain of dealing with a far
+lower language&ndash;assembly&ndash;benefits a great many people if he gets it right
+one time and encodes it in a tool.</p>
 
-<p>This &ldquo;trick&rdquo; is possible primarily because go is easy to parse and go comes
-with the necessary tools to do this &ldquo;out of the box.&rdquo;  The vue &ldquo;compiler&rdquo; can
-also exploit the use of eclipse and other IDEs that do automatic compilation
-and thus type-checking.  Because your vue is part of go program that you are
-writing in eclipse, the type system applies to it, allowing you to &ldquo;check&rdquo;
-your vue in a way you could never do with a template!</p>
+<p>The above strategy has two implications that may be somewhat startling for
+those unaccustomed to this approach.  First, the project&rsquo;s <em>source code</em> must
+be available at run-time so the <code>HTMLGuise</code> can do its job. The source code
+typically is not visible to external users of the application, but it must be
+visible to <strong>Seven5</strong>.  Second, to do its job perfectly the <code>HTMLGuise</code> must
+be able to understand arbitrary go code&ndash;for example to do correct
+type-checking.  In practice, only a subset of go can processed by the
+<code>HTMLGuise</code> and it is possible that the HTMLGuise can fail to produce a
+valid result.  If you don&rsquo;t like this, help improve the HTMLGuise to
+understand the go features you want!</p>
 
-<p>The vue &ldquo;compiler&rdquo; can, and will, generate bogus templates that will die
-horribly <em>if</em> you fail to make sure your go program, vues and all, compiles.<br />
-You <em>can</em> do this with make, but you are probably using something already that
-shows a little red stop sign whenever you type any character that causes the
-compile to break.  So, the go functions in the examples above are actually
-no-ops in terms of the &ldquo;program&rdquo; you are working on.  They are simply there to
-force typechecking, the correct numbers of arguments to be present, etc.  The
-vue compiler will dutifully copy <strong>whatever</strong> is inside the parenthesis of
-<code>Literal</code> without the least concern because it assumes that you
-have run the standard compiler <em>a priori</em>.</p>
+<h3>JSGuise, or &lsquo;The Other Side Of The Wire&rsquo;</h3>
+
+<blockquote>
+<p>Nota bene: This section has been heavily influenced by the Javascript
+experience of TrevorFSmith and KenFishkin.  IanSmith doesn&rsquo;t really know
+anything about Javascript.</p>
+</blockquote>
+
+<p>&ldquo;Poignard&rdquo; is a Javascript toolkit that is spiritually similar to tools like
+<a href="http://jquery.org/">JQuery</a> but designed carefully to work with <strong>Seven5</strong>
+applications&mdash;and <strong>Seven5</strong>&rsquo;s DSLs for CSS and HTML.  Let&rsquo;s try a simple
+example that would be coded by a Poignard developer:</p>
+
+<pre><code>function toggleWelcome() {
+    var on = GO_Welcome().hasCSSClass(GO_On(true))
+    GO_Welcome().dropAllCSSClasses()
+
+    if (on) {
+        GO_Welcome().addCSSClass(GO_On(false)) 
+    } else {
+        GO_Welcome().addCSSClass(GO_On(true)) 
+    }
+}
+</code></pre>
+
+<blockquote>
+<p>Perhaps Poignard should be a layer on top of JQuery?</p>
+</blockquote>
+
+<p>The above example shows how the Javascript layer can be hooked to go language
+entities.  A function like <code>GO_Welcome()</code> has as its definition the necessary
+Javascript code to select the &ldquo;Welcome&rdquo; node (a <code>div</code>, see example above!)
+from the DOM of the page.</p>
+
+<p>For a Javascript file request, it is the responsibility of the <code>JSGuise</code> to
+examine the DSLs for both the CSS and HTML used for the page that the
+Poignard code is attached to.  It then suffixes the file, say <code>welcome.js</code>,
+with the additional function definitions necessary to access the
+DSL-plus-go-defined items at run-time in a browser.</p>
+
+<h2>Testing Javascript Code In Go</h2>
+
+<p>I&rsquo;m not really sure how to make this work in practice.  Here&rsquo;s a couple
+of examples of things I&rsquo;d like to write, written in english rather than as go
+code:</p>
+
+<blockquote>
+<p>Set the contents of the username field to &ldquo;&rdquo;.  Verify that the continue button
+is disabled.</p>
+
+<p>Set the contents of the username field to &ldquo;ian&rdquo;.  Verify that there is
+a drop down present. If there is a dropdown present, verify that it has
+exactly one item in it, with the contents &ldquo;iansmith.&rdquo;</p>
+</blockquote>
+
+<p>My goal would be that unit tests could be written in go, referencing the objects
+used in the DSLs for CSS and HTML and somehow have it &ldquo;drive&rdquo; the Poignard
+code through its paces.  I have the sense that the right way to do this is to
+have Poignard abstract the notion of JS events slightly and allow these to be
+synthesized by the test harness.  I definitely do not want some crap like Selenium or
+other &ldquo;browser level&rdquo; test harnesses.  <strong>Seven5</strong> went to a lot of trouble for
+once and only once, and the tests should benefit as well.</p>
+
+<p>Easy case: changing the go code in the DSL of CSS or HTML
+should cause immediate problems in the source code of the tests.  This is easy
+because the go compiler can check this and your IDE will tell you about it
+right away.  Because of the <code>JSGuise</code>, the now changed entities should cause
+the JS code to fail horribly&ndash;but not until the first time you run it.</p>
+
+<p>More difficult to see is how changes in the JS code can be reflected back to
+the go language tests automatically.  I suppose there are two basic options:</p>
+
+<ul>
+<li><p>Go code runs the show.  Since the go code is running the tests, it must be
+told about what/how to access <code>Poignard</code> functions, etc.  This leads to a
+once and only once violation since it requires that some entities be duplicated
+from the Javascript world to the go world.  This is not <em>uberbad</em> because the
+test code runs and checks that things are ok so if you make a mistake at least
+it gets caught fast.</p></li>
+
+<li><p>Write some type of Javascript analysis tool and use that to make entites,
+at least functions, visible to the go level. There are some grammars
+<a href="http://www.antlr.org/grammar/1153976512034/ecmascriptA3.g">laying around</a>
+that could be used to extract some things from Javascript source and make them
+visible to test code.</p></li>
+</ul>
+
+<p>Along this latter line, but without the analysis, perhaps there could be some
+simple rules associated with Poignard code.  Roughly, &ldquo;Poignard can only
+respond to events&rdquo; and these are handled according to <em>blah</em> convention.  Then
+the test code could send synthetic events from the server to the
+client to drive the JS code.  Similarly, JSGuise could output some &ldquo;testing
+functions&rdquo; that could be called from test code (via a network message to the
+browser from the server).</p>
+
+<h2>AJAX Stuff</h2>
+
+<p>Mongrel2 <a href="https://gist.github.com/920729">already has</a>
+support for the WebSockets proposal by
+<a href="http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-07">HyBi working group</a> as well
+as support for flash-based socket communication with JSON, XML, and blah blah
+blah.  We should get this for free via our mongrel2 connection.</p>
+
+<p><strong>Seven5</strong> needs to exploit the client/server separation carefully to allow
+unit tests to drive both client and server.</p>
 
 <h2>Naming</h2>
 
@@ -257,9 +317,14 @@ from the rumor that a dis<em>guise</em> was used by the Duc an attempt to mask h
 involvement in the attempted assassination of
 <a href="http://en.wikipedia.org/wiki/Gaspard_de_Coligny">Gaspard de Coligny</a> that
 lead directly to the
-<a href="http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre">St. Bartholomew&rsquo;s Day Massacre</a></p>
+<a href="http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre">St. Bartholomew&rsquo;s Day Massacre</a>. Web frameworks
+may educate in many ways.</p>
 
-<p>Web frameworks may educate in many ways.</p>
+<p>The use of the name
+<a href="http://en.wikipedia.org/wiki/Poignard">Poignard</a> is because sharp, narrow tools
+are often needed when working with web frameworks.  Such tools, correctly
+applied, can be the killing stroke whereas huge, but relatively blunt, tools
+like Javascript often provide less death.  More death is better.</p>
 
 </body>
 </html>
