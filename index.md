@@ -12,6 +12,10 @@ single machine.
 * Make the resulting system deploy and scale nicely on cloud-like 
 infrastructure.
 
+Updated
+-------
+[Why Mongrel2?](why_mongrel2.html)
+
 Data Model
 ----------
 **Seven5** has neither the inevitable ORM nor SQL mapping so often associated
