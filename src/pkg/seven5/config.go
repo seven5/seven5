@@ -1,11 +1,25 @@
 package seven5
 
 import (
+	"exp/sql"
 	"fmt"
 	sqlite3 "github.com/mattn/go-sqlite3"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"mongrel2"
+)
+
+type ProjectConfig struct {
+	Path   string
+	Name   string
+	Logger *log.Logger
+}
+
+const (
+	LOGDIR        = "log"
+	NO_SUCH_TABLE = "no such table"
 )
 
 /*
@@ -56,7 +70,6 @@ func LocateProject(projectName string) (string, string) {
 			if info != nil && info.IsDirectory() {
 				//probably running in eclipse, check the path to proj
 				projectDir := filepath.Join(pkg, projectName)
-				fmt.Printf("trying project dir %s\n", projectDir)
 				info, _ = os.Stat(projectDir)
 				if info != nil && info.IsDirectory() {
 					return projectDir, cwd //in eclipse
@@ -65,7 +78,7 @@ func LocateProject(projectName string) (string, string) {
 		}
 	}
 	//maybe you are in the project dir?
-	foundProject :=true
+	foundProject := true
 	candidate := cwd
 	parts := strings.Split(projectName, string(filepath.Separator))
 	for i := len(parts) - 1; i >= 0; i-- {
@@ -73,36 +86,105 @@ func LocateProject(projectName string) (string, string) {
 
 		parent, kid := filepath.Split(candidate)
 		if kid != child {
-			foundProject=false
+			foundProject = false
 		}
 		candidate = filepath.Clean(parent)
 	}
 	//did we walk up, checking package structure?	
 	if foundProject {
-		return cwd,cwd
+		return cwd, cwd
 	}
-	
+
 	//try the root of the big tarball
-	guess := filepath.Join(cwd,projectName)
+	guess := filepath.Join(cwd, projectName)
 	info, _ := os.Stat(guess)
-	if info!=nil && info.IsDirectory() {
-		return guess,cwd
+	if info != nil && info.IsDirectory() {
+		return guess, cwd
 	}
-	
-	
-	return "",cwd
+
+	return "", cwd
 }
 
-func VerifyProjectLayout(projectPath string) bool {
+func VerifyProjectLayout(projectPath string) string {
 
-	return true
+	for _, dir := range []string{"handler", "rest", LOGDIR, "run", "static", "dynamic"} {
+		if s, _ := os.Stat(filepath.Join(projectPath, dir)); s == nil || !s.IsDirectory() {
+			return fmt.Sprintf("Unable to find %s\n", filepath.Join(projectPath, dir))
+		}
+	}
+	return ""
 }
 
-func clearTestDB() {
+func CreateLogger(projectPath string) (*log.Logger, string, error) {
+
+	path := filepath.Join(projectPath, LOGDIR, "seven5.log")
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	result := log.New(file, "", log.LstdFlags|log.Lshortfile)
+	return result, path, nil
 }
 
-func discoverHandlerNames() {
+func NewProjectConfig(path string, l *log.Logger) *ProjectConfig {
+	result := new(ProjectConfig)
+	result.Path = path
+	_, n := filepath.Split(path)
+	result.Name = n
+	result.Logger = l
+	return result
 }
+
+func ClearTestDB(config *ProjectConfig) error {
+
+	db_path := filepath.Join(config.Path, fmt.Sprintf("%s_test.sql", config.Name))
+
+	db, err := sql.Open("sqlite3", db_path)
+	if err != nil {
+		return err
+	}
+
+	config.Logger.Printf("created/found mongrel2 configuration db at path: %s", db_path)
+
+	destroy := "delete from %s"
+
+	tname := "handler"
+	sql := fmt.Sprintf(destroy, tname)
+	_, err = db.Exec(sql)
+	if err != nil {
+		if !strings.HasPrefix(err.Error(), NO_SUCH_TABLE) {
+			config.Logger.Printf("error clearing table %s:%s", tname, err)
+			return err
+		} else {
+			config.Logger.Printf("table \"%s\" not present, creating tables for mongrel2 configuration", tname)
+		}
+		//tables do not exist, create from scratch
+		_, err = db.Exec(TABLEDEFS_SQL)
+		if err!=nil {
+			config.Logger.Printf("unable to create tables in mongrel2 config:%s",err.Error())
+			return err
+		}
+	} else {
+		//this is the case where the tables exist
+		for _, tbl := range []string{"host", "log", "mimetype", "proxy", "route", "server", "setting", "statistic"} {
+			sql := fmt.Sprintf(destroy, tname)
+			_, err = db.Exec(sql)
+			if err != nil {
+				config.Logger.Printf("error clearing table %s:%s", tbl, err)
+				return err
+			}
+		}
+		config.Logger.Printf("cleared all table table from mongrel2 configuration")
+	}
+
+	return nil
+}
+
+func DiscoverHandlers(config *ProjectConfig) ([]*mongrel2.HandlerAddr,error) {
+	return nil,nil
+}
+
 
 func generateHandlerConfig() {
 }

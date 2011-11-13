@@ -10,18 +10,19 @@ import (
 // id of the handler.  The Pull socket is assigned the lower of the two
 // port numbers.
 type HandlerAddr struct {
+	Name     string
 	PubSpec  string
 	PullSpec string
 	UUID     string
 }
 
 var (
-//handler is the private mapping that keps the binding between names and
-//the handler addresses.
-	handler     = make(map[string]*HandlerAddr)
-	
-//currentPort is the next port number to be assigned by the GetAssignment
-//function.  It never decreases.
+	//handler is the private mapping that keps the binding between names and
+	//the handler addresses.
+	handler = make(map[string]*HandlerAddr)
+
+	//currentPort is the next port number to be assigned by the GetAssignment
+	//function.  It never decreases.
 	currentPort = 10070
 )
 
@@ -31,18 +32,19 @@ var (
 func GetHandlerAddress(name string) (*HandlerAddr, error) {
 	a := handler[name]
 	if a != nil {
-		return a,nil
+		return a, nil
 	}
 	result := new(HandlerAddr)
-	result.PullSpec = fmt.Sprintf("tcp://127.0.0.1:%d",currentPort)
+	result.Name= name
+	result.PullSpec = fmt.Sprintf("tcp://127.0.0.1:%d", currentPort)
 	currentPort++
-	result.PubSpec = fmt.Sprintf("tcp://127.0.0.1:%d",currentPort)
+	result.PubSpec = fmt.Sprintf("tcp://127.0.0.1:%d", currentPort)
 	currentPort++
 	u, err := Type4UUID()
-	if err!=nil {
-		return nil,err
+	if err != nil {
+		return nil, err
 	}
-	result.UUID=u
-	handler[name]=result
-	return result,nil
+	result.UUID = u
+	handler[name] = result
+	return result, nil
 }
