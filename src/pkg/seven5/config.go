@@ -104,7 +104,7 @@ func NewProjectConfig(path string, l *log.Logger) *ProjectConfig {
 
 func ClearTestDB(config *ProjectConfig) error {
 
-	db_path := filepath.Join(config.Path, fmt.Sprintf("%s_test.sql", config.Name))
+	db_path := filepath.Join(config.Path, fmt.Sprintf("%s_test.sqlite", config.Name))
 
 	db, err := sql.Open("sqlite3", db_path)
 	if err != nil {
