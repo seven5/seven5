@@ -12,9 +12,12 @@ single machine.
 * Make the resulting system deploy and scale nicely on cloud-like 
 infrastructure.
 
-Updated
+Recently Updated
 -------
+
 [Why Mongrel2?](why_mongrel2.html)
+
+[Project Layout?](project_layout.html)
 
 Data Model
 ----------
