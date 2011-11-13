@@ -103,10 +103,12 @@ func (self *Handler) initZMQ() error {
 	}
 
 	//not sure why this generates an error... seems legit
-//	err = self.OutSocket.SetSockOptInt64(gozmq.LINGER, int64(-1))
-//	if err != nil {
-//		return err
-//	}
+/*	var opt int64
+	opt=0
+	err = self.OutSocket.SetSockOptInt64(gozmq.LINGER, &opt)
+	if err != nil {
+		return err
+	}*/
 
 	err = self.OutSocket.Connect(self.PubSpec)
 	if err != nil {
