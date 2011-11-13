@@ -2,13 +2,14 @@ package seven5
 
 import (
 	"exp/sql"
+	"flag"
 	"fmt"
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"log"
+	"mongrel2"
 	"os"
 	"path/filepath"
 	"strings"
-	"mongrel2"
 )
 
 type ProjectConfig struct {
@@ -19,37 +20,12 @@ type ProjectConfig struct {
 
 const (
 	LOGDIR        = "log"
+	MONGREL2        = "mongrel2"
 	NO_SUCH_TABLE = "no such table"
 )
-
-/*
-handler_test = Handler(	send_spec='tcp://127.0.0.1:10070',
-                       	send_ident='34f9ceee-cd52-4b7f-b197-88bf2f0ec378',
-                       	recv_spec='tcp://127.0.0.1:10071',
-			recv_ident='') 
-
-
-main = Server(
-    uuid="f400bf85-4538-4f7a-8908-67e313d515c2",
-    access_log="/logs/access.log",
-    error_log="/logs/error.log",
-    chroot="./",
-    default_host="localhost",
-    name="test",
-    pid_file="/run/mongrel2.pid",
-    port=6767,
-    hosts = [
-        Host(name="localhost", routes={
-            '/tests/': Dir(base='tests/', index_file='index.html',default_ctype='text/plain')
-	    '/handlertest': handler_test
-        })
-    ]
-)
-
-servers = [main]
-*/
-
-func LocateProject(projectName string) (string, string) {
+// Try to look at the layout of the filesystem and figure out where the 
+// eclipse source code might be.  
+func LocateProjectInEclipse() string {
 	_ = new(sqlite3.SQLiteDriver)
 	cwd, _ := os.Getwd()
 	arch := os.Getenv("GOARCH")
@@ -59,7 +35,7 @@ func LocateProject(projectName string) (string, string) {
 	//by assuming you are running in eclipse 
 	eclipseBinDir := fmt.Sprintf("%s_%s", localos, arch)
 	d, f := filepath.Split(cwd)
-	if eclipseBinDir != "-" && eclipseBinDir == f {
+	if eclipseBinDir != "_" && eclipseBinDir == f {
 		d = filepath.Clean(d)
 		projectDir, b := filepath.Split(d)
 		if b == "bin" {
@@ -68,48 +44,38 @@ func LocateProject(projectName string) (string, string) {
 			pkg := filepath.Join(projectDir, "src", "pkg")
 			info, _ := os.Stat(pkg)
 			if info != nil && info.IsDirectory() {
-				//probably running in eclipse, check the path to proj
-				projectDir := filepath.Join(pkg, projectName)
-				info, _ = os.Stat(projectDir)
-				if info != nil && info.IsDirectory() {
-					return projectDir, cwd //in eclipse
+				dir, err := os.Open(pkg)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "unable to open directory '%s'\n", pkg)
+				} else {
+					name, err := dir.Readdirnames(0) // get all names
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "cannot read children of directory '%s'!\n", pkg)
+					} else {
+						if len(name) != 1 {
+							fmt.Fprintf(os.Stderr, "directory '%s' has '%d' children, can't decide which one to use!\n", len(name))
+						} else {
+							//probably running in eclipse, check the path to proj
+							projectDir := filepath.Join(pkg, name[0])
+							info, _ = os.Stat(projectDir)
+							if info != nil && info.IsDirectory() {
+								return projectDir
+							}
+						}
+					}
 				}
 			}
 		}
 	}
-	//maybe you are in the project dir?
-	foundProject := true
-	candidate := cwd
-	parts := strings.Split(projectName, string(filepath.Separator))
-	for i := len(parts) - 1; i >= 0; i-- {
-		child := parts[i]
-
-		parent, kid := filepath.Split(candidate)
-		if kid != child {
-			foundProject = false
-		}
-		candidate = filepath.Clean(parent)
-	}
-	//did we walk up, checking package structure?	
-	if foundProject {
-		return cwd, cwd
-	}
-
-	//try the root of the big tarball
-	guess := filepath.Join(cwd, projectName)
-	info, _ := os.Stat(guess)
-	if info != nil && info.IsDirectory() {
-		return guess, cwd
-	}
-
-	return "", cwd
+	return ""
 }
 
 func VerifyProjectLayout(projectPath string) string {
 
-	for _, dir := range []string{"handler", "rest", LOGDIR, "run", "static", "dynamic"} {
-		if s, _ := os.Stat(filepath.Join(projectPath, dir)); s == nil || !s.IsDirectory() {
-			return fmt.Sprintf("Unable to find %s\n", filepath.Join(projectPath, dir))
+	for _, dir := range []string{LOGDIR, "run", "static"} {
+		candidate:=filepath.Join(projectPath, MONGREL2, dir)
+		if s, _ := os.Stat(candidate); s == nil || !s.IsDirectory() {
+			return fmt.Sprintf("Unable to find directory %s", candidate)
 		}
 	}
 	return ""
@@ -117,7 +83,7 @@ func VerifyProjectLayout(projectPath string) string {
 
 func CreateLogger(projectPath string) (*log.Logger, string, error) {
 
-	path := filepath.Join(projectPath, LOGDIR, "seven5.log")
+	path := filepath.Join(projectPath, MONGREL2, LOGDIR, "seven5.log")
 	file, err := os.Create(path)
 	if err != nil {
 		return nil, "", err
@@ -161,8 +127,8 @@ func ClearTestDB(config *ProjectConfig) error {
 		}
 		//tables do not exist, create from scratch
 		_, err = db.Exec(TABLEDEFS_SQL)
-		if err!=nil {
-			config.Logger.Printf("unable to create tables in mongrel2 config:%s",err.Error())
+		if err != nil {
+			config.Logger.Printf("unable to create tables in mongrel2 config:%s", err.Error())
 			return err
 		}
 	} else {
@@ -181,18 +147,80 @@ func ClearTestDB(config *ProjectConfig) error {
 	return nil
 }
 
-func DiscoverHandlers(config *ProjectConfig) ([]*mongrel2.HandlerAddr,error) {
-	return nil,nil
+func DiscoverHandlers(config *ProjectConfig) ([]*mongrel2.HandlerAddr, error) {
+	return nil, nil
 }
 
-
 func generateHandlerConfig() {
+}
+
+func Bootstrap() *ProjectConfig {
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to determine current directory: %s\n", err)
+		return nil
+	}
+
+	flagSet := flag.NewFlagSet("seven5", flag.ExitOnError)
+	flagSet.Parse(os.Args)
+
+	projectDir := cwd
+
+	if flagSet.NArg() == 1 {
+		fmt.Fprintf(os.Stderr, "no project name/path specified, hoping '%s' is ok.\n", cwd)
+	} else {
+		projectDir = flagSet.Arg(1)
+	}
+
+	if err := VerifyProjectLayout(projectDir); err != "" {
+		dumpBadProjectLayout(projectDir, err)
+		if eclipse := LocateProjectInEclipse(); eclipse != "" {
+			fmt.Fprintf(os.Stderr, "checking for possible eclipse project at '%s'\n",eclipse)
+			if err := VerifyProjectLayout(eclipse); err != "" {
+				dumpBadProjectLayout(eclipse, err)
+				return nil
+			} else {
+				projectDir=eclipse //success! found eclipse project!
+			}
+		} else {
+			return nil
+		}
+	}
+
+	logger, path, err := CreateLogger(projectDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to create logger:%s\n", err)
+		return nil
+	}
+
+	fmt.Printf("Seven5 is logging to %s\n", path)
+
+	config := NewProjectConfig(projectDir, logger)
+	config.Logger.Printf("Starting to run with project %s at %s", config.Name, config.Path)
+
+	err = ClearTestDB(config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error clearing the test db configuration:%s\n", err.Error())
+		return nil
+	}
+
+	_, err = DiscoverHandlers(config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to discover mongrel2 handlers:%s\n", err.Error())
+		return nil
+	}
+
+	return config
 }
 
 func generate() {
 }
 
-func createDBTablesForMongrel2() {
+func dumpBadProjectLayout(projectDir, err string) {
+	fmt.Fprintf(os.Stderr, "%s does not have the standard seven5 project structure!\n", projectDir)
+	fmt.Fprintf(os.Stderr, "\t(%s)\n", err)
+	fmt.Fprintf(os.Stderr, "\nfor project structure details, see http://seven5.github.com/seven5/project_layout.html\n\n")
 }
 
 const TABLEDEFS_SQL = `
