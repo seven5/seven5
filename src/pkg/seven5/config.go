@@ -1,3 +1,4 @@
+//Web application for go.  See http://seven5.github.com/seven5
 package seven5
 
 import (
@@ -12,19 +13,24 @@ import (
 	"strings"
 )
 
+//ProjectConfig represents the configuration of a Seven5 web app.  This 
+//structure's fields are discovered by the infrastructure, it is not specified
+//explicitly.
 type ProjectConfig struct {
-	Path   string
-	Name   string
-	Logger *log.Logger
+	Path    string
+	Name    string
+	Logger  *log.Logger
+	Handler []*mongrel2.HandlerAddr
 }
 
 const (
 	LOGDIR        = "log"
-	MONGREL2        = "mongrel2"
+	MONGREL2      = "mongrel2"
 	NO_SUCH_TABLE = "no such table"
 )
 // Try to look at the layout of the filesystem and figure out where the 
-// eclipse source code might be.  
+// eclipse source code might be.  Dumps out some useful error messages to
+// standard error when things go wrong during the search. 
 func LocateProjectInEclipse() string {
 	_ = new(sqlite3.SQLiteDriver)
 	cwd, _ := os.Getwd()
@@ -70,10 +76,12 @@ func LocateProjectInEclipse() string {
 	return ""
 }
 
+//VerifyProjectLayout checks that the directory structure that is expected for
+//a correct Seven5 application is present.  
 func VerifyProjectLayout(projectPath string) string {
 
 	for _, dir := range []string{LOGDIR, "run", "static"} {
-		candidate:=filepath.Join(projectPath, MONGREL2, dir)
+		candidate := filepath.Join(projectPath, MONGREL2, dir)
 		if s, _ := os.Stat(candidate); s == nil || !s.IsDirectory() {
 			return fmt.Sprintf("Unable to find directory %s", candidate)
 		}
@@ -81,6 +89,8 @@ func VerifyProjectLayout(projectPath string) string {
 	return ""
 }
 
+//CreateLogger builds a logger that is connected to the "standard" place in 
+//a Seven5 application (mongrel2/log/seven5.log)
 func CreateLogger(projectPath string) (*log.Logger, string, error) {
 
 	path := filepath.Join(projectPath, MONGREL2, LOGDIR, "seven5.log")
@@ -93,6 +103,9 @@ func CreateLogger(projectPath string) (*log.Logger, string, error) {
 	return result, path, nil
 }
 
+//Create a new ProjectConfig object and return a pointer to it.  This method
+//fills in some fields that are already known such as the path, name, and 
+//logger.
 func NewProjectConfig(path string, l *log.Logger) *ProjectConfig {
 	result := new(ProjectConfig)
 	result.Path = path
@@ -102,6 +115,9 @@ func NewProjectConfig(path string, l *log.Logger) *ProjectConfig {
 	return result
 }
 
+//ClearTestDB opens the sqlite3 database for mongrel3 configuration and insures
+//that the tables are present and empty.  If the tables are not present, this
+//function creates them.
 func ClearTestDB(config *ProjectConfig) error {
 
 	db_path := filepath.Join(config.Path, fmt.Sprintf("%s_test.sqlite", config.Name))
@@ -147,13 +163,23 @@ func ClearTestDB(config *ProjectConfig) error {
 	return nil
 }
 
-func DiscoverHandlers(config *ProjectConfig) ([]*mongrel2.HandlerAddr, error) {
-	return nil, nil
+//DiscoverHandlers looks for handlers in the standard place in a Seven5 project
+//(project_name/*_handler.go) and assigns each one a mongrel2 address.  If
+//there is no error, it puts the assigned mongrel2 addresses (type is
+//mongrel2.HandlerAddr) into the ProjectConfig sruct.
+func DiscoverHandlers(config *ProjectConfig) error {
+	return nil
 }
 
-func generateHandlerConfig() {
+//GenerateHandlerConfig puts the addresses of the web application's mongrel2
+//handlers into the sqlite database (in the standard location).
+func GenerateHandlerConfig(config *ProjectConfig) error {
+	return nil
 }
 
+//Bootstrap should be called by projects that use the Seven5 infrastructure to
+//parse the command line arguments and to discover the project's structure.
+//This function returns null if the project config is not standard.  
 func Bootstrap() *ProjectConfig {
 
 	cwd, err := os.Getwd()
@@ -176,12 +202,12 @@ func Bootstrap() *ProjectConfig {
 	if err := VerifyProjectLayout(projectDir); err != "" {
 		dumpBadProjectLayout(projectDir, err)
 		if eclipse := LocateProjectInEclipse(); eclipse != "" {
-			fmt.Fprintf(os.Stderr, "checking for possible eclipse project at '%s'\n",eclipse)
+			fmt.Fprintf(os.Stderr, "checking for possible eclipse project at '%s'\n", eclipse)
 			if err := VerifyProjectLayout(eclipse); err != "" {
 				dumpBadProjectLayout(eclipse, err)
 				return nil
 			} else {
-				projectDir=eclipse //success! found eclipse project!
+				projectDir = eclipse //success! found eclipse project!
 			}
 		} else {
 			return nil
@@ -205,7 +231,7 @@ func Bootstrap() *ProjectConfig {
 		return nil
 	}
 
-	_, err = DiscoverHandlers(config)
+	err = DiscoverHandlers(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to discover mongrel2 handlers:%s\n", err.Error())
 		return nil
@@ -213,10 +239,9 @@ func Bootstrap() *ProjectConfig {
 
 	return config
 }
-
-func generate() {
-}
-
+//dumpBadProjectLayout prints out a helpful error message to stderr so the 
+//developer has some hope of figuring out what is wrong with they project 
+//structure.
 func dumpBadProjectLayout(projectDir, err string) {
 	fmt.Fprintf(os.Stderr, "%s does not have the standard seven5 project structure!\n", projectDir)
 	fmt.Fprintf(os.Stderr, "\t(%s)\n", err)
