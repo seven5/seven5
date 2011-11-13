@@ -47,7 +47,7 @@ func main() {
 		return
 	}
 
-	_,err := seven5.DiscoverHandlers(config)
+	_,err = seven5.DiscoverHandlers(config)
 	if err!=nil {
 		fmt.Fprintf(os.Stderr, "unable to discover mongrel2 handlers:%s\n", err.Error())
 		return
