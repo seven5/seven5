@@ -1,0 +1,336 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Seven 5</title>
+  <meta name="GENERATOR" content="Blackfriday Markdown Processor v1.1" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <link rel="stylesheet" type="text/css" href="http://kevinburke.bitbucket.org/markdowncss/markdown.css" />
+</head>
+<body>
+
+<h1>Seven 5</h1>
+
+<p><strong>Seven5</strong> is a web microframework for go. It has a number of design objectives:</p>
+
+<ul>
+<li>Don&rsquo;t repeat yourself.  Don&rsquo;t repeat others&rsquo; work; remove an item from the<br />
+stack if it exists elsewhere.</li>
+<li>Use go&rsquo;s strong typing and fast compiler as an advantage for web developers.</li>
+<li>Make all parts of the application easy to test by a single developer on a
+single machine.</li>
+<li>Make the resulting system deploy and scale nicely on cloud-like
+infrastructure.</li>
+</ul>
+
+<h2>Recently Updated</h2>
+
+<p><a href="why_mongrel2.html">Why Mongrel2?</a></p>
+
+<p><a href="project_layout.html">Project Layout?</a></p>
+
+<h2>Data Model</h2>
+
+<p><strong>Seven5</strong> has neither the inevitable ORM nor SQL mapping so often associated
+with other frameworks.  99% of the world doesn&rsquo;t need SQL for a website.  Because
+of convenient ORMs, developers end up with SQL databases simply because that&rsquo;s
+the easiest path in the web framework.</p>
+
+<p><strong>Seven5</strong> makes a different strategy easy.  Your data model is just, well,
+your data model.  You use go&rsquo;s data structures and store them, unmodified,
+in a big blob of RAM called <a href="http://memcached.org/">memcached</a>.  There is no
+disk storage, because disk is slow, expensive to manage, and generally more
+trouble than it&rsquo;s worth in the age of server machines with 64 or 128GB of
+RAM.  <strong>Seven5</strong> allows easy provision of
+redundant memcacheds in different locales, if you are really paranoid about
+server crash.  You can, of course, make periodic backups if you choose to
+(although don&rsquo;t be surprised if we don&rsquo;t recommend it).  Memcached is directly
+supported today by cloud infrastructures like Amazon EC2 for production systems.</p>
+
+<p>By default, we use <a href="http://blog.golang.org/2011/03/gobs-of-data.html">gobs</a> for
+storing our data because <a href="http://en.wikipedia.org/wiki/Rob_Pike">Rob Pike</a> is a
+righteous dude. If you prefer to flatten your datastructures to bytes with
+things like <a href="http://en.wikipedia.org/wiki/Protobuf">protobufs</a> or even
+<a href="http://json.org">JSON</a> that&rsquo;s up to you.</p>
+
+<h2>Guises</h2>
+
+<p>A notion that is critical to <strong>Seven5</strong>&rsquo;s operation is the notion of a &lsquo;guise&rsquo;
+(rhymes with cheese, not fries).  A guise is a bit of code that allows a
+computation to look like a file, a part of a file or other http-level
+resource.  Some important
+guise types are detailed  below.  A correctly written guise insures that any
+input it needs from the filesystem is always &ldquo;up to date.&rdquo;  Further,
+correctly-written guises cache their results in memory.   These two properties
+insure there is never any confusion for the developer of the form
+&ldquo;which version of the file is this?&rdquo;</p>
+
+<p>A simple, fictional guise is the <code>WhatTimeIsItInParisGuise</code>.  This guise takes
+requests for any gif file and returns an image of a clock with the hands set to
+the appropriate current time in Paris. (It&rsquo;s easy to do with go&rsquo;s image file
+support!)</p>
+
+<h2>Two DSLs And A Microphone</h2>
+
+<p><strong>Seven5</strong> has three carefully interlocking pieces to make web app development
+more pleasant, and blindingly fast. <em>Time may, in fact, slow down for you because
+of the speed of your development.</em>  The first two are
+<a href="http://en.wikipedia.org/wiki/Domain-specific_language">DSLs</a>, implemented
+as go entities, that generate
+CSS and HTML, respectively.  The third is a carefully crafted Javascript
+library that understands how to interact with the results of the <strong>source</strong>
+of these two DSLs.  All of these are implemented as Guises; the final one,
+though, is visible to a developer only by programming in Javascript.</p>
+
+<h3>CSSGuise</h3>
+
+<p>We will first discuss the <code>CSSGuise</code> and its accompanying DSL.  This guise takes
+an input which is a CSS file to return, such as <code>foo.css</code>, from the browser. It
+finds the appropriate CSS file in the current project and combines that text
+(unmodified) with the output of the DSL.  Let&rsquo;s look at an example of the DSL,
+implemented in go code.</p>
+
+<pre><code>var (
+    On = BinaryClassSelector{attribute:&quot;visible&quot;, trueValue:&quot;yes&quot;, falseValue:&quot;no&quot;}
+)
+
+func Foo_css() {
+    return ON.css()
+}
+</code></pre>
+
+<p>When the browser/client receives the CSS resulting from its request, it is the
+contents of the static file plus this suffix:</p>
+
+<pre><code>.On { visible: yes}
+._On { visible: no}
+</code></pre>
+
+<p>Some key things to note about this simple example:</p>
+
+<ul>
+<li><p>Changes in the go code are immediately reflected in the CSS code. Once
+and only once.  It&rsquo;s hard, but not impossible, to end up with a program that
+uses the wrong string for &ldquo;On&rdquo; as a CSS class name.</p></li>
+
+<li><p>The DSL allows common idioms to be expressed cleanly.  In our example here,
+we are using the common CSS approach of having two classes that control whether
+a particular object is visible on the screen.  Because it&rsquo;s encoded as an idiom
+(see below) there is no way to become confused&hellip; is the class name
+for turning something off <code>invisible</code> or <code>notvisible</code> or <code>not_visible</code>?  The
+<code>BinaryChoiceSelector</code> creates the second choice, <code>_On</code> programmatically.</p></li>
+
+<li><p>The resulting code in CSS uses names that are identical to the names in the
+go code (via go&rsquo;s reflection mechanism).  You can say &ldquo;css class &lsquo;capital-O-n&rsquo;
+is all frobbed up&rdquo; to another developer without ambiguity.</p></li>
+
+<li><p>Because CSS has no run-time component, the DSL output is controlled by a
+simple function call, css() on an object you want to use in your app.</p></li>
+
+<li><p>Objects such as <code>On</code> arrive in the go code because are needed
+<a href="http://programming-motherfucker.com/"><strong>by programmers</strong></a>.  If other types
+things are needed by web designers, graphic artists, or other parts of the
+team, they should go in the static file, <code>foo.css</code>.</p></li>
+</ul>
+
+<h3>HTML Guise</h3>
+
+<p>The DSL associated with the HTML guise takes the place of &ldquo;templates&rdquo; in other
+web frameworks. Consider this template, in the go template language:</p>
+
+<pre><code>{{if user_is_logged_in $some_context}} 
+&lt;strong&gt;Hello {{.User}}, welcome to my world!&lt;/strong&gt;
+{{else}} 
+&lt;strong&gt;Hello Anonymous&lt;/strong&gt;
+{{/* fixme: need to add some CSS */}}
+{{end}}
+</code></pre>
+
+<p><strong>Seven5</strong> takes the position that this is broken and wrong. It is not lost on
+<strong>Seven5</strong> that many people have also identified the pain and suffering that
+templating like the above causes, particularly as websites grow to reasonable
+sizes or have several different developers.  The <strong>Seven5</strong> developers
+smile slightly in quixotic reflection at the efforts of
+<a href="http://mustache.github.com/">mustache</a>: an effort to build a templating
+system without the pain of a templating system. Tilt on, brothers!</p>
+
+<p>The author of the template above is attempting to do programming, not write HTML
+code&mdash;note the &lsquo;fixme&rsquo; comment to remind him or herself go back
+later!   <strong>Seven5</strong>&rsquo;s DSL for HTML means that
+code uses the best tools and practices we know of for building software.  Put
+in the negative, &ldquo;How can a development environment or a best practice like
+once and only once help you with the conflation of ideas and technologies in the
+cesspool above?&rdquo;</p>
+
+<p>Let&rsquo;s consider the same attempted programming task using the HTML guise&rsquo;s DSL:</p>
+
+<pre><code>var (
+    Welcome = NewId()  // create a unique ID within the page
+    WelcomeSection = Div(Welcome, On) // On? See above!
+)
+
+func welcome_message(ctx Context) {
+    if is_logged_in(ctx[User]) {
+        return WelcomeSection.html(Strong(&quot;Hello,&quot; + ctx[User]+ &quot;welcome to my world!&quot;))
+    } else {
+        return WelcomeSection.html(Strong(&quot;Hello, Anonymous welcome to my world!&quot;))
+    }
+}
+</code></pre>
+
+<p>One can certainly make the argument that writing a &ldquo;template&rdquo; in this form
+keeps other parts of the project team who do not code in go &ldquo;out in the cold.&rdquo;
+This is both correct and proper.   <strong>Seven5</strong> states that the task being
+attempted above is programming, and should be dealt with as such; in the amount
+of time you save by not messing with stupid template files, you can teach people
+enough to write in the DSL!</p>
+
+<h3>How Does It Work?</h3>
+
+<p>The DSL above is actually translated, by the <code>HTMLGuise</code>, into the horrific
+template shown originally! The construction of the <code>HTMLGuise</code> is analogous to
+the poor sod who had to write the go compiler; his pain of dealing with a far
+lower language&ndash;assembly&ndash;benefits a great many people if he gets it right
+one time and encodes it in a tool.</p>
+
+<p>The above strategy has two implications that may be somewhat startling for
+those unaccustomed to this approach.  First, the project&rsquo;s <em>source code</em> must
+be available at run-time so the <code>HTMLGuise</code> can do its job. The source code
+typically is not visible to external users of the application, but it must be
+visible to <strong>Seven5</strong>.  Second, to do its job perfectly the <code>HTMLGuise</code> must
+be able to understand arbitrary go code&ndash;for example to do correct
+type-checking.  In practice, only a subset of go can processed by the
+<code>HTMLGuise</code> and it is possible that the HTMLGuise can fail to produce a
+valid result.  If you don&rsquo;t like this, help improve the HTMLGuise to
+understand the go features you want!</p>
+
+<h3>JSGuise, or &lsquo;The Other Side Of The Wire&rsquo;</h3>
+
+<blockquote>
+<p>Nota bene: This section has been heavily influenced by the Javascript
+experience of TrevorFSmith and KenFishkin.  IanSmith doesn&rsquo;t really know
+anything about Javascript.</p>
+</blockquote>
+
+<p>&ldquo;Poignard&rdquo; is a Javascript toolkit that is spiritually similar to tools like
+<a href="http://jquery.org/">JQuery</a> but designed carefully to work with <strong>Seven5</strong>
+applications&mdash;and <strong>Seven5</strong>&rsquo;s DSLs for CSS and HTML.  Let&rsquo;s try a simple
+example that would be coded by a Poignard developer:</p>
+
+<pre><code>function toggleWelcome() {
+    var on = GO_Welcome().hasCSSClass(GO_On(true))
+    GO_Welcome().dropAllCSSClasses()
+
+    if (on) {
+        GO_Welcome().addCSSClass(GO_On(false)) 
+    } else {
+        GO_Welcome().addCSSClass(GO_On(true)) 
+    }
+}
+</code></pre>
+
+<blockquote>
+<p>Perhaps Poignard should be a layer on top of JQuery?</p>
+</blockquote>
+
+<p>The above example shows how the Javascript layer can be hooked to go language
+entities.  A function like <code>GO_Welcome()</code> has as its definition the necessary
+Javascript code to select the &ldquo;Welcome&rdquo; node (a <code>div</code>, see example above!)
+from the DOM of the page.</p>
+
+<p>For a Javascript file request, it is the responsibility of the <code>JSGuise</code> to
+examine the DSLs for both the CSS and HTML used for the page that the
+Poignard code is attached to.  It then suffixes the file, say <code>welcome.js</code>,
+with the additional function definitions necessary to access the
+DSL-plus-go-defined items at run-time in a browser.</p>
+
+<h2>Testing Javascript Code In Go</h2>
+
+<p>I&rsquo;m not really sure how to make this work in practice.  Here&rsquo;s a couple
+of examples of things I&rsquo;d like to write, written in english rather than as go
+code:</p>
+
+<blockquote>
+<p>Set the contents of the username field to &ldquo;&rdquo;.  Verify that the continue button
+is disabled.</p>
+
+<p>Set the contents of the username field to &ldquo;ian&rdquo;.  Verify that there is
+a drop down present. If there is a dropdown present, verify that it has
+exactly one item in it, with the contents &ldquo;iansmith.&rdquo;</p>
+</blockquote>
+
+<p>My goal would be that unit tests could be written in go, referencing the objects
+used in the DSLs for CSS and HTML and somehow have it &ldquo;drive&rdquo; the Poignard
+code through its paces.  I have the sense that the right way to do this is to
+have Poignard abstract the notion of JS events slightly and allow these to be
+synthesized by the test harness.  I definitely do not want some crap like Selenium or
+other &ldquo;browser level&rdquo; test harnesses.  <strong>Seven5</strong> went to a lot of trouble for
+once and only once, and the tests should benefit as well.</p>
+
+<p>Easy case: changing the go code in the DSL of CSS or HTML
+should cause immediate problems in the source code of the tests.  This is easy
+because the go compiler can check this and your IDE will tell you about it
+right away.  Because of the <code>JSGuise</code>, the now changed entities should cause
+the JS code to fail horribly&ndash;but not until the first time you run it.</p>
+
+<p>More difficult to see is how changes in the JS code can be reflected back to
+the go language tests automatically.  I suppose there are two basic options:</p>
+
+<ul>
+<li><p>Go code runs the show.  Since the go code is running the tests, it must be
+told about what/how to access <code>Poignard</code> functions, etc.  This leads to a
+once and only once violation since it requires that some entities be duplicated
+from the Javascript world to the go world.  This is not <em>uberbad</em> because the
+test code runs and checks that things are ok so if you make a mistake at least
+it gets caught fast.</p></li>
+
+<li><p>Write some type of Javascript analysis tool and use that to make entites,
+at least functions, visible to the go level. There are some grammars
+<a href="http://www.antlr.org/grammar/1153976512034/ecmascriptA3.g">laying around</a>
+that could be used to extract some things from Javascript source and make them
+visible to test code.</p></li>
+</ul>
+
+<p>Along this latter line, but without the analysis, perhaps there could be some
+simple rules associated with Poignard code.  Roughly, &ldquo;Poignard can only
+respond to events&rdquo; and these are handled according to <em>blah</em> convention.  Then
+the test code could send synthetic events from the server to the
+client to drive the JS code.  Similarly, JSGuise could output some &ldquo;testing
+functions&rdquo; that could be called from test code (via a network message to the
+browser from the server).</p>
+
+<h2>AJAX Stuff</h2>
+
+<p>Mongrel2 <a href="https://gist.github.com/920729">already has</a>
+support for the WebSockets proposal by
+<a href="http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-07">HyBi working group</a> as well
+as support for flash-based socket communication with JSON, XML, and blah blah
+blah.  We should get this for free via our mongrel2 connection.</p>
+
+<p><strong>Seven5</strong> needs to exploit the client/server separation carefully to allow
+unit tests to drive both client and server.</p>
+
+<h2>Naming</h2>
+
+<p>The framework is called <strong>Seven5</strong> because the originator lives in Paris, France.
+All the postal codes for Paris, proper, begin with 75.  Besides, names don&rsquo;t
+matter that much.</p>
+
+<p>The use of the strange pronounciation of guise is because it sounds cooler.
+Plus, the originator lives very close to the residence (compound?) of the
+<a href="http://en.wikipedia.org/wiki/House_of_Guise">House de Guise</a> which is
+pronounced in this way.   The English word that is spelled the same way comes
+from the rumor that a dis<em>guise</em> was used by the Duc an attempt to mask his
+involvement in the attempted assassination of
+<a href="http://en.wikipedia.org/wiki/Gaspard_de_Coligny">Gaspard de Coligny</a> that
+lead directly to the
+<a href="http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre">St. Bartholomew&rsquo;s Day Massacre</a>. Web frameworks
+may educate in many ways.</p>
+
+<p>The use of the name
+<a href="http://en.wikipedia.org/wiki/Poignard">Poignard</a> is because sharp, narrow tools
+are often needed when working with web frameworks.  Such tools, correctly
+applied, can be the killing stroke whereas huge, but relatively blunt, tools
+like Javascript often provide less death.  More death is better.</p>
+
+</body>
+</html>
