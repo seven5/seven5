@@ -156,6 +156,7 @@ func DiscoverHandlers(config *ProjectConfig) error {
 		if err!=nil {
 			return nil
 		}
+		config.Logger.Printf("assigned raw handler %s unique id %s\n",name,a.UUID)
 		address=append(address,a)
 	}
 	config.Handler = address
@@ -197,7 +198,7 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 
 	//HANDLER
 	for _, addr := range config.Handler {
-		sqlText=fmt.Sprintf(HANDLER_INSERT,addr.PullSpec, config.ServerId, addr.PubSpec)
+		sqlText=fmt.Sprintf(HANDLER_INSERT,addr.PullSpec, addr.UUID, addr.PubSpec)
 		_, err := db.Exec(sqlText)	
 		if err!=nil {
 			return err
@@ -217,8 +218,8 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 			return err
 		}
 		config.Logger.Printf("inserted handler %s into routes:%s\n",addr.Name,sqlText)
-		config.Logger.Printf("\tnested host:%s\n",nestedHost)
-		config.Logger.Printf("\tnested handler:%s\n",nestedHandler)
+		//config.Logger.Printf("\tnested host:%s\n",nestedHost)
+		//config.Logger.Printf("\tnested handler:%s\n",nestedHandler)
 	}
 
 	//static content
@@ -238,8 +239,8 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 		return err
 	}
 	config.Logger.Printf("inserted static content route into config:%s\n",sqlText)
-	config.Logger.Printf("\tnested host:%s\n",nestedHost)
-	config.Logger.Printf("\tnested directory:%s\n",staticDirectory)
+	//config.Logger.Printf("\tnested host:%s\n",nestedHost)
+	//config.Logger.Printf("\tnested directory:%s\n",staticDirectory)
 
 	for _,pair := range MIME_TYPE {
 		sqlText = fmt.Sprintf(MIME_INSERT,pair[0],pair[1])
