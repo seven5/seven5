@@ -20,3 +20,6 @@ _cgo_export.*
 #eclipse cruft
 .project
 bin
+
+#mac specific
+.DS_Store

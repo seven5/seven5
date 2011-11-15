@@ -1,16 +1,19 @@
-//Web application for go.  See http://seven5.github.com/seven5
+//Web microframework for go.  See http://seven5.github.com/seven5
 package seven5
 
 import (
 	"exp/sql"
 	"flag"
 	"fmt"
-	sqlite3 "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" //force linkage,without naming the library
 	"log"
 	"mongrel2"
 	"os"
 	"path/filepath"
 	"strings"
+	"os/exec"
+	"net"
+	"errors"
 )
 
 //ProjectConfig represents the configuration of a Seven5 web app.  This 
@@ -21,68 +24,45 @@ type ProjectConfig struct {
 	Name    string
 	Logger  *log.Logger
 	Handler []*mongrel2.HandlerAddr
+	ServerId string
 }
 
 const (
+	
+	TEST_SERVER_ID = "f548a1be-3c3c-4f0d-91bd-44edf672af31"
+	
 	LOGDIR        = "log"
 	MONGREL2      = "mongrel2"
-	NO_SUCH_TABLE = "no such table"
-)
-// Try to look at the layout of the filesystem and figure out where the 
-// eclipse source code might be.  Dumps out some useful error messages to
-// standard error when things go wrong during the search. 
-func LocateProjectInEclipse() string {
-	_ = new(sqlite3.SQLiteDriver)
-	cwd, _ := os.Getwd()
-	arch := os.Getenv("GOARCH")
-	localos := os.Getenv("GOOS")
+	OUR_LOG = "seven5.log"
 
-	//this resets the cwd to the top of your project, assuming it exists
-	//by assuming you are running in eclipse 
-	eclipseBinDir := fmt.Sprintf("%s_%s", localos, arch)
-	d, f := filepath.Split(cwd)
-	if eclipseBinDir != "_" && eclipseBinDir == f {
-		d = filepath.Clean(d)
-		projectDir, b := filepath.Split(d)
-		if b == "bin" {
-			//possibly eclipse, switch to project root and look for
-			//the project area
-			pkg := filepath.Join(projectDir, "src", "pkg")
-			info, _ := os.Stat(pkg)
-			if info != nil && info.IsDirectory() {
-				dir, err := os.Open(pkg)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "unable to open directory '%s'\n", pkg)
-				} else {
-					name, err := dir.Readdirnames(0) // get all names
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "cannot read children of directory '%s'!\n", pkg)
-					} else {
-						if len(name) != 1 {
-							fmt.Fprintf(os.Stderr, "directory '%s' has '%d' children, can't decide which one to use!\n", len(name))
-						} else {
-							//probably running in eclipse, check the path to proj
-							projectDir := filepath.Join(pkg, name[0])
-							info, _ = os.Stat(projectDir)
-							if info != nil && info.IsDirectory() {
-								return projectDir
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return ""
-}
+	LOCALHOST     = "localhost"
+	ACCESS_LOG    = "/"+LOGDIR+"/access.log"
+	ERROR_LOG    = "/"+LOGDIR+"/error.log"
+	PID_FILE = RUN+"/mongrel2.pid"
+	TEST_PORT = 6767
+	RUN = "/run"
+	CONTROL = "control"
+	
+	STATIC = "static/"  //must have trailing slash
+	
+	NO_SUCH_TABLE = "no such table"
+	HANDLER_SUFFIX = "_handler.go"
+	HANDLER_INSERT = `insert into handler(send_spec,send_ident,recv_spec,recv_ident) values("%s","%s","%s","");`
+	HOST_INSERT = `insert into host(server_id,name,matching) values(last_insert_rowid(),"%s","%s");`
+	SERVER_INSERT = `insert into server(uuid,access_log,error_log,pid_file,chroot,default_host,name,port) values("%s","%s","%s","%s","%s","%s","%s","%d");`
+	MIME_INSERT = `insert into mimetype(mimetype,extension) values("%s","%s");`
+	DIRECTORY_INSERT = `insert into directory(base,index_file,default_ctype) values("%s","index.html","text/plain");`
+	ROUTE_INSERT = `insert into route(path,host_id,target_id,target_type) values("%s",%s, %s, "%s");`
+	LOG_INSERT = `insert into log(who,what,location,how,why) values("user","load", "localhost", "%s","webapp_start");`
+)
 
 //VerifyProjectLayout checks that the directory structure that is expected for
 //a correct Seven5 application is present.  
 func VerifyProjectLayout(projectPath string) string {
 
-	for _, dir := range []string{LOGDIR, "run", "static"} {
+	for _, dir := range []string{LOGDIR, RUN, STATIC} {
 		candidate := filepath.Join(projectPath, MONGREL2, dir)
-		if s, _ := os.Stat(candidate); s == nil || !s.IsDirectory() {
+		if s, _ := os.Stat(filepath.Clean(candidate)); s == nil || !s.IsDirectory() {
 			return fmt.Sprintf("Unable to find directory %s", candidate)
 		}
 	}
@@ -93,7 +73,7 @@ func VerifyProjectLayout(projectPath string) string {
 //a Seven5 application (mongrel2/log/seven5.log)
 func CreateLogger(projectPath string) (*log.Logger, string, error) {
 
-	path := filepath.Join(projectPath, MONGREL2, LOGDIR, "seven5.log")
+	path := filepath.Join(projectPath, MONGREL2, LOGDIR, OUR_LOG)
 	file, err := os.Create(path)
 	if err != nil {
 		return nil, "", err
@@ -106,13 +86,18 @@ func CreateLogger(projectPath string) (*log.Logger, string, error) {
 //Create a new ProjectConfig object and return a pointer to it.  This method
 //fills in some fields that are already known such as the path, name, and 
 //logger.
-func NewProjectConfig(path string, l *log.Logger) *ProjectConfig {
+func NewProjectConfig(path string, l *log.Logger) (*ProjectConfig, error) {
 	result := new(ProjectConfig)
-	result.Path = path
-	_, n := filepath.Split(path)
+	p, err := filepath.Abs(path)
+	result.Path = p
+	
+	if err!=nil {
+		return nil,err
+	}
+	_, n := filepath.Split(filepath.Clean(path))
 	result.Name = n
 	result.Logger = l
-	return result
+	return result,nil
 }
 
 //ClearTestDB opens the sqlite3 database for mongrel3 configuration and insures
@@ -120,45 +105,24 @@ func NewProjectConfig(path string, l *log.Logger) *ProjectConfig {
 //function creates them.
 func ClearTestDB(config *ProjectConfig) error {
 
-	db_path := filepath.Join(config.Path, fmt.Sprintf("%s_test.sqlite", config.Name))
-
-	db, err := sql.Open("sqlite3", db_path)
+	db, err := sql.Open("sqlite3", db_path(config))
 	if err != nil {
 		return err
 	}
 
-	config.Logger.Printf("created/found mongrel2 configuration db at path: %s", db_path)
+	config.Logger.Printf("created/found mongrel2 configuration db at path: %s", db_path(config))
 
-	destroy := "delete from %s"
-
-	tname := "handler"
-	sql := fmt.Sprintf(destroy, tname)
-	_, err = db.Exec(sql)
-	if err != nil {
-		if !strings.HasPrefix(err.Error(), NO_SUCH_TABLE) {
-			config.Logger.Printf("error clearing table %s:%s", tname, err)
-			return err
-		} else {
-			config.Logger.Printf("table \"%s\" not present, creating tables for mongrel2 configuration", tname)
-		}
-		//tables do not exist, create from scratch
-		_, err = db.Exec(TABLEDEFS_SQL)
+	//destroy all tables, create from scratch
+	for _,create := range TABLEDEFS_SQL{
+		_, err = db.Exec(create)
 		if err != nil {
 			config.Logger.Printf("unable to create tables in mongrel2 config:%s", err.Error())
 			return err
 		}
-	} else {
-		//this is the case where the tables exist
-		for _, tbl := range []string{"host", "log", "mimetype", "proxy", "route", "server", "setting", "statistic"} {
-			sql := fmt.Sprintf(destroy, tname)
-			_, err = db.Exec(sql)
-			if err != nil {
-				config.Logger.Printf("error clearing table %s:%s", tbl, err)
-				return err
-			}
-		}
-		config.Logger.Printf("cleared all table table from mongrel2 configuration")
-	}
+	}	
+		
+	config.Logger.Printf("dropped all mongrel config tables and re-created them")
+	config.ServerId = TEST_SERVER_ID	
 
 	return nil
 }
@@ -168,12 +132,131 @@ func ClearTestDB(config *ProjectConfig) error {
 //there is no error, it puts the assigned mongrel2 addresses (type is
 //mongrel2.HandlerAddr) into the ProjectConfig sruct.
 func DiscoverHandlers(config *ProjectConfig) error {
+
+	dir, err := os.Open(config.Path)
+	if err!=nil {
+		return err
+	}
+	children,err := dir.Readdirnames(0)
+	if err!=nil {
+		return err
+	}
+	address:=[]*mongrel2.HandlerAddr{}
+	for _,child:=range children {
+		if !strings.HasSuffix(child,HANDLER_SUFFIX)  {
+			continue
+		}
+		info,_:=os.Stat(filepath.Join(config.Path,child))
+		if info==nil || !info.IsRegular() {
+			continue
+		}
+		end:=strings.Index(child,HANDLER_SUFFIX)
+		name:=child[0:end]
+		a,err:=mongrel2.GetHandlerAddress(name)
+		if err!=nil {
+			return nil
+		}
+		address=append(address,a)
+	}
+	config.Handler = address
 	return nil
 }
 
-//GenerateHandlerConfig puts the addresses of the web application's mongrel2
-//handlers into the sqlite database (in the standard location).
-func GenerateHandlerConfig(config *ProjectConfig) error {
+//GenerateMongrelConfig all the necessary configuration for the mongrel2 server into the 
+//database in the standard location.  It sets all the variables of the mongrel2 instance
+//to their default values.
+func GenerateMongrel2Config(config *ProjectConfig) error {
+
+	db, err := sql.Open("sqlite3", db_path(config))
+	if err != nil {
+		return err
+	}
+
+	var sqlText string
+	
+	//note: these are ORDER DEPENDENT because of selects later than reference tables 
+	//note: created earlier
+
+	//SERVER
+	chroot:=filepath.Join(config.Path,MONGREL2)
+	sqlText = fmt.Sprintf(SERVER_INSERT,config.ServerId, ACCESS_LOG, ERROR_LOG, PID_FILE, chroot, LOCALHOST, config.Name, TEST_PORT)
+	_, err = db.Exec(sqlText)	
+	if err!=nil {
+		return err
+	}
+	config.Logger.Printf("=== server id %s ===\n",config.ServerId)
+	config.Logger.Printf("inserted server into config:%s\n",sqlText)
+	
+	//HOST
+	sqlText = fmt.Sprintf(HOST_INSERT, LOCALHOST, LOCALHOST)
+	_, err = db.Exec(sqlText)	
+	if err!=nil {
+		return err
+	}
+	config.Logger.Printf("inserted host into config:%s\n",sqlText)
+
+	//HANDLER
+	for _, addr := range config.Handler {
+		sqlText=fmt.Sprintf(HANDLER_INSERT,addr.PullSpec, config.ServerId, addr.PubSpec)
+		_, err := db.Exec(sqlText)	
+		if err!=nil {
+			return err
+		}
+		config.Logger.Printf("inserted %s handler configuration:%s\n",addr.Name,sqlText)
+	}
+	
+	//this is the query used to find the host that routes point at
+	nestedHost:=fmt.Sprintf(`(select id from host where name="%s")`, LOCALHOST)
+	
+	// ROUTE TO HANDLERS
+	for _, addr := range config.Handler {
+		nestedHandler:=fmt.Sprintf(`(select id from handler where send_spec="%s")`,addr.PullSpec)
+		sqlText=fmt.Sprintf(ROUTE_INSERT,"/"+addr.Name,nestedHost,nestedHandler,"handler")
+		_, err = db.Exec(sqlText)	
+		if err!=nil {
+			return err
+		}
+		config.Logger.Printf("inserted handler %s into routes:%s\n",addr.Name,sqlText)
+		config.Logger.Printf("\tnested host:%s\n",nestedHost)
+		config.Logger.Printf("\tnested handler:%s\n",nestedHandler)
+	}
+
+	//static content
+	sqlText = fmt.Sprintf(DIRECTORY_INSERT,STATIC)
+	_, err = db.Exec(sqlText)	
+	if err!=nil {
+		return err
+	}
+	config.Logger.Printf("inserted directory into config:%s\n",DIRECTORY_INSERT)
+	
+	// ROUTE TO STATIC CONTENT
+	staticDirectory:=fmt.Sprintf(`(select id from directory where base="%s")`,STATIC)
+	sqlText=fmt.Sprintf(ROUTE_INSERT,"/",nestedHost,staticDirectory,"dir")
+
+	_, err = db.Exec(sqlText)	
+	if err!=nil {
+		return err
+	}
+	config.Logger.Printf("inserted static content route into config:%s\n",sqlText)
+	config.Logger.Printf("\tnested host:%s\n",nestedHost)
+	config.Logger.Printf("\tnested directory:%s\n",staticDirectory)
+
+	for _,pair := range MIME_TYPE {
+		sqlText = fmt.Sprintf(MIME_INSERT,pair[0],pair[1])
+		_, err = db.Exec(sqlText)	
+		if err!=nil {
+			return err
+		}
+	}
+	config.Logger.Printf("inserted %d mime types in mongrel2 configuration\n",len(MIME_TYPE))
+	
+	sqlText = fmt.Sprintf(LOG_INSERT,db_path(config))
+	_, err = db.Exec(sqlText)	
+	if err!=nil {
+		return err
+	}
+	config.Logger.Printf("inserted log entry into config:%s\n",sqlText)
+	
 	return nil
 }
 
@@ -201,17 +284,7 @@ func Bootstrap() *ProjectConfig {
 
 	if err := VerifyProjectLayout(projectDir); err != "" {
 		dumpBadProjectLayout(projectDir, err)
-		if eclipse := LocateProjectInEclipse(); eclipse != "" {
-			fmt.Fprintf(os.Stderr, "checking for possible eclipse project at '%s'\n", eclipse)
-			if err := VerifyProjectLayout(eclipse); err != "" {
-				dumpBadProjectLayout(eclipse, err)
-				return nil
-			} else {
-				projectDir = eclipse //success! found eclipse project!
-			}
-		} else {
-			return nil
-		}
+		return nil
 	}
 
 	logger, path, err := CreateLogger(projectDir)
@@ -219,10 +292,15 @@ func Bootstrap() *ProjectConfig {
 		fmt.Fprintf(os.Stderr, "unable to create logger:%s\n", err)
 		return nil
 	}
-
+	
 	fmt.Printf("Seven5 is logging to %s\n", path)
 
-	config := NewProjectConfig(projectDir, logger)
+	config, err := NewProjectConfig(projectDir, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to compute project configuration (problem with path to configuration db?):%s\n", err.Error())
+		return nil
+	}
+	
 	config.Logger.Printf("Starting to run with project %s at %s", config.Name, config.Path)
 
 	err = ClearTestDB(config)
@@ -237,8 +315,76 @@ func Bootstrap() *ProjectConfig {
 		return nil
 	}
 
+	err = GenerateMongrel2Config(config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to write mongrel2 config:%s\n", err.Error())
+		return nil
+	}
+
+	err = runMongrel(config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to start/reset mongrel2:%s\n", err.Error())
+		return nil
+	}
+	
+
 	return config
 }
+
+func startMongrel(config *ProjectConfig) error {
+	
+	
+	mongrelPath,err := exec.LookPath("mongrel2")
+	if err!=nil {
+		config.Logger.Printf("unable to find mongrel2 in path! you should probably change your PATH environment variable")
+		return err
+	}
+	
+	config.Logger.Printf("using mongrel2 binary at %s",mongrelPath)
+	
+	cmd := exec.Command(mongrelPath, db_path(config), config.ServerId)
+	cmd.Dir = filepath.Join(config.Path,"mongrel2")
+	
+	err = cmd.Start()
+	if err!=nil {
+		return err
+	}
+
+	config.Logger.Printf("changed working directory to %s and started mongrel2 (pid=%d)\n", cmd.Dir, cmd.Process.Pid)
+	
+	return nil
+}
+
+func runMongrel(config *ProjectConfig) error {
+	
+	socketPath := filepath.Join(config.Path, MONGREL2, RUN, CONTROL)
+
+	addr, err := net.ResolveUnixAddr("unix", socketPath)
+	if err!=nil {
+		return err
+	}
+	
+	unixConn, err := net.DialUnix("unix",nil,addr)
+	if err!=nil {
+		config.Logger.Printf("Unable to connect to mongrel2 via %s (%s): will try to start mongrel2\n",socketPath,err)
+		return startMongrel(config)
+	}
+
+	config.Logger.Printf("connected to mongrel2 via %s... restarting\n",socketPath)
+	
+	reload :="reload\n"
+	n, err:=unixConn.Write([]byte(reload))
+	if err!=nil {
+		return err
+	}
+	if n!=len(reload) {
+		return errors.New("didn't write the correct number of bytes on unix socket for reload!")
+	}
+	
+	return nil
+	
+}
+
 //dumpBadProjectLayout prints out a helpful error message to stderr so the 
 //developer has some hope of figuring out what is wrong with they project 
 //structure.
@@ -248,37 +394,54 @@ func dumpBadProjectLayout(projectDir, err string) {
 	fmt.Fprintf(os.Stderr, "\nfor project structure details, see http://seven5.github.com/seven5/project_layout.html\n\n")
 }
 
-const TABLEDEFS_SQL = `
-CREATE TABLE handler (id INTEGER PRIMARY KEY,
+//Create a path to the SQLite db, given a project structure
+func db_path(config *ProjectConfig) string {
+	return filepath.Join(config.Path, fmt.Sprintf("%s_test.sqlite", config.Name))
+	
+}
+
+
+var TABLEDEFS_SQL =  []string{ 
+`DROP TABLE IF EXISTS server;`,
+`DROP TABLE IF EXISTS host;`,
+`DROP TABLE IF EXISTS handler;`,
+`DROP TABLE IF EXISTS proxy;`,
+`DROP TABLE IF EXISTS route;`,
+`DROP TABLE IF EXISTS statistic;`,
+`DROP TABLE IF EXISTS mimetype;`,
+`DROP TABLE IF EXISTS setting;`,
+`DROP TABLE IF EXISTS directory;`,
+`CREATE TABLE handler (id INTEGER PRIMARY KEY,
     send_spec TEXT, 
     send_ident TEXT,
     recv_spec TEXT,
     recv_ident TEXT,
    raw_payload INTEGER DEFAULT 0,
-   protocol TEXT DEFAULT 'json');
-CREATE TABLE host (id INTEGER PRIMARY KEY, 
+   protocol TEXT DEFAULT 'json');`,
+`CREATE TABLE directory (id INTEGER PRIMARY KEY,   base TEXT,   index_file TEXT,  	default_ctype TEXT,   cache_ttl INTEGER DEFAULT 0);`,
+`CREATE TABLE host (id INTEGER PRIMARY KEY, 
     server_id INTEGER,
     maintenance BOOLEAN DEFAULT 0,
     name TEXT,
-    matching TEXT);
-CREATE TABLE log(id INTEGER PRIMARY KEY,
+    matching TEXT);`,
+`CREATE TABLE IF NOT EXISTS log(id INTEGER PRIMARY KEY,
     who TEXT,
     what TEXT,
     location TEXT,
     happened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     how TEXT,
-    why TEXT);
-CREATE TABLE mimetype (id INTEGER PRIMARY KEY, mimetype TEXT, extension TEXT);
-CREATE TABLE proxy (id INTEGER PRIMARY KEY,
+    why TEXT);`,
+`CREATE TABLE mimetype (id INTEGER PRIMARY KEY, mimetype TEXT, extension TEXT);`,
+`CREATE TABLE proxy (id INTEGER PRIMARY KEY,
     addr TEXT,
-    port INTEGER);
-CREATE TABLE route (id INTEGER PRIMARY KEY,
+    port INTEGER);`,
+`CREATE TABLE route (id INTEGER PRIMARY KEY,
     path TEXT,
     reversed BOOLEAN DEFAULT 0,
     host_id INTEGER,
     target_id INTEGER,
-    target_type TEXT);
-CREATE TABLE server (id INTEGER PRIMARY KEY,
+    target_type TEXT);`,
+`CREATE TABLE server (id INTEGER PRIMARY KEY,
     uuid TEXT,
     access_log TEXT,
     error_log TEXT,
@@ -288,9 +451,9 @@ CREATE TABLE server (id INTEGER PRIMARY KEY,
     name TEXT DEFAULT '',
     bind_addr TEXT DEFAULT "0.0.0.0",
     port INTEGER,
-    use_ssl INTEGER default 0);
-CREATE TABLE setting (id INTEGER PRIMARY KEY, key TEXT, value TEXT);
-CREATE TABLE statistic (id SERIAL, 
+    use_ssl INTEGER default 0);`,
+`CREATE TABLE setting (id INTEGER PRIMARY KEY, key TEXT, value TEXT);`,
+`CREATE TABLE statistic (id SERIAL, 
     other_type TEXT,
     other_id INTEGER,
     name text,
@@ -302,4 +465,5 @@ CREATE TABLE statistic (id SERIAL,
     mean REAL,
     sd REAL,
     primary key (other_type, other_id, name));
-`
+`,
+}
