@@ -46,11 +46,32 @@ cd godag
 Build Tool (if you prefer gb)
 -------------------------
 
-<pre>
+To track weeklies (which you probably want):
 
+<pre>
+	
+goinstall go-gb.googlecode.com/hg/gb
 
 </pre>
 
+Released versions (which you probably don't want)
+
+<pre>
+	
+goinstall github.com/skelterjohn/go-gb/gb
+
+</pre>
+
+Testing tool (gocheck)
+-------------------------
+
+<pre>
+
+bzr branch lp:gocheck
+cd gocheck
+make install
+
+</pre>
 
 0mq
 ---
