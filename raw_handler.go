@@ -8,6 +8,7 @@ import (
 	"strings"
 	"errors"
 	"github.com/alecthomas/gozmq"
+	"os"
 )
 
 //RawHandler low-level interface to the raw mongrel2 communication that allows messages to
@@ -120,4 +121,34 @@ func generateStackTrace(err string) string {
 		}
 	}
 	return buffer.String()
+}
+
+//StartUp is what most web apps will want to use as an entry point. The return parameter 
+//is the zmq context for this application and this should be closed on shutdown 
+//(usually using defer). This functions runs all the RawHandler objects provided in a go
+//routine using RunRaw().  If something went wrong this returns nil and most web
+//apps will just want to exit since the error has already been printed.
+func StartUp(handlers []RawHandler) gozmq.Context{
+	var conf *ProjectConfig
+	var ctx gozmq.Context
+	
+	conf, ctx=Bootstrap()
+	if conf==nil {
+		return nil
+	}
+	
+	allMongrel2 := []*mongrel2.Handler{}
+	
+	for _,h := range handlers {
+		mongrel2Level, err:= RunRaw(h,ctx,conf)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error starting the mongrel connection for %s:%s\n",h.Name(), err)
+			return nil
+		}
+		
+		allMongrel2=append(allMongrel2,mongrel2Level)
+	}
+	
+	return ctx
 }
