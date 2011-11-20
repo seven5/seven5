@@ -179,28 +179,40 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 	//SERVER
 	chroot := filepath.Join(config.Path, MONGREL2)
 	sqlText = fmt.Sprintf(SERVER_INSERT, config.ServerId, ACCESS_LOG, ERROR_LOG, PID_FILE, chroot, LOCALHOST, config.Name, TEST_PORT)
-	_, err = db.Exec(sqlText)
+	r, err := db.Exec(sqlText)
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted server into config:%s\n", sqlText)
+	res, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted server into config:%s (%d row)\n", sqlText, res)
 
 	//HOST
 	sqlText = fmt.Sprintf(HOST_INSERT, LOCALHOST, LOCALHOST)
-	_, err = db.Exec(sqlText)
+	r, err = db.Exec(sqlText)
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s\n", sqlText)
+	res, err = r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText,res)
 
 	//HANDLER
 	for _, addr := range config.Handler {
 		sqlText = fmt.Sprintf(HANDLER_INSERT, addr.PullSpec, addr.UUID, addr.PubSpec)
-		_, err := db.Exec(sqlText)
+		r, err = db.Exec(sqlText)
 		if err != nil {
 			return err
 		}
-		config.Logger.Printf("[MONGREL2 SQL] inserted %s handler configuration:%s\n", addr.Name, sqlText)
+		res, err = r.RowsAffected()
+		if err != nil {
+			return err
+		}
+		config.Logger.Printf("[MONGREL2 SQL] inserted %s handler configuration:%s (%d row)\n", addr.Name, sqlText, res)
 	}
 
 	//this is the query used to find the host that routes point at
@@ -218,22 +230,30 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 	}
 
 	//static content
-	sqlText = fmt.Sprintf(DIRECTORY_INSERT, STATIC)
-	_, err = db.Exec(sqlText)
+	dirText := fmt.Sprintf(DIRECTORY_INSERT, STATIC)
+	r, err = db.Exec(dirText)
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted directory into config:%s\n", DIRECTORY_INSERT)
+	res, err = r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted directory into config:%s (%d row)\n", dirText, res)
 
 	// ROUTE TO STATIC CONTENT
 	staticDirectory := fmt.Sprintf(`(select id from directory where base="%s")`, STATIC)
-	sqlText = fmt.Sprintf(ROUTE_INSERT, "/", nestedHost, staticDirectory, "dir")
+	routeText := fmt.Sprintf(ROUTE_INSERT, "/", nestedHost, staticDirectory, "dir")
 
-	_, err = db.Exec(sqlText)
+	r, err = db.Exec(routeText)
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted static content route into config:%s\n", sqlText)
+	res, err = r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted static content route into config:%s (%d row)\n", routeText, res)
 
 	rows, err := db.Query("select count(*) from mimetype;")
 	if err != nil {
@@ -245,11 +265,14 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 	var result int
 	rows.Next()
 	rows.Scan(&result)
+	rows.Close()
+	
+	config.Logger.Printf("[MONGREL2 SQL] currenty %d items in mimetype table\n", result)
 
 	if result == 0 {
 		for _, pair := range MIME_TYPE {
-			sqlText = fmt.Sprintf(MIME_INSERT, pair[0], pair[1])
-			_, err = db.Exec(sqlText)
+			mimeText := fmt.Sprintf(MIME_INSERT, pair[0], pair[1])
+			_, err = db.Exec(mimeText)
 			if err != nil {
 				return err
 			}
@@ -271,7 +294,8 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 
 //Bootstrap should be called by projects that use the Seven5 infrastructure to
 //parse the command line arguments and to discover the project's structure.
-//This function returns null if the project config is not standard.  
+//This function returns null if the project config is not standard.  This is a 
+//wrapper on BootstrapFromDir that gets the project directory from the command line args. 
 func Bootstrap() (*ProjectConfig, gozmq.Context) {
 
 	cwd, err := os.Getwd()
@@ -290,7 +314,13 @@ func Bootstrap() (*ProjectConfig, gozmq.Context) {
 	} else {
 		projectDir = flagSet.Arg(1)
 	}
+	return BootstrapFromDir(projectDir)
+}
 
+//BootstrapFromDir does the heavy lifting to set up a project, given a directory to work
+//with.  It returns a configuration (or nil on error) plus the Context object that it 
+//created for use in this application.
+func BootstrapFromDir(projectDir string)  (*ProjectConfig, gozmq.Context) {
 	if err := VerifyProjectLayout(projectDir); err != "" {
 		dumpBadProjectLayout(projectDir, err)
 		return nil, nil
