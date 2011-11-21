@@ -1,26 +1,16 @@
+# Seven5: Pontificate
 
-Seven 5
-=======
+<nav>
+    <ul>
+        <li>[Intro](index.html)</li>
+        <li>[Install](install.html)</li>
+        <li>[Develop](develop.html)</li>
+        <li>[Pontificate](pontificate.html)</li>
+    </ul>
+</nav>
 
-**Seven5** is a web microframework for go. It has a number of design objectives:
+## Data Model
 
-* Don't repeat yourself.  Don't repeat others' work; remove an item from the  
-stack if it exists elsewhere.
-* Use go's strong typing and fast compiler as an advantage for web developers.
-* Make all parts of the application easy to test by a single developer on a 
-single machine.
-* Make the resulting system deploy and scale nicely on cloud-like 
-infrastructure.
-
-Recently Updated
--------
-
-[Why Mongrel2?](why_mongrel2.html)
-
-[Project Layout?](project_layout.html)
-
-Data Model
-----------
 **Seven5** has neither the inevitable ORM nor SQL mapping so often associated
 with other frameworks.  99% of the world doesn't need SQL for a website.  Because 
 of convenient ORMs, developers end up with SQL databases simply because that's 
@@ -44,8 +34,7 @@ things like [protobufs](http://en.wikipedia.org/wiki/Protobuf) or even
 [JSON](http://json.org) that's up to you.
 
 
-Guises
-------
+## Guises
 
 A notion that is critical to **Seven5**'s operation is the notion of a 'guise' 
 (rhymes with cheese, not fries).  A guise is a bit of code that allows a 
@@ -62,8 +51,7 @@ requests for any gif file and returns an image of a clock with the hands set to
 the appropriate current time in Paris. (It's easy to do with go's image file
 support!)
 
-Two DSLs And A Microphone
--------------------------
+## Two DSLs And A Microphone
 
 **Seven5** has three carefully interlocking pieces to make web app development
 more pleasant, and blindingly fast. _Time may, in fact, slow down for you because
@@ -76,7 +64,7 @@ of these two DSLs.  All of these are implemented as Guises; the final one,
 though, is visible to a developer only by programming in Javascript.
 
 
-### CSSGuise
+## CSSGuise
 
 We will first discuss the `CSSGuise` and its accompanying DSL.  This guise takes
 an input which is a CSS file to return, such as `foo.css`, from the browser. It
@@ -145,7 +133,7 @@ smile slightly in quixotic reflection at the efforts of
 system without the pain of a templating system. Tilt on, brothers!
 
 The author of the template above is attempting to do programming, not write HTML 
-code---note the 'fixme' comment to remind him or herself go back 
+code &mdash; note the 'fixme' comment to remind him or herself go back 
 later!   **Seven5**'s DSL for HTML means that
 code uses the best tools and practices we know of for building software.  Put
 in the negative, "How can a development environment or a best practice like
@@ -281,8 +269,7 @@ client to drive the JS code.  Similarly, JSGuise could output some "testing
 functions" that could be called from test code (via a network message to the 
 browser from the server).
 
-AJAX Stuff
------------
+## AJAX Stuff
 
 Mongrel2 [already has](https://gist.github.com/920729)
 support for the WebSockets proposal by 
@@ -295,8 +282,7 @@ blah.  We should get this for free via our mongrel2 connection.
 unit tests to drive both client and server.
 
 
-Naming
-------
+## Naming
 
 The framework is called **Seven5** because the originator lives in Paris, France.
 All the postal codes for Paris, proper, begin with 75.  Besides, names don't
@@ -319,5 +305,35 @@ The use of the name
 are often needed when working with web frameworks.  Such tools, correctly 
 applied, can be the killing stroke whereas huge, but relatively blunt, tools
 like Javascript often provide less death.  More death is better.
+
+## Why Mongrel2
+
+### Production Reasons
+
+* [Mongrel2](http://www.mongrel2.org) is derived from mongrel.  Both of them 
+have extremely well tested and secure http handling code.  Both are known to
+perform well under high load and to pass [valgrind](http://www.valgrind.org), so
+they do not leak memory.  It's solid.
+
+* Mongrel2 is friendly for deployment/operations and can be easily configured to
+work in a cluster.  Mongrel2 can also handle having clusters, not necessarily in
+the same configuration, that handle the requests for one or more applications
+deployed on the cluster.  It's scalable.
+
+### Testing Reasons
+
+* Test the "front door" not some other path.  In other words, the best tests 
+use the code path that is as close---or better yet identical too--the code path 
+that is used by the end-user.  Unit tests in **Seven5** code through the exact
+same dispatching (sometimes called "routing") as a request in a production
+deployment, even in a clustered deployment.
+
+* Mongrel is easy to configure and control programmatically.  **Seven5** 
+exploits this ability to allow the server to be configured based on its
+own conventions of how to develop a web application.  During development it 
+should never be necessary to touch a configuration file.  **Seven5** also uses
+this ability to programmatically start or restart mongrel2 as needed to run
+the developer's web application.
+
 
 

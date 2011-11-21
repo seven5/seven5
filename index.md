@@ -1,12 +1,24 @@
+# Seven5:
 
-Seven5 Documentation Hub
-========================
+<nav>
+    <ul>
+        <li>[Intro](index.html)</li>
+        <li>[Install](install.html)</li>
+        <li>[Develop](develop.html)</li>
+        <li>[Pontificate](pontificate.html)</li>
+    </ul>
+</nav>
 
-[Why Mongrel2?](why_mongrel2.html)
+## An opinionated web framework written in go.
 
-[Project Layout?](project_layout.html)
+![Block Diagram](Seven5BlockDiagram.png)
 
-[Design Goals](design.html)
+## Tactics we embrace like bacon on a cupcake:
 
-[Installation](installation.html)
+### Demand a dev cycle like we're used to with interpreted languages.
 
+### Make out with strong typing and a fast compiler.
+
+### Develop and demo on a single machine but smoothly blow into the clouds.
+
+### Don't repeat {yourself, others, the stack}.

@@ -1,0 +1,7 @@
+@import url("reset.css");
+@import url("markdown.css");
+
+nav ul { width: 100%; }
+nav li { display: inline; font-size: 2em; margin-right: 0.5em; }
+nav li, nav a { color: #844; }
+img[alt="Block Diagram"] { text-align: center; }

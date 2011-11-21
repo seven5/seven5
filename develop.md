@@ -1,6 +1,15 @@
+# Seven5: Develop
 
-Seven5 Project Layout 
-=======
+<nav>
+    <ul>
+        <li>[Intro](index.html)</li>
+        <li>[Install](install.html)</li>
+        <li>[Develop](develop.html)</li>
+        <li>[Pontificate](pontificate.html)</li>
+    </ul>
+</nav>
+
+## Project Layout 
 
 **Seven5** uses conventions, not configuration, to manage how your web 
 application will work.  During development, you should never write a 

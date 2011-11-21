@@ -1,32 +1,23 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <title>Seven 5</title>
+  <title>Seven5: Pontificate</title>
   <meta name="GENERATOR" content="Blackfriday Markdown Processor v1.1" />
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <link rel="stylesheet" type="text/css" href="http://kevinburke.bitbucket.org/markdowncss/markdown.css" />
+  <link rel="stylesheet" type="text/css" href="css/base.css" />
 </head>
 <body>
 
-<h1>Seven 5</h1>
+<h1>Seven5: Pontificate</h1>
 
-<p><strong>Seven5</strong> is a web microframework for go. It has a number of design objectives:</p>
-
-<ul>
-<li>Don&rsquo;t repeat yourself.  Don&rsquo;t repeat others&rsquo; work; remove an item from the<br />
-stack if it exists elsewhere.</li>
-<li>Use go&rsquo;s strong typing and fast compiler as an advantage for web developers.</li>
-<li>Make all parts of the application easy to test by a single developer on a
-single machine.</li>
-<li>Make the resulting system deploy and scale nicely on cloud-like
-infrastructure.</li>
-</ul>
-
-<h2>Recently Updated</h2>
-
-<p><a href="why_mongrel2.html">Why Mongrel2?</a></p>
-
-<p><a href="project_layout.html">Project Layout?</a></p>
+<p><nav>
+    <ul>
+        <li><a href="index.html">Intro</a></li>
+        <li><a href="install.html">Install</a></li>
+        <li><a href="develop.html">Develop</a></li>
+        <li><a href="pontificate.html">Pontificate</a></li>
+    </ul>
+</nav></p>
 
 <h2>Data Model</h2>
 
@@ -81,7 +72,7 @@ library that understands how to interact with the results of the <strong>source<
 of these two DSLs.  All of these are implemented as Guises; the final one,
 though, is visible to a developer only by programming in Javascript.</p>
 
-<h3>CSSGuise</h3>
+<h2>CSSGuise</h2>
 
 <p>We will first discuss the <code>CSSGuise</code> and its accompanying DSL.  This guise takes
 an input which is a CSS file to return, such as <code>foo.css</code>, from the browser. It
@@ -154,7 +145,7 @@ smile slightly in quixotic reflection at the efforts of
 system without the pain of a templating system. Tilt on, brothers!</p>
 
 <p>The author of the template above is attempting to do programming, not write HTML
-code&mdash;note the &lsquo;fixme&rsquo; comment to remind him or herself go back
+code &mdash; note the &lsquo;fixme&rsquo; comment to remind him or herself go back
 later!   <strong>Seven5</strong>&rsquo;s DSL for HTML means that
 code uses the best tools and practices we know of for building software.  Put
 in the negative, &ldquo;How can a development environment or a best practice like
@@ -331,6 +322,39 @@ may educate in many ways.</p>
 are often needed when working with web frameworks.  Such tools, correctly
 applied, can be the killing stroke whereas huge, but relatively blunt, tools
 like Javascript often provide less death.  More death is better.</p>
+
+<h2>Why Mongrel2</h2>
+
+<h3>Production Reasons</h3>
+
+<ul>
+<li><p><a href="http://www.mongrel2.org">Mongrel2</a> is derived from mongrel.  Both of them
+have extremely well tested and secure http handling code.  Both are known to
+perform well under high load and to pass <a href="http://www.valgrind.org">valgrind</a>, so
+they do not leak memory.  It&rsquo;s solid.</p></li>
+
+<li><p>Mongrel2 is friendly for deployment/operations and can be easily configured to
+work in a cluster.  Mongrel2 can also handle having clusters, not necessarily in
+the same configuration, that handle the requests for one or more applications
+deployed on the cluster.  It&rsquo;s scalable.</p></li>
+</ul>
+
+<h3>Testing Reasons</h3>
+
+<ul>
+<li><p>Test the &ldquo;front door&rdquo; not some other path.  In other words, the best tests
+use the code path that is as close&mdash;or better yet identical too&ndash;the code path
+that is used by the end-user.  Unit tests in <strong>Seven5</strong> code through the exact
+same dispatching (sometimes called &ldquo;routing&rdquo;) as a request in a production
+deployment, even in a clustered deployment.</p></li>
+
+<li><p>Mongrel is easy to configure and control programmatically.  <strong>Seven5</strong>
+exploits this ability to allow the server to be configured based on its
+own conventions of how to develop a web application.  During development it
+should never be necessary to touch a configuration file.  <strong>Seven5</strong> also uses
+this ability to programmatically start or restart mongrel2 as needed to run
+the developer&rsquo;s web application.</p></li>
+</ul>
 
 </body>
 </html>

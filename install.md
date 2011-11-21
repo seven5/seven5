@@ -1,8 +1,15 @@
-Seven5 Installation
-===================
+# Seven5: Install
 
-Go
---
+<nav>
+    <ul>
+        <li>[Intro](index.html)</li>
+        <li>[Install](install.html)</li>
+        <li>[Develop](develop.html)</li>
+        <li>[Pontificate](pontificate.html)</li>
+    </ul>
+</nav>
+
+## Go
 
 <pre>
 
