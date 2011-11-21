@@ -19,129 +19,126 @@
     </ul>
 </nav></p>
 
+<p>Here are the commands which we run to install the prerequisites for development on our OS X boxen.</p>
+
+<p>You may need to edit the paths or config options to reflect your environment, but we made notes where that is likely.</p>
+
 <h2>Go</h2>
 
-<pre>
+<p>If you lack a compiler or something else Go needs, consult the <a href="http://golang.org/doc/install.html">Go install page</a>.</p>
 
+<pre><code>mkdir ~/Documents/Go/ # Anywhere which you own is fine
+cd ~/Documents/Go/
 hg clone https://go.googlecode.com/hg/ go
 cd go
 hg update weekly #gives you most recent weekly build of go
 cd src
 ./all.bash
 ./sudo.bash
-
-</pre>
+</code></pre>
 
 <h2>Your shell</h2>
 
-<pre>
-    
-# Add this to ~/.bash_profile
-export GOROOT=~/Documents/Go/go   #directory where you installed go
+<p>Some variables need to be in your environment before you proceed, so add them to ~/.bash_profile:</p>
+
+<pre><code>export GOROOT=~/Documents/Go/go   #directory where you installed go
 export GOBIN=$GOROOT/bin
 export GOOS=darwin  #or your os, like 'linux' or 'freebsd'
 export GOARCH=amd64  #or your arch, like 'x86' for 32-bit or 'arm'
+export PATH=$PATH:$GOBIN
+</code></pre>
 
-#these need to be in your environment before you proceed
+<h2>The build tool, gb</h2>
 
-</pre>
+<pre><code>goinstall go-gb.googlecode.com/hg/gb
+</code></pre>
 
-<h2>Build Tool (if you prefer godag)</h2>
+<h2>The testing tool, gocheck</h2>
 
-<pre>
-
-hg clone https://godag.googlecode.com/hg/ godag
-cd godag
-6g _gdmk.go 
-6l -o gdmk _gdmk.6 
-./gdmk install
-
-</pre>
-
-<h2>Build Tool (if you prefer gb)</h2>
-
-<p>To track weeklies (which you probably want):</p>
-
-<pre>
-    
-goinstall go-gb.googlecode.com/hg/gb
-
-</pre>
-
-<p>Released versions (which you probably don&rsquo;t want)</p>
-
-<pre>
-    
-goinstall github.com/skelterjohn/go-gb/gb
-
-</pre>
-
-<h2>Testing tool (gocheck)</h2>
-
-<pre>
-
-bzr branch lp:gocheck
+<pre><code>bzr branch lp:gocheck
 cd gocheck
 make install
-
-</pre>
+</code></pre>
 
 <h2>0mq</h2>
 
-<pre>
-    
-git clone https://github.com/zeromq/zeromq2-1.git zeromq
+<pre><code>git clone https://github.com/zeromq/zeromq2-1.git zeromq
 cd zeromq
 ./autogen.sh
 ./configure
 make
 sudo make install
-
-</pre>
+</code></pre>
 
 <h2>Gozmq</h2>
 
-<pre>
-
-goinstall github.com/alecthomas/gozmq
-
-</pre>
+<pre><code>goinstall github.com/alecthomas/gozmq
+</code></pre>
 
 <h2>mongrel2</h2>
 
-<pre>
-    
-curl http://mongrel2.org/static/downloads/mongrel2-1.7.5.tar.bz2 > mongrel2-1.7.5.tar.bz2
+<pre><code>curl http://mongrel2.org/static/downloads/mongrel2-1.7.5.tar.bz2 &gt; mongrel2-1.7.5.tar.bz2
 bunzip2 mongrel2-1.7.5.tar.bz2
 tar -xvf mongrel2-1.7.5.tar
 cd mongrel2-1.7.5
 sudo make all install
+</code></pre>
 
-</pre>
+<h2>libevent</h2>
+
+<p>Download the libevent source from <a href="http://www.monkey.org/~provos/libevent/">libevent</a>.</p>
+
+<pre><code>tar -xzvf libevent-2.0.16-stable.tar.gz
+cd libevent-2.0.16-stable
+./configure
+sudo make install
+</code></pre>
+
+<h2>memcached</h2>
+
+<p>Download the source from <a href="http://memcached.org/">memcached</a></p>
+
+<pre><code>tar -xzvf memcached-1.4.10.tar.gz
+cd memcached-1.4.10
+./configure
+sudo make install
+</code></pre>
 
 <h2>seven5</h2>
 
-<pre>
+<p>Check out some repos and branches containing the mongrel2 connector, the seven5 stack, the docs and the samples.</p>
 
-# Make four subdirs from 2 repos (3 branches in seven5) for development setup
-
-mkdir seven5dev
+<pre><code>mkdir seven5dev
 cd seven5dev
 git clone -b master https://github.com/seven5/mongrel2 mongrel2
 git clone -b master https://github.com/seven5/seven5 seven5
 git clone -b gh-pages https://github.com/seven5/seven5 doc
 git clone -b samples https://github.com/seven5/seven5 samples
-
-</pre>
+</code></pre>
 
 <h2>Building Everything With gb</h2>
 
-<pre>
-
-#go to directory seven5dev
+<pre><code>cd seven5dev
 gb
+</code></pre>
 
-</pre>
+<h2>Optional but handy software</h2>
+
+<h3>TextMate bundle</h3>
+
+<pre><code>curl -L github.com/downloads/AlanQuatermain/go-tmbundle/install-go-tmbundle.sh | sh
+</code></pre>
+
+<p>Edit TextMate&rsquo;s global PATH variable to include $GOBIN.</p>
+
+<h3>Black Friday for markdown compilation</h3>
+
+<pre><code>git clone https://github.com/russross/blackfriday.git blackfriday
+cd blackfriday
+gomake install
+</code></pre>
+
+<p>Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.</p>
 
 </body>
 </html>

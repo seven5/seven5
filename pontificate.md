@@ -11,17 +11,17 @@
 
 ## Data Model
 
-**Seven5** has neither the inevitable ORM nor SQL mapping so often associated
+Seven5 has neither the inevitable ORM nor SQL mapping so often associated
 with other frameworks.  99% of the world doesn't need SQL for a website.  Because 
 of convenient ORMs, developers end up with SQL databases simply because that's 
 the easiest path in the web framework.
 
-**Seven5** makes a different strategy easy.  Your data model is just, well,
+Seven5 makes a different strategy easy.  Your data model is just, well,
 your data model.  You use go's data structures and store them, unmodified,
 in a big blob of RAM called [memcached](http://memcached.org/).  There is no 
 disk storage, because disk is slow, expensive to manage, and generally more 
 trouble than it's worth in the age of server machines with 64 or 128GB of 
-RAM.  **Seven5** allows easy provision of 
+RAM.  Seven5 allows easy provision of 
 redundant memcacheds in different locales, if you are really paranoid about
 server crash.  You can, of course, make periodic backups if you choose to 
 (although don't be surprised if we don't recommend it).  Memcached is directly 
@@ -36,7 +36,7 @@ things like [protobufs](http://en.wikipedia.org/wiki/Protobuf) or even
 
 ## Guises
 
-A notion that is critical to **Seven5**'s operation is the notion of a 'guise' 
+A notion that is critical to Seven5's operation is the notion of a 'guise' 
 (rhymes with cheese, not fries).  A guise is a bit of code that allows a 
 computation to look like a file, a part of a file or other http-level 
 resource.  Some important 
@@ -53,7 +53,7 @@ support!)
 
 ## Two DSLs And A Microphone
 
-**Seven5** has three carefully interlocking pieces to make web app development
+Seven5 has three carefully interlocking pieces to make web app development
 more pleasant, and blindingly fast. _Time may, in fact, slow down for you because
 of the speed of your development._  The first two are 
 [DSLs](http://en.wikipedia.org/wiki/Domain-specific_language), implemented
@@ -124,17 +124,17 @@ web frameworks. Consider this template, in the go template language:
 	{{/* fixme: need to add some CSS */}}
 	{{end}}
 
-**Seven5** takes the position that this is broken and wrong. It is not lost on 
-**Seven5** that many people have also identified the pain and suffering that
+Seven5 takes the position that this is broken and wrong. It is not lost on 
+Seven5 that many people have also identified the pain and suffering that
 templating like the above causes, particularly as websites grow to reasonable
-sizes or have several different developers.  The **Seven5** developers 
+sizes or have several different developers.  The Seven5 developers 
 smile slightly in quixotic reflection at the efforts of 
 [mustache](http://mustache.github.com/): an effort to build a templating 
 system without the pain of a templating system. Tilt on, brothers!
 
 The author of the template above is attempting to do programming, not write HTML 
 code &mdash; note the 'fixme' comment to remind him or herself go back 
-later!   **Seven5**'s DSL for HTML means that
+later!   Seven5's DSL for HTML means that
 code uses the best tools and practices we know of for building software.  Put
 in the negative, "How can a development environment or a best practice like
 once and only once help you with the conflation of ideas and technologies in the
@@ -157,7 +157,7 @@ Let's consider the same attempted programming task using the HTML guise's DSL:
 
 One can certainly make the argument that writing a "template" in this form 
 keeps other parts of the project team who do not code in go "out in the cold."
-This is both correct and proper.   **Seven5** states that the task being 
+This is both correct and proper.   Seven5 states that the task being 
 attempted above is programming, and should be dealt with as such; in the amount
 of time you save by not messing with stupid template files, you can teach people
 enough to write in the DSL!
@@ -174,7 +174,7 @@ The above strategy has two implications that may be somewhat startling for
 those unaccustomed to this approach.  First, the project's *source code* must
 be available at run-time so the `HTMLGuise` can do its job. The source code
 typically is not visible to external users of the application, but it must be 
-visible to **Seven5**.  Second, to do its job perfectly the `HTMLGuise` must 
+visible to Seven5.  Second, to do its job perfectly the `HTMLGuise` must 
 be able to understand arbitrary go code--for example to do correct 
 type-checking.  In practice, only a subset of go can processed by the 
 `HTMLGuise` and it is possible that the HTMLGuise can fail to produce a 
@@ -188,8 +188,8 @@ understand the go features you want!
 >anything about Javascript.
 
 "Poignard" is a Javascript toolkit that is spiritually similar to tools like
-[JQuery](http://jquery.org/) but designed carefully to work with **Seven5**
-applications---and **Seven5**'s DSLs for CSS and HTML.  Let's try a simple 
+[JQuery](http://jquery.org/) but designed carefully to work with Seven5
+applications---and Seven5's DSLs for CSS and HTML.  Let's try a simple 
 example that would be coded by a Poignard developer:
 
 	function toggleWelcome() {
@@ -236,7 +236,7 @@ used in the DSLs for CSS and HTML and somehow have it "drive" the Poignard
 code through its paces.  I have the sense that the right way to do this is to
 have Poignard abstract the notion of JS events slightly and allow these to be 
 synthesized by the test harness.  I definitely do not want some crap like Selenium or
-other "browser level" test harnesses.  **Seven5** went to a lot of trouble for 
+other "browser level" test harnesses.  Seven5 went to a lot of trouble for 
 once and only once, and the tests should benefit as well.
 
 Easy case: changing the go code in the DSL of CSS or HTML
@@ -278,13 +278,13 @@ support for the WebSockets proposal by
 as support for flash-based socket communication with JSON, XML, and blah blah
 blah.  We should get this for free via our mongrel2 connection.
 
-**Seven5** needs to exploit the client/server separation carefully to allow
+Seven5 needs to exploit the client/server separation carefully to allow
 unit tests to drive both client and server.
 
 
 ## Naming
 
-The framework is called **Seven5** because the originator lives in Paris, France.
+The framework is called Seven5 because the originator lives in Paris, France.
 All the postal codes for Paris, proper, begin with 75.  Besides, names don't
 matter that much.
 
@@ -324,14 +324,14 @@ deployed on the cluster.  It's scalable.
 
 * Test the "front door" not some other path.  In other words, the best tests 
 use the code path that is as close---or better yet identical too--the code path 
-that is used by the end-user.  Unit tests in **Seven5** code through the exact
+that is used by the end-user.  Unit tests in Seven5 code through the exact
 same dispatching (sometimes called "routing") as a request in a production
 deployment, even in a clustered deployment.
 
-* Mongrel is easy to configure and control programmatically.  **Seven5** 
+* Mongrel is easy to configure and control programmatically.  Seven5 
 exploits this ability to allow the server to be configured based on its
 own conventions of how to develop a web application.  During development it 
-should never be necessary to touch a configuration file.  **Seven5** also uses
+should never be necessary to touch a configuration file.  Seven5 also uses
 this ability to programmatically start or restart mongrel2 as needed to run
 the developer's web application.
 

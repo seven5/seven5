@@ -1,6 +1,10 @@
 @import url("reset.css");
 @import url("markdown.css");
 
+body {
+   max-width: 800px;
+}
+nav { margin-bottom: 1em; }
 nav ul { width: 100%; }
 nav li { display: inline; font-size: 2em; margin-right: 0.5em; }
 nav li, nav a { color: #844; }

@@ -2,32 +2,39 @@ body{
     margin: 0 auto;
     font-family: Georgia, Palatino, serif;
     color: #444444;
-    line-height: 1;
-    max-width: 960px;
     padding: 30px;
+	font-size: 14px;
+	line-height: 18px;
 }
 h1, h2, h3, h4 {
     color: #111111;
     font-weight: 400;
 }
-h1, h2, h3, h4, h5, p {
-    margin-bottom: 24px;
-    padding: 0;
-}
+
 h1 {
-    font-size: 48px;
+	font-size: 2.2em;
+	line-height: 1.1em;
 }
 h2 {
-    font-size: 36px;
+	font-size: 2em;
+	line-height: 1.1em;
 }
 h3 {
-    font-size: 24px;
+	font-size: 1.6em;
+	line-height: 1.1em;
 }
 h4 {
-    font-size: 21px;
+	font-size: 1.2em;
+	line-height: 1.1em;
 }
 h5 {
-    font-size: 18px;
+	font-size: 1em;
+	line-height: 1.1em;
+}
+
+h1, h2, h3, h4, h5, p {
+    margin: 0 0 0.5em 0;
+    padding: 0;
 }
 a {
     color: #0099ff;
@@ -53,19 +60,14 @@ li ul, li ul {
     margin-left: 24px;
 }
 p, ul, ol {
-    font-size: 16px;
-    line-height: 24px;
-    max-width: 540px;
 }
 pre {
     padding: 0px 24px;
-    max-width: 800px;
     white-space: pre-wrap;
+	margin-bottom: 1em;
 }
 code {
     font-family: Consolas, Monaco, Andale Mono, monospace;
-    line-height: 1.5;
-    font-size: 13px;
 }
 aside {
     display: block;
@@ -76,11 +78,8 @@ blockquote {
     border-left:.5em solid #eee;
     padding: 0 2em;
     margin-left:0;
-    max-width: 476px;
 }
 blockquote  cite {
-    font-size:14px;
-    line-height:20px;
     color:#bfbfbf;
 }
 blockquote cite:before {
@@ -89,7 +88,6 @@ blockquote cite:before {
 
 blockquote p {  
     color: #666;
-    max-width: 460px;
 }
 hr {
     width: 540px;
@@ -148,9 +146,7 @@ input,
 select,
 textarea {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 13px;
   font-weight: normal;
-  line-height: normal;
   margin-bottom: 18px;
 }
 input[type=checkbox], input[type=radio] {
@@ -164,9 +160,7 @@ select {
   display: inline-block;
   width: 210px;
   padding: 4px;
-  font-size: 13px;
   font-weight: normal;
-  line-height: 18px;
   height: 18px;
   color: #808080;
   border: 1px solid #ccc;
@@ -214,8 +208,6 @@ button {
   display: inline-block;
   padding: 4px 14px;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 13px;
-  line-height: 18px;
   -webkit-border-radius: 4px;
   -moz-border-radius: 4px;
   border-radius: 4px;

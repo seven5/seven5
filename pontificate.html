@@ -21,17 +21,17 @@
 
 <h2>Data Model</h2>
 
-<p><strong>Seven5</strong> has neither the inevitable ORM nor SQL mapping so often associated
+<p>Seven5 has neither the inevitable ORM nor SQL mapping so often associated
 with other frameworks.  99% of the world doesn&rsquo;t need SQL for a website.  Because
 of convenient ORMs, developers end up with SQL databases simply because that&rsquo;s
 the easiest path in the web framework.</p>
 
-<p><strong>Seven5</strong> makes a different strategy easy.  Your data model is just, well,
+<p>Seven5 makes a different strategy easy.  Your data model is just, well,
 your data model.  You use go&rsquo;s data structures and store them, unmodified,
 in a big blob of RAM called <a href="http://memcached.org/">memcached</a>.  There is no
 disk storage, because disk is slow, expensive to manage, and generally more
 trouble than it&rsquo;s worth in the age of server machines with 64 or 128GB of
-RAM.  <strong>Seven5</strong> allows easy provision of
+RAM.  Seven5 allows easy provision of
 redundant memcacheds in different locales, if you are really paranoid about
 server crash.  You can, of course, make periodic backups if you choose to
 (although don&rsquo;t be surprised if we don&rsquo;t recommend it).  Memcached is directly
@@ -45,7 +45,7 @@ things like <a href="http://en.wikipedia.org/wiki/Protobuf">protobufs</a> or eve
 
 <h2>Guises</h2>
 
-<p>A notion that is critical to <strong>Seven5</strong>&rsquo;s operation is the notion of a &lsquo;guise&rsquo;
+<p>A notion that is critical to Seven5&rsquo;s operation is the notion of a &lsquo;guise&rsquo;
 (rhymes with cheese, not fries).  A guise is a bit of code that allows a
 computation to look like a file, a part of a file or other http-level
 resource.  Some important
@@ -62,7 +62,7 @@ support!)</p>
 
 <h2>Two DSLs And A Microphone</h2>
 
-<p><strong>Seven5</strong> has three carefully interlocking pieces to make web app development
+<p>Seven5 has three carefully interlocking pieces to make web app development
 more pleasant, and blindingly fast. <em>Time may, in fact, slow down for you because
 of the speed of your development.</em>  The first two are
 <a href="http://en.wikipedia.org/wiki/Domain-specific_language">DSLs</a>, implemented
@@ -136,17 +136,17 @@ web frameworks. Consider this template, in the go template language:</p>
 {{end}}
 </code></pre>
 
-<p><strong>Seven5</strong> takes the position that this is broken and wrong. It is not lost on
-<strong>Seven5</strong> that many people have also identified the pain and suffering that
+<p>Seven5 takes the position that this is broken and wrong. It is not lost on
+Seven5 that many people have also identified the pain and suffering that
 templating like the above causes, particularly as websites grow to reasonable
-sizes or have several different developers.  The <strong>Seven5</strong> developers
+sizes or have several different developers.  The Seven5 developers
 smile slightly in quixotic reflection at the efforts of
 <a href="http://mustache.github.com/">mustache</a>: an effort to build a templating
 system without the pain of a templating system. Tilt on, brothers!</p>
 
 <p>The author of the template above is attempting to do programming, not write HTML
 code &mdash; note the &lsquo;fixme&rsquo; comment to remind him or herself go back
-later!   <strong>Seven5</strong>&rsquo;s DSL for HTML means that
+later!   Seven5&rsquo;s DSL for HTML means that
 code uses the best tools and practices we know of for building software.  Put
 in the negative, &ldquo;How can a development environment or a best practice like
 once and only once help you with the conflation of ideas and technologies in the
@@ -170,7 +170,7 @@ func welcome_message(ctx Context) {
 
 <p>One can certainly make the argument that writing a &ldquo;template&rdquo; in this form
 keeps other parts of the project team who do not code in go &ldquo;out in the cold.&rdquo;
-This is both correct and proper.   <strong>Seven5</strong> states that the task being
+This is both correct and proper.   Seven5 states that the task being
 attempted above is programming, and should be dealt with as such; in the amount
 of time you save by not messing with stupid template files, you can teach people
 enough to write in the DSL!</p>
@@ -187,7 +187,7 @@ one time and encodes it in a tool.</p>
 those unaccustomed to this approach.  First, the project&rsquo;s <em>source code</em> must
 be available at run-time so the <code>HTMLGuise</code> can do its job. The source code
 typically is not visible to external users of the application, but it must be
-visible to <strong>Seven5</strong>.  Second, to do its job perfectly the <code>HTMLGuise</code> must
+visible to Seven5.  Second, to do its job perfectly the <code>HTMLGuise</code> must
 be able to understand arbitrary go code&ndash;for example to do correct
 type-checking.  In practice, only a subset of go can processed by the
 <code>HTMLGuise</code> and it is possible that the HTMLGuise can fail to produce a
@@ -203,8 +203,8 @@ anything about Javascript.</p>
 </blockquote>
 
 <p>&ldquo;Poignard&rdquo; is a Javascript toolkit that is spiritually similar to tools like
-<a href="http://jquery.org/">JQuery</a> but designed carefully to work with <strong>Seven5</strong>
-applications&mdash;and <strong>Seven5</strong>&rsquo;s DSLs for CSS and HTML.  Let&rsquo;s try a simple
+<a href="http://jquery.org/">JQuery</a> but designed carefully to work with Seven5
+applications&mdash;and Seven5&rsquo;s DSLs for CSS and HTML.  Let&rsquo;s try a simple
 example that would be coded by a Poignard developer:</p>
 
 <pre><code>function toggleWelcome() {
@@ -254,7 +254,7 @@ used in the DSLs for CSS and HTML and somehow have it &ldquo;drive&rdquo; the Po
 code through its paces.  I have the sense that the right way to do this is to
 have Poignard abstract the notion of JS events slightly and allow these to be
 synthesized by the test harness.  I definitely do not want some crap like Selenium or
-other &ldquo;browser level&rdquo; test harnesses.  <strong>Seven5</strong> went to a lot of trouble for
+other &ldquo;browser level&rdquo; test harnesses.  Seven5 went to a lot of trouble for
 once and only once, and the tests should benefit as well.</p>
 
 <p>Easy case: changing the go code in the DSL of CSS or HTML
@@ -297,12 +297,12 @@ support for the WebSockets proposal by
 as support for flash-based socket communication with JSON, XML, and blah blah
 blah.  We should get this for free via our mongrel2 connection.</p>
 
-<p><strong>Seven5</strong> needs to exploit the client/server separation carefully to allow
+<p>Seven5 needs to exploit the client/server separation carefully to allow
 unit tests to drive both client and server.</p>
 
 <h2>Naming</h2>
 
-<p>The framework is called <strong>Seven5</strong> because the originator lives in Paris, France.
+<p>The framework is called Seven5 because the originator lives in Paris, France.
 All the postal codes for Paris, proper, begin with 75.  Besides, names don&rsquo;t
 matter that much.</p>
 
@@ -344,14 +344,14 @@ deployed on the cluster.  It&rsquo;s scalable.</p></li>
 <ul>
 <li><p>Test the &ldquo;front door&rdquo; not some other path.  In other words, the best tests
 use the code path that is as close&mdash;or better yet identical too&ndash;the code path
-that is used by the end-user.  Unit tests in <strong>Seven5</strong> code through the exact
+that is used by the end-user.  Unit tests in Seven5 code through the exact
 same dispatching (sometimes called &ldquo;routing&rdquo;) as a request in a production
 deployment, even in a clustered deployment.</p></li>
 
-<li><p>Mongrel is easy to configure and control programmatically.  <strong>Seven5</strong>
+<li><p>Mongrel is easy to configure and control programmatically.  Seven5
 exploits this ability to allow the server to be configured based on its
 own conventions of how to develop a web application.  During development it
-should never be necessary to touch a configuration file.  <strong>Seven5</strong> also uses
+should never be necessary to touch a configuration file.  Seven5 also uses
 this ability to programmatically start or restart mongrel2 as needed to run
 the developer&rsquo;s web application.</p></li>
 </ul>
