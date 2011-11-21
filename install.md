@@ -86,7 +86,7 @@ Download the source from [memcached](http://memcached.org/).
     ./configure
     sudo make install
 
-## seven5
+## Seven5
 
 Check out some repos and branches containing the mongrel2 connector, the seven5 stack, the docs and the samples.
 
