@@ -22,3 +22,5 @@
 ### Develop and demo on a single machine but smoothly blow into the clouds.
 
 ### Don't repeat {yourself, others, the stack}.
+
+### Configuration is a form of failure.
