@@ -15,11 +15,11 @@
 
 ## Tactics we embrace like bacon on a cupcake:
 
+### Develop and demo on a single machine but smoothly blow into the clouds.
+
 ### Demand a dev cycle like we're used to with interpreted languages.
 
 ### Make out with strong typing and a fast compiler.
-
-### Develop and demo on a single machine but smoothly blow into the clouds.
 
 ### Don't repeat {yourself, others, the stack}.
 
