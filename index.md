@@ -24,3 +24,5 @@
 ### Don't repeat {yourself, others, the stack}.
 
 ### Configuration is a form of failure.
+
+### Disks are for chumps.
