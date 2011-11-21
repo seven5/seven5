@@ -11,6 +11,16 @@ import (
 	"os"
 )
 
+const (
+	//When doing route testing, this is the result value the framework will give in
+	//response to a GET request on a raw handler.
+	ROUTE_TEST_RESPONSE_CODE = 209
+	//When doing route testing, requests should be marked with this header and the
+	//header's value should be the name of the handler expected to get it.  When
+	//generating a successful response to a test, seven5 also sets this header in the 
+	//response.
+	ROUTE_TEST_HEADER = "X-Seven5-Route-Test"
+)
 //RawHandler low-level interface to the raw mongrel2 communication that allows messages to
 //be processed one at a time, at the mongrel2 level.  The parameter/return here are the mongrel2
 //request and response.  RawHandler is a building block for other abstractions in the seven5
@@ -18,6 +28,7 @@ import (
 //Most developers shoud never need this interface.
 type RawHandler interface {
 	Name() string
+	SetRawSockets(in gozmq.Socket, out gozmq.Socket)
 	ProcessRequest(request *mongrel2.Request) (*mongrel2.Response)
 }
 
@@ -29,10 +40,24 @@ func runloop(h RawHandler, config *ProjectConfig, in chan *mongrel2.Request, out
 		req := <-in
 
 		if req == nil {
-			config.Logger.Printf("Raw Handler %s [%s]: close of mongrel2 connection in raw handler!", h.Name(), config.Name)
+			config.Logger.Printf("[Raw Handler '%s' (%s)]: close of mongrel2 connection in raw handler!", h.Name(), config.Name)
 			return
 		} else {
-			config.Logger.Printf("Raw Handler %s [%s]: serving %s", h.Name(), config.Name, req.Path)
+			config.Logger.Printf("[Raw Handler '%s' (%s)]: serving %s", h.Name(), config.Name, req.Path)
+		}
+		
+		//note: mongrel converts this to lower case!
+		testHeader:=req.Header[strings.ToLower(ROUTE_TEST_HEADER)]
+		if h.Name()==testHeader {
+			testResp:=new (mongrel2.Response)
+			config.Logger.Printf("[ROUTE TEST] '%s' (%s) : %s\n", h.Name(), config.Name, req.Path)
+			testResp.ClientId=[]int{req.ClientId}
+			testResp.ServerId=req.ServerId
+			testResp.StatusCode=ROUTE_TEST_RESPONSE_CODE
+			testResp.Header=map[string]string{ROUTE_TEST_HEADER:h.Name()}
+			testResp.StatusMsg = "Thanks for testing with seven5"
+			out <- testResp
+			continue
 		}
 
 		resp := protectedProcessRequest(config, req, h)
@@ -49,7 +74,7 @@ func RunRaw(h RawHandler,ctx gozmq.Context, config *ProjectConfig) (*mongrel2.Ha
 
 	var addr *mongrel2.HandlerAddr
 	
-	for _,candidate := range config.Handler {
+	for _,candidate := range config.Addr {
 		if candidate.Name==h.Name() {
 			addr=candidate
 		}
@@ -59,7 +84,7 @@ func RunRaw(h RawHandler,ctx gozmq.Context, config *ProjectConfig) (*mongrel2.Ha
 		return nil,errors.New(fmt.Sprintf("Unable to find address assigned to handler named '%s'", h.Name()))
 	}
 	
-	config.Logger.Printf("Raw handler %s [%s] : connecting to %s and %s",h.Name(), config.Name, addr.PullSpec, addr.PubSpec)
+	config.Logger.Printf("[Raw handler '%s' (%s)] : connecting to %s and %s",h.Name(), config.Name, addr.PullSpec, addr.PubSpec)
 	
 	//connect to service
 	mongrel2Part, err := mongrel2.NewHandler(addr, in, out, ctx)
@@ -80,7 +105,7 @@ func RunRaw(h RawHandler,ctx gozmq.Context, config *ProjectConfig) (*mongrel2.Ha
 func protectedProcessRequest(config *ProjectConfig, req *mongrel2.Request, h RawHandler) (resp *mongrel2.Response) {
 	defer func() {
 		if x := recover(); x != nil {
-			config.Logger.Printf("Raw Handler %s [%s]: PANIC! sent error page for %s: %v\n", h.Name(), config.Name, req.Path, x)
+			config.Logger.Printf("[Raw Handler '%s' (%s)]: PANIC! sent error page for %s: %v\n", h.Name(), config.Name, req.Path, x)
 			resp = new (mongrel2.Response)
 			resp.StatusCode = 500
 			resp.StatusMsg = "Internal Server Error"
@@ -88,7 +113,7 @@ func protectedProcessRequest(config *ProjectConfig, req *mongrel2.Request, h Raw
 		}
 	}()
 	resp = h.ProcessRequest(req)
-	config.Logger.Printf("Raw Handler %s [%s]: responded to %s with %d bytes of content\n", h.Name(), config.Name, req.Path, len(resp.Body))
+	config.Logger.Printf("[Raw Handler '%s' (%s)]: responded to %s with %d bytes of content\n", h.Name(), config.Name, req.Path, len(resp.Body))
 	return
 }
 
@@ -127,17 +152,21 @@ func generateStackTrace(err string) string {
 //is the zmq context for this application and this should be closed on shutdown 
 //(usually using defer). This functions runs all the RawHandler objects provided in a go
 //routine using RunRaw().  If something went wrong this returns nil and most web
-//apps will just want to exit since the error has already been printed.
-func StartUp(handlers []RawHandler) gozmq.Context{
+//apps will just want to exit since the error has already been printed.  If you are
+//calling this from test code, you will want to set the second parameter to the proposed
+//project directory; otherwise pass "" and it will be retreived from the command line args.
+func StartUp(handlers []RawHandler, proposedDir string) gozmq.Context{
 	var conf *ProjectConfig
 	var ctx gozmq.Context
 	
-	conf, ctx=Bootstrap()
+	if proposedDir!="" {
+		conf, ctx=BootstrapFromDir(proposedDir)
+	} else {
+		conf, ctx=Bootstrap()
+	}
 	if conf==nil {
 		return nil
 	}
-	
-	allMongrel2 := []*mongrel2.Handler{}
 	
 	for _,h := range handlers {
 		mongrel2Level, err:= RunRaw(h,ctx,conf)
@@ -147,7 +176,7 @@ func StartUp(handlers []RawHandler) gozmq.Context{
 			return nil
 		}
 		
-		allMongrel2=append(allMongrel2,mongrel2Level)
+		h.SetRawSockets(mongrel2Level.InSocket, mongrel2Level.OutSocket)
 	}
 	
 	return ctx

@@ -24,7 +24,7 @@ type ProjectConfig struct {
 	Path     string
 	Name     string
 	Logger   *log.Logger
-	Handler  []*mongrel2.HandlerAddr
+	Addr  []*mongrel2.HandlerAddr
 	ServerId string
 }
 
@@ -43,6 +43,11 @@ const (
 	RUN        = "/run"
 	CONTROL    = "control"
 
+	TIME_CMD                = "10:4:time,0:}]"
+	RELOAD_CMD              = "12:6:reload,0:}]"
+	TWO_SECS_IN_MICROS      = 2000000
+	HUNDRED_MSECS_IN_MICROS = 100000
+
 	STATIC = "static/" //must have trailing slash
 
 	NO_SUCH_TABLE    = "no such table"
@@ -59,11 +64,11 @@ const (
 //VerifyProjectLayout checks that the directory structure that is expected for
 //a correct Seven5 application is present.  
 func VerifyProjectLayout(projectPath string) string {
-
 	for _, dir := range []string{LOGDIR, RUN, STATIC} {
 		candidate := filepath.Join(projectPath, MONGREL2, dir)
-		if s, _ := os.Stat(filepath.Clean(candidate)); s == nil || !s.IsDirectory() {
-			return fmt.Sprintf("Unable to find directory %s", candidate)
+		clean := filepath.Clean(candidate)
+		if s, _ := os.Stat(clean); s == nil || !s.IsDirectory() {
+			return fmt.Sprintf("Unable to find directory %s (%v)", clean, s == nil)
 		}
 	}
 	return ""
@@ -110,13 +115,13 @@ func ClearTestDB(config *ProjectConfig) error {
 		return err
 	}
 
-	config.Logger.Printf("created/found mongrel2 configuration db at path: %s", db_path(config))
+	config.Logger.Printf("[CONFIG] created/found mongrel2 configuration db at path: %s", db_path(config))
 
 	//destroy all tables, create from scratch
 	for _, create := range TABLEDEFS_SQL {
 		_, err = db.Exec(create)
 		if err != nil {
-			config.Logger.Printf("unable to create tables in mongrel2 config:%s", err.Error())
+			config.Logger.Printf("[ERROR!] unable to create tables in mongrel2 config:%s", err.Error())
 			return err
 		}
 	}
@@ -157,7 +162,7 @@ func DiscoverHandlers(config *ProjectConfig) error {
 		}
 		address = append(address, a)
 	}
-	config.Handler = address
+	config.Addr = address
 	return nil
 }
 
@@ -199,11 +204,11 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText,res)
+	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText, res)
 
 	//HANDLER
-	for _, addr := range config.Handler {
-		sqlText = fmt.Sprintf(HANDLER_INSERT, addr.PullSpec, addr.UUID, addr.PubSpec)
+	for _, addr := range config.Addr {
+		sqlText = fmt.Sprintf(HANDLER_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
 		r, err = db.Exec(sqlText)
 		if err != nil {
 			return err
@@ -219,7 +224,7 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, LOCALHOST)
 
 	// ROUTE TO HANDLERS
-	for _, addr := range config.Handler {
+	for _, addr := range config.Addr {
 		nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
 		sqlText = fmt.Sprintf(ROUTE_INSERT, "/"+addr.Name, nestedHost, nestedHandler, "handler")
 		_, err = db.Exec(sqlText)
@@ -260,13 +265,11 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 		return err
 	}
 
-	defer rows.Close()
-
 	var result int
 	rows.Next()
 	rows.Scan(&result)
 	rows.Close()
-	
+
 	config.Logger.Printf("[MONGREL2 SQL] currenty %d items in mimetype table\n", result)
 
 	if result == 0 {
@@ -288,7 +291,7 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 	}
 	config.Logger.Printf("inserted log entry into config:%s\n", sqlText)
 	*/
-	
+
 	return nil
 }
 
@@ -320,7 +323,7 @@ func Bootstrap() (*ProjectConfig, gozmq.Context) {
 //BootstrapFromDir does the heavy lifting to set up a project, given a directory to work
 //with.  It returns a configuration (or nil on error) plus the Context object that it 
 //created for use in this application.
-func BootstrapFromDir(projectDir string)  (*ProjectConfig, gozmq.Context) {
+func BootstrapFromDir(projectDir string) (*ProjectConfig, gozmq.Context) {
 	if err := VerifyProjectLayout(projectDir); err != "" {
 		dumpBadProjectLayout(projectDir, err)
 		return nil, nil
@@ -375,15 +378,15 @@ func BootstrapFromDir(projectDir string)  (*ProjectConfig, gozmq.Context) {
 	return config, ctx
 }
 
-func startMongrel(config *ProjectConfig) error {
+func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 
 	mongrelPath, err := exec.LookPath("mongrel2")
 	if err != nil {
-		config.Logger.Printf("unable to find mongrel2 in path! you should probably change your PATH environment variable")
+		config.Logger.Printf("[ERROR!] unable to find mongrel2 in path! you should probably change your PATH environment variable")
 		return err
 	}
 
-	config.Logger.Printf("using mongrel2 binary at %s", mongrelPath)
+	config.Logger.Printf("[PROCESS] using mongrel2 binary at %s", mongrelPath)
 
 	stdout, err := os.Create(filepath.Join(config.Path, MONGREL2, LOGDIR, "mongrel2.out.log"))
 	if err != nil {
@@ -409,17 +412,50 @@ func startMongrel(config *ProjectConfig) error {
 		return err
 	}
 
-	config.Logger.Printf("changed working directory to %s and started mongrel2 (pid=%d)\n", cmd.Dir, cmd.Process.Pid)
+	config.Logger.Printf("[PROCESS] changed working directory to %s and started mongrel2 (pid=%d)\n", cmd.Dir, cmd.Process.Pid)
+
+	socketPath := filepath.Join(config.Path, MONGREL2, RUN, CONTROL)
+	path := fmt.Sprintf("ipc://%s", socketPath)
+	config.Logger.Printf("[ZMQ] using zmq connection to mongrel2 for sync with startup '%s'", path)
+	response, err := SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, ctx)
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[ZMQ] time command on startup succeeded, response was '%s'", response)
 
 	return nil
 }
 
 func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 
+	socketPath := filepath.Join(config.Path, MONGREL2, RUN, CONTROL)
+	path := fmt.Sprintf("ipc://%s", socketPath)
+	config.Logger.Printf("[ZMQ] zmq connection to mongrel2 is '%s'", path)
+
+	result, err := SendMongrelControl(RELOAD_CMD, HUNDRED_MSECS_IN_MICROS, path, ctx)
+	if err != nil {
+		return err
+	}
+	if result == "" {
+		config.Logger.Printf("[ZMQ] did not get any response on mongrel control connection... will try to start mongrel")
+		return startMongrel(config, ctx)
+	}
+	config.Logger.Printf("[ZMQ] reload successful: '%s'... will try to sync with 'time' command", result)
+	//just to make sure the server is ok
+	result, err = SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, ctx)
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[ZMQ] time successful: '%s'", result)
+	return nil
+}
+
+func SendMongrelControl(cmd string, wait int64, path string, ctx gozmq.Context) (string, error) {
+
 	//create ZMQ socket
 	s, err := ctx.NewSocket(gozmq.REQ)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	//defer it, but be careful in case it got closed early
@@ -429,32 +465,22 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 		}
 	}()
 
-	/*
-		fmt.Fprintf(os.Stderr,"heading to linger\n")
-		err = s.SetSockOptInt64(gozmq.LINGER,int64(0))
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stderr,"done with linger\n")
-	*/
-
-	//connect to it... but not guaranteed somebody is listening
-	socketPath := filepath.Join(config.Path, MONGREL2, RUN, CONTROL)
-	path := fmt.Sprintf("ipc://%s", socketPath)
-	config.Logger.Printf("zmq connection to mongrel2 is '%s'", path)
-	err = s.Connect(path)
-
+	//immediate death
+	err = s.SetSockOptInt32(gozmq.LINGER, 0)
 	if err != nil {
-		return err
+		return "",err
+	}
+	
+	//connect to it... but not guaranteed somebody is listening
+	err = s.Connect(path)
+	if err != nil {
+		return "", err
 	}
 
 	//we can do the send, whether anyone is listening or not
-	netstring := "12:6:reload,0:}]"
-	//config.Logger.Printf("sending reload command tnsnetstring '%s'\n", netstring)
-
-	err = s.Send([]byte(netstring), 0)
+	err = s.Send([]byte(cmd), 0)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	//set for a poll to see if the server responded
@@ -462,31 +488,29 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	items[0].Socket = s
 	items[0].Events = gozmq.POLLIN
 	//run the poll
-	count, err := gozmq.Poll(items, int64(50000)) //50ms but expressed in microsecs
+	count, err := gozmq.Poll(items, wait)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if count != 0 {
 		//config.Logger.Printf("zmq poll set the flags... POLLIN=%v\n", (items[0].REvents&gozmq.POLLIN) != 0)
 		if items[0].REvents&gozmq.POLLIN == 0 {
-			return errors.New("Unable explain why poll returned an item, but it was not POLLIN!")
+			return "", errors.New("Unable explain why poll returned an item, but it was not POLLIN!")
 		}
 	} else {
 		//we close it now because we don't want mongrel getting the message when it starts up!
 		//we us the =nil signal on s to prevent problems with our defered close above
 		s.Close()
 		s = nil
-		return startMongrel(config)
+		return "", nil
 	}
 
 	resp, err := s.Recv(0)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	config.Logger.Printf("received mongrel tnsnetstring response to 'reload':'%s'\n", string(resp))
-
-	return nil
+	return string(resp), nil
 }
 
 //dumpBadProjectLayout prints out a helpful error message to stderr so the 
