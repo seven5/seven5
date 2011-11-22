@@ -9,7 +9,7 @@
     </ul>
 </nav>
 
-Here are the commands which we run to install the prerequisites for development on our OS X boxen.
+Here are the commands which we run to install the [Seven5 source](https://github.com/seven5/seven5) and prerequisites on our OS X boxen.
 
 You may need to edit the paths or config options to reflect your environment, but we made notes where that is likely.
 
