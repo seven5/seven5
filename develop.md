@@ -23,24 +23,6 @@ This will create the following directory structure:
         |
         +-- resources.go 
         |
-        +-- urls.go 
-        |
-        +-- log
-        |    |
-        |    +-- access.log 
-        |    |
-        |    +-- error.log 
-        |    |
-        |    +-- app.log 
-        |
-        +-- mongrel
-        |    |
-        |    +-- mongrel2.pid 
-        |    |
-        |    +-- run_control (a unix domain socket)
-        |    |
-        |    +-- mongrel.sqlite 
-        |
         +-- sass
         |    |
         |    +-- site.sass 
@@ -49,18 +31,36 @@ This will create the following directory structure:
         |    |
         |    +-- site.js 
         |
-        +-- static
+        +-- mongrel2.sqlite 
+        |
+        +-- mongrel2
              |
-             +-- favicon.png
+             +-- log
+             |    |
+             |    +-- access.log 
+             |    |
+             |    +-- error.log 
+             |    |
+             |    +-- seven5.log 
+             |     
+             +-- run
+             |    |
+             |    +-- mongrel2.pid 
+             |    |
+             |    +-- run_control (a unix domain socket)
+             |
+             +-- static
+                  |
+                  +-- favicon.png
 
 
-* `handlers.go`, `resources.go` and `urls.go` contain (respectively) the views, data, and url map. 
+* `handlers.go`, `resources.go` and contain (respectively) the views and data. 
 
-* `mongrel.sqlite` contains configuration data that is needed for mongrel2 to connect to the application in test mode.
+* `mongrel2.sqlite` contains configuration data that is needed for mongrel2 to connect to the application in test mode.
 
 * `log` contains logs (duh) including access, error, and logging from the app code.
 
-* `mongrel` contains control files generated and used by the front end.
+* `run` contains control files generated and used by the front end.
 
 * `static` contains files which will be served by mongrel2 unchanged. The web server will be chrooted to this directory.
 

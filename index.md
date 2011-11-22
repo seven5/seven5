@@ -27,4 +27,4 @@
 
 ### Disks are for chumps.
 
-##### Comment? Playa, don't hate.  Appreciate.
+Comment? Playa, don't hate.  Appreciate.

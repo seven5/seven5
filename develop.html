@@ -34,24 +34,6 @@
     |
     +-- resources.go 
     |
-    +-- urls.go 
-    |
-    +-- log
-    |    |
-    |    +-- access.log 
-    |    |
-    |    +-- error.log 
-    |    |
-    |    +-- app.log 
-    |
-    +-- mongrel
-    |    |
-    |    +-- mongrel2.pid 
-    |    |
-    |    +-- run_control (a unix domain socket)
-    |    |
-    |    +-- mongrel.sqlite 
-    |
     +-- sass
     |    |
     |    +-- site.sass 
@@ -60,19 +42,37 @@
     |    |
     |    +-- site.js 
     |
-    +-- static
+    +-- mongrel2.sqlite 
+    |
+    +-- mongrel2
          |
-         +-- favicon.png
+         +-- log
+         |    |
+         |    +-- access.log 
+         |    |
+         |    +-- error.log 
+         |    |
+         |    +-- seven5.log 
+         |     
+         +-- run
+         |    |
+         |    +-- mongrel2.pid 
+         |    |
+         |    +-- run_control (a unix domain socket)
+         |
+         +-- static
+              |
+              +-- favicon.png
 </code></pre>
 
 <ul>
-<li><p><code>handlers.go</code>, <code>resources.go</code> and <code>urls.go</code> contain (respectively) the views, data, and url map.</p></li>
+<li><p><code>handlers.go</code>, <code>resources.go</code> and contain (respectively) the views and data.</p></li>
 
-<li><p><code>mongrel.sqlite</code> contains configuration data that is needed for mongrel2 to connect to the application in test mode.</p></li>
+<li><p><code>mongrel2.sqlite</code> contains configuration data that is needed for mongrel2 to connect to the application in test mode.</p></li>
 
 <li><p><code>log</code> contains logs (duh) including access, error, and logging from the app code.</p></li>
 
-<li><p><code>mongrel</code> contains control files generated and used by the front end.</p></li>
+<li><p><code>run</code> contains control files generated and used by the front end.</p></li>
 
 <li><p><code>static</code> contains files which will be served by mongrel2 unchanged. The web server will be chrooted to this directory.</p></li>
 </ul>
