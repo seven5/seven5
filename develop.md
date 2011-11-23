@@ -9,7 +9,7 @@
   </ul>
 </nav>
 
-*Note: A lot of this is speculative as we solidify the lingo and patterns.*
+> Editors note: A lot of this is speculative as we solidify the lingo and patterns.
 
 The following steps will create a basic blog application named "blargh":
 
