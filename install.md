@@ -26,6 +26,15 @@ If you lack a compiler or something else Go needs, consult the [Go install page]
     ./all.bash
     ./sudo.bash
 
+To update to a new weekly:
+
+	cd ~/Documents/Go/go/
+	hg pull
+	hg upldate weekly
+	cd src
+	./all.bash
+	./sudo.bash
+
 ## Your shell
 
 Some variables need to be in your environment before you proceed, so add them to ~/.bash_profile:

@@ -9,29 +9,34 @@
     </ul>
 </nav>
 
+Here you will find snippets of text explaining why Seven5 is the cranky, [opinionated](http://gettingreal.37signals.com/ch04_Make_Opinionated_Software.php), single-minded beast that it is.  If this were Halo, Seven5 would be the father of three with the sniper rifle making life miserable for the sword wielding 12 year olds camping by the lifts.
+
 ## Convention, not configuration
 
-Seven5 uses conventions, not configuration, to manage how your web application will work.  During development, you should never write a configuration file.  Simple deployments should also be possible without any configuration files.
+Seven5 uses conventions, not configuration, to manage how your web application will work.  Because we've chosen one way to code and one way to deploy, most of the configuration jackassery goes away.  During development you will never write a configuration file.  During deployment you will only have to place your creds in predefined places and Bob's your uncle.
 
-## Data Model
+If you want flexibility, go write some Apache configuration files.
 
-Seven5 has neither the inevitable ORM nor SQL mapping so often associated with other frameworks.  99% of the world doesn't need SQL for a website.  Because of convenient ORMs, developers end up with SQL databases simply because that's the easiest path in the web framework.
 
-Seven5 makes a different strategy easy.  Your data model is just, well, your data model.  You use go's data structures and store them, unmodified, in a big blob of RAM called [memcached](http://memcached.org/).  There is no disk storage, because disk is slow, expensive to manage, and generally more trouble than it's worth in the age of server machines with 64 or 128GB of RAM.  Seven5 allows easy provision of redundant memcacheds in different locales, if you are really paranoid about server crash.  You can, of course, make periodic backups if you choose to (although don't be surprised if we don't recommend it).  Memcached is directly supported today by cloud infrastructures like Amazon EC2 for production systems.
+## Data structures belong in RAM, not on disk
 
-By default, we use [gobs](http://blog.golang.org/2011/03/gobs-of-data.html) for storing our data because [Rob Pike](http://en.wikipedia.org/wiki/Rob_Pike) is a righteous dude. If you prefer to flatten your datastructures to bytes with  things like [protobufs](http://en.wikipedia.org/wiki/Protobuf) or even [JSON](http://json.org) that's up to you.
+We avoid disk storage for dynamic data because disk is slow, expensive to manage, and generally more trouble than it's worth in the age of server machines with metric tons of RAM.  Also, it's a fricking spinning platter of metal.  WTF?!? 
+
+99% of the world doesn't need relational databases and the other 1% fucks it up.  Because of snazzy ORMs that hide SQL, developers end up with relational databases simply because that's the easiest path in the web framework.
+
+Seven5 makes a different strategy easy.  Your data model is just, well, your data model.  You use go's data structures and store them, unmodified, in a distributed flock of RAM called [memcached](http://memcached.org/) using [gobs](http://blog.golang.org/2011/03/gobs-of-data.html) because [Rob Pike](http://en.wikipedia.org/wiki/Rob_Pike) is a righteous dude.
+
+If you're paranoid about your entire cluster crashing then rest assured, it's trivial to provision redundant memcacheds in different locales and to take snapshots.
 
 
 ## Guises
 
-A notion that is critical to Seven5's operation is the notion of a 'guise' (rhymes with cheese, not fries).  A guise is a bit of code that allows a computation to look like a file, a part of a file or other http-level resource.  Some important guise types are detailed  below.  A correctly written guise insures that any input it needs from the filesystem is always "up to date."  Further, correctly-written guises cache their results in memory.   These two properties insure there is never any confusion for the developer of the form "which version of the file is this?"
+A notion that is critical to Seven5's operation is the notion of a 'guise' (pronounced like "geezer" without the "er").  A guise is a bit of code that allows computation to look like a web resource in the RESTful sense.  Included guises include the HTML and CSS guises which generate markup using compiled DSLs, the JS guise which generates all of the client side models, events, and API to link the browser to your Seven5 app, and the authentication guise which handles the dirty truth about who you are to Seven5.
 
-A simple, fictional guise is the `WhatTimeIsItInParisGuise`.  This guise takes requests for any gif file and returns an image of a clock with the hands set to the appropriate current time in Paris. (It's easy to do with go's image file support!)
 
 ## Two DSLs And A Microphone
 
-Seven5 has three carefully interlocking pieces to make web app development more pleasant, and blindingly fast. _Time may, in fact, slow down for you because of the speed of your development._  The first two are [DSLs](http://en.wikipedia.org/wiki/Domain-specific_language), implemented as go entities, that generate
-CSS and HTML, respectively.  The third is a carefully crafted Javascript library that understands how to interact with the results of the **source** of these two DSLs.  All of these are implemented as Guises; the final one, though, is visible to a developer only by programming in Javascript.
+Seven5 has three carefully interlocking pieces to make web app development more pleasant, and blindingly fast. _Time may, in fact, slow down for you because of the speed of your development._  The first two are the  [DSL](http://en.wikipedia.org/wiki/Domain-specific_language)s mentioned in the Guise section.  They're implemented as go entities, compiled to native code, and generate HTML and CSS.  The quicken the development of clean page source and are blazingly fast to serve. The third piece is a carefully crafted Javascript library, Poignard, that understands how to interact with the compiled results of these two DSLs.  All three pieces are implemented as Guises though Poignard is usually accessed by programming in Javascript.
 
 
 ## CSSGuise
