@@ -117,7 +117,7 @@ The proper pronunciation of "guise" is like "geezer" without the "er".
 
 > We need an audio clip of Ian [saying](http://www.paul.sladen.org/pronunciation/) "Hello, this is Ian Smith and I pronounce guise as guise"
 
-A guise is a bit of go code that make computation look like a web resource in the [RESTful](http://tomayko.com/writings/rest-to-my-wife) sense.  The guises you'll use most are the HTML guise, the CSS guise, and the JS guise.  They implement all of the machinations of the DSLs and communication with Poignard.  There are other guises like the Auth guise which handles the dirty truth about who you are to Seven5, too.
+A guise is a bit of go code that make computation look like a web resource in the [RESTful](http://tomayko.com/writings/rest-to-my-wife) sense.  The guises you'll use most are the HTML guise, the CSS guise, and the JS guise.  They implement all of the machinations of the DSLs and communication with Poignard.  There are other guises like the Auth guise which handles the dirty truth about who you are to Seven5.
 
 ## Enjoy the free HTML, CSS, Ajax and events
 
