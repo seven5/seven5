@@ -11,20 +11,21 @@
 <h1>Seven5: Develop</h1>
 
 <p><nav>
-    <ul>
-        <li><a href="index.html">Intro</a></li>
-        <li><a href="install.html">Install</a></li>
-        <li><a href="develop.html">Develop</a></li>
-        <li><a href="pontificate.html">Pontificate</a></li>
-    </ul>
+  <ul>
+    <li><a href="index.html">Intro</a></li>
+    <li><a href="install.html">Install</a></li>
+    <li><a href="develop.html">Develop</a></li>
+    <li><a href="pontificate.html">Pontificate</a></li>
+  </ul>
 </nav></p>
+
+<p><em>Note: A lot of this is speculative as we solidify the lingo and patterns.</em></p>
 
 <p>The following steps will create a basic blog application named &ldquo;blargh&rdquo;:</p>
 
 <h2>Create the project directory:</h2>
 
-<pre><code>seven5-create-project blargh
-</code></pre>
+<p>seven5-create-project blargh</p>
 
 <p>This will create the following directory structure:</p>
 
@@ -80,18 +81,183 @@
 <h2>Run the server</h2>
 
 <pre><code>cd blargh
-seven5d
+seven5dev
 </code></pre>
+
+<p>Point your browser at <a href="http://127.0.0.1:8000/">http://127.0.0.1:8000/</a> and you should see a nice Seven5 welcome page.</p>
 
 <h2>Make a change, feel the love</h2>
 
-<h2>Create and serve a blab resource</h2>
+<p>The seven5dev command is a tool used during development to make the development cycle of Seven5 apps as fast as rum on a Kauai beach. It runs mongrel2, manages the seven5 server and recompiles your code when there are changes.</p>
 
-<h2>Enjoy the free JS, HTML, SASS, Ajax and events</h2>
+<p>To see this in action, open your programmers&rsquo; editor and point it at handlers.go. On line X, change the name of the RootHandler to BlarghHandler and then save the file. On your command line you should see some messages from seven5dev about recompiling. If you screw up the code and it won&rsquo;t compile, you&rsquo;ll see a helpful error message. Fix the code and save and then seven5dev will fix it up and keep trucking.</p>
 
-<h2>Style that bad boy</h2>
+<p>That&rsquo;s your dev cycle: save file, reload.</p>
+
+<p>Now point your browser at <a href="http://127.0.0.1:8000/blargh/">http://127.0.0.1:8000/blargh/</a> and note that Seven5 is dynamically routing URLs to handlers based on their names. Aw, yeah!</p>
+
+<h2>Create the blargh and blabs</h2>
+
+<p>In resources.go create structs like so:</p>
+
+<pre><code>type Blargh struct {
+    Title, Author string
+    ...
+}
+type Blab struct {
+    Title, Name string
+    ...
+}
+</code></pre>
+
+<blockquote>
+<p>Describe how to CRUD and query .  Slam ORMs some more.</p>
+</blockquote>
+
+<h2>Two DSLs and a microphone</h2>
+
+<p>Seven5 has three carefully interlocking pieces to make web app development more pleasant and blindingly fast.</p>
+
+<p><em>Time may, in fact, slow down for you because of the speed of your development.</em></p>
+
+<p>The first two are <a href="http://en.wikipedia.org/wiki/Domain-specific_language">domain specific languages</a> (DSLs) for HTML and CSS. They&rsquo;re implemented as go entities, are compiled to native code and they quicken the development of valid pages. The third piece is a carefully crafted Javascript library, Poignard, that understands how to interact with your go data and the compiled results of the DSLs.</p>
+
+<p>Altogether, these three pieces automate much of the boilerplate work required by less opinionated frameworks.</p>
+
+<h3>Guises</h3>
+
+<p>Both the DSLs and Poignard are implemented using a notion that is critical to Seven5&rsquo;s operation: the &lsquo;guise&rsquo;.</p>
+
+<p>The proper pronunciation of &ldquo;guise&rdquo; is like &ldquo;geezer&rdquo; without the &ldquo;er&rdquo;.</p>
+
+<blockquote>
+<p>We need an audio clip of Ian <a href="http://www.paul.sladen.org/pronunciation/">saying</a> &ldquo;Hello, this is Ian Smith and I pronounce guise as guise&rdquo;</p>
+</blockquote>
+
+<p>A guise is a bit of go code that make computation look like a web resource in the <a href="http://tomayko.com/writings/rest-to-my-wife">RESTful</a> sense.  The guises you&rsquo;ll use most are the HTML guise, the CSS guise, and the JS guise.  They implement all of the machinations of the DSLs and communication with Poignard.  There are other guises like the Auth guise which handles the dirty truth about who you are to Seven5, too.</p>
+
+<h2>Enjoy the free HTML, CSS, Ajax and events</h2>
+
+<p>Anything which can be automated should be.  Yes, you can reach a flow state implementing yet another RESTful API and fronting it with JS objects and staying in sync via websockets.  You can also use chainsaws to carve bears statues out of stumps.  Pick a better hobby and don&rsquo;t do it on company time!</p>
+
+<h3>HTML Guise</h3>
+
+<blockquote>
+<p>Make these examples use the context of the blargh and set up the next step when we use Poignard</p>
+</blockquote>
+
+<p>The DSL associated with the HTML guise takes the place of &ldquo;templates&rdquo; in other web frameworks. Consider this template, in the go template language:</p>
+
+<pre><code>{{if user_is_logged_in $some_context}} 
+    &lt;strong&gt;Hello {{.User}}, welcome to my world!&lt;/strong&gt;
+{{else}} 
+    &lt;strong&gt;Hello Anonymous&lt;/strong&gt;
+    {{/* fixme: need to add some CSS */}}
+{{end}}
+</code></pre>
+
+<p>Seven5 takes the position that this is broken and wrong. It is not lost on Seven5 that many people have also identified the pain and suffering that templating causes, particularly as websites grow to reasonable sizes or have several different developers. The Seven5 developers smile slightly in quixotic reflection at the efforts of <a href="http://mustache.github.com/">mustache</a>: an effort to build a templating system without the pain of a templating system. Tilt on, brothers!</p>
+
+<p>The author of the template above is attempting to do programming, not write HTML code &mdash; note the &lsquo;fixme&rsquo; comment to remind him or herself go back later!  Seven5&rsquo;s DSL for HTML means that code uses the best tools and practices we know of for building software. Put in the negative, &ldquo;How can a development environment or a best practice like once and only once help you with the conflation of ideas and technologies in the cesspool above?&rdquo;</p>
+
+<p>Let&rsquo;s consider the same attempted programming task using the HTML guise&rsquo;s DSL:</p>
+
+<pre><code>var (
+    Welcome = NewId() // create a unique ID within the page
+    WelcomeSection = Div(Welcome, On) // On? See above!
+)
+
+func welcome_message(ctx Context) {
+    if is_logged_in(ctx[User]) {
+        return WelcomeSection.html(Strong(&quot;Hello,&quot; + ctx[User]+ &quot;welcome to my world!&quot;))
+    } else {
+        return WelcomeSection.html(Strong(&quot;Hello, Anonymous welcome to my world!&quot;))
+    }
+}
+</code></pre>
+
+<p>One can certainly make the argument that writing a &ldquo;template&rdquo; in this form keeps other parts of the project team who do not code in go &ldquo;out in the cold.&rdquo; This is both correct and proper.  Seven5 states that the task being attempted above is programming, and should be dealt with as such; in the amount of time you save by not messing with stupid template files, you can teach people enough to write in the DSL!</p>
+
+<blockquote>
+<p>mention the huge library of built in markup and style elements</p>
+</blockquote>
+
+<h3>JSGuise</h3>
+
+<p>When writing a web app of any size there is always some moment where people decide to unify all of the organically grown client side data wrappers, events, and API calls.  It&rsquo;s painful and it&rsquo;s needless reengineering.  Seven5 provides all of this out of the box and does it with style.</p>
+
+<p>First, let&rsquo;s add our blargh and blabs structs to the JS guise.  In resources.go:</p>
+
+<blockquote>
+<p>something like JSGuise.mapResource(Blab, &hellip;)</p>
+</blockquote>
+
+<p>&ldquo;Poignard&rdquo; is a the Javascript side of the house and is spiritually similar to tools like <a href="http://documentcloud.github.com/backbone/">Backbone.js</a> but designed to interact with Seven5&rsquo;s HTML, CSS, and JS guises.</p>
+
+<p>Let&rsquo;s try a simple example that would be coded by a Poignard developer:</p>
+
+<blockquote>
+<p>Make this example query for blabs and display it in the HTML we created above.</p>
+</blockquote>
+
+<pre><code>function toggleWelcome() {
+    var on = GO_Welcome().hasCSSClass(GO_On(true))
+    GO_Welcome().dropAllCSSClasses()
+
+    if (on) {
+        GO_Welcome().addCSSClass(GO_On(false)) 
+    } else {
+        GO_Welcome().addCSSClass(GO_On(true)) 
+    }
+}
+</code></pre>
+
+<p>The above example shows how the Javascript layer can be hooked to go language entities. A function like <code>GO_Welcome()</code> has as its definition the necessary Javascript code to select the &ldquo;Welcome&rdquo; node (a <code>div</code>, see example above!) from the DOM of the page.</p>
+
+<p>For a Javascript file request, it is the responsibility of the <code>JSGuise</code> to examine the DSLs for both the CSS and HTML used for the page that the Poignard code is attached to. It then suffixes the file, say <code>welcome.js</code>, with the additional function definitions necessary to access the DSL-plus-go-defined items at run-time in a browser.</p>
+
+<h3>CSSGuise</h3>
+
+<blockquote>
+<p>Make this mess with display of the Blabs we started in the preceding section</p>
+</blockquote>
+
+<p>This guise takes an input which is a CSS file to return, such as <code>foo.css</code>, from the browser. It finds the appropriate CSS file in the current project and combines that text (unmodified) with the output of the DSL. Let&rsquo;s look at an example of the DSL, implemented in go code.</p>
+
+<pre><code>var (
+    On = BinaryClassSelector{attribute:&quot;visible&quot;, trueValue:&quot;yes&quot;, falseValue:&quot;no&quot;}
+)
+
+func Foo_css() {
+    return ON.css()
+}
+</code></pre>
+
+<p>When the browser/client receives the CSS resulting from its request, it is the contents of the static file plus this suffix:</p>
+
+<pre><code>.On { visible: yes}
+._On { visible: no}
+</code></pre>
+
+<p>Some key things to note about this simple example:</p>
+
+<ul>
+<li><p>Changes in the go code are immediately reflected in the CSS code. Once and only once. It&rsquo;s hard, but not impossible, to end up with a program that uses the wrong string for &ldquo;On&rdquo; as a CSS class name.</p></li>
+
+<li><p>The DSL allows common idioms to be expressed cleanly. In our example here, we are using the common CSS approach of having two classes that control whether a particular object is visible on the screen. Because it&rsquo;s encoded as an idiom (see below) there is no way to become confused&hellip; is the class name for turning something off <code>invisible</code> or <code>notvisible</code> or <code>not_visible</code>? The <code>BinaryChoiceSelector</code> creates the second choice, <code>_On</code> programmatically.</p></li>
+
+<li><p>The resulting code in CSS uses names that are identical to the names in the go code (via go&rsquo;s reflection mechanism). You can say &ldquo;css class &lsquo;capital-O-n&rsquo; is all frobbed up&rdquo; to another developer without ambiguity.</p></li>
+
+<li><p>Because CSS has no run-time component, the DSL output is controlled by a simple function call, css() on an object you want to use in your app.</p></li>
+
+<li><p>Objects such as <code>On</code> arrive in the go code because are needed <a href="http://programming-motherfucker.com/"><strong>by programmers</strong></a>. If other types things are needed by web designers, graphic artists, or other parts of the team, they should go in the static file, <code>foo.css</code>.</p></li>
+</ul>
 
 <h2>Squirt it to the cloud</h2>
+
+<blockquote>
+<p>TBD</p>
+</blockquote>
 
 </body>
 </html>

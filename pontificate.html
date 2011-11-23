@@ -25,7 +25,9 @@
 
 <p>Seven5 uses conventions, not configuration, to manage how your web application will work.  Because we&rsquo;ve chosen one way to code and one way to deploy, most of the configuration jackassery goes away.  During development you will never write a configuration file.  During deployment you will only have to place your creds in predefined places and Bob&rsquo;s your uncle.</p>
 
-<p>If you want flexibility, go write some Apache configuration files.</p>
+<p>Conventions also allow us to stop the insanity of repeating ourselves in each layer of the stack.  So many web frameworks think that it&rsquo;s normal to code your data models in multiple places: ORM, API and Javascript.  Seven5 unifies the definition of data, API, events and the rest of the system and then flows that information out where necessary.</p>
+
+<p>If you want flexibility, go write Apache configuration files.</p>
 
 <h2>Data structures belong in RAM, not on disk</h2>
 
@@ -37,115 +39,43 @@
 
 <p>If you&rsquo;re paranoid about your entire cluster crashing then rest assured, it&rsquo;s trivial to provision redundant memcacheds in different locales and to take snapshots.</p>
 
-<h2>Guises</h2>
+<h2>Design is for designers. Programming is for programmers.</h2>
 
-<p>A notion that is critical to Seven5&rsquo;s operation is the notion of a &lsquo;guise&rsquo; (pronounced like &ldquo;geezer&rdquo; without the &ldquo;er&rdquo;).  A guise is a bit of code that allows computation to look like a web resource in the RESTful sense.  Included guises include the HTML and CSS guises which generate markup using compiled DSLs, the JS guise which generates all of the client side models, events, and API to link the browser to your Seven5 app, and the authentication guise which handles the dirty truth about who you are to Seven5.</p>
+<p>There was a time when the base materials of the web were simple enough that the &ldquo;front end&rdquo; of a web app could be produced by people who did not understand the &ldquo;back end&rdquo;.  This seemed like a good idea because real programmers were snobbish about crappy browsers and foisting off quirks mode junk seemed like a good idea.</p>
 
-<h2>Two DSLs And A Microphone</h2>
+<p>Those days are dead and buried.</p>
 
-<p>Seven5 has three carefully interlocking pieces to make web app development more pleasant, and blindingly fast. <em>Time may, in fact, slow down for you because of the speed of your development.</em>  The first two are the  <a href="http://en.wikipedia.org/wiki/Domain-specific_language">DSL</a>s mentioned in the Guise section.  They&rsquo;re implemented as go entities, compiled to native code, and generate HTML and CSS.  The quicken the development of clean page source and are blazingly fast to serve. The third piece is a carefully crafted Javascript library, Poignard, that understands how to interact with the compiled results of these two DSLs.  All three pieces are implemented as Guises though Poignard is usually accessed by programming in Javascript.</p>
+<p>Today&rsquo;s browsers are more standardized so the pain of quirks is fading.  Today&rsquo;s standards are more complex and most designers would rather design than learn about CSS selectors and event binding.  Today&rsquo;s pages are programs and client side libraries like jQuery and YUI require honest to god programming.</p>
 
-<h2>CSSGuise</h2>
+<p>Seven5 embraces this by unifying the entire stack around languages and tools made for programmers.  Let designers design and programmers program!</p>
 
-<p>We will first discuss the <code>CSSGuise</code> and its accompanying DSL.  This guise takes an input which is a CSS file to return, such as <code>foo.css</code>, from the browser. It finds the appropriate CSS file in the current project and combines that text (unmodified) with the output of the DSL.  Let&rsquo;s look at an example of the DSL, implemented in go code.</p>
+<h2>Naming</h2>
 
-<pre><code>var (
-    On = BinaryClassSelector{attribute:&quot;visible&quot;, trueValue:&quot;yes&quot;, falseValue:&quot;no&quot;}
-)
+<p>The framework is called Seven5 because the originator lives in Paris, France. All the postal codes for Paris, proper, begin with 75.  Besides, names don&rsquo;t matter that much.</p>
 
-func Foo_css() {
-    return ON.css()
-}
-</code></pre>
+<p>The use of the strange pronounciation of guise is because it sounds cooler. Plus, the originator lives very close to the residence (compound?) of the  <a href="http://en.wikipedia.org/wiki/House_of_Guise">House de Guise</a> which is  pronounced in this way.   The English word that is spelled the same way comes from the rumor that a dis<em>guise</em> was used by the Duc an attempt to mask his involvement in the attempted assassination of  <a href="http://en.wikipedia.org/wiki/Gaspard_de_Coligny">Gaspard de Coligny</a> that lead directly to the  <a href="http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre">St. Bartholomew&rsquo;s Day Massacre</a>. Web frameworks  may educate in many ways.</p>
 
-<p>When the browser/client receives the CSS resulting from its request, it is the contents of the static file plus this suffix:</p>
+<p>The use of the name  <a href="http://en.wikipedia.org/wiki/Poignard">Poignard</a> is because sharp, narrow tools  are often needed when working with web frameworks.  Such tools, correctly  applied, can be the killing stroke whereas huge, but relatively blunt, tools like Javascript often provide less death.  More death is better.</p>
 
-<pre><code>.On { visible: yes}
-._On { visible: no}
-</code></pre>
+<h2>Why Mongrel2</h2>
 
-<p>Some key things to note about this simple example:</p>
+<h3>Production Reasons</h3>
 
 <ul>
-<li><p>Changes in the go code are immediately reflected in the CSS code. Once and only once.  It&rsquo;s hard, but not impossible, to end up with a program that uses the wrong string for &ldquo;On&rdquo; as a CSS class name.</p></li>
+<li><p><a href="http://www.mongrel2.org">Mongrel2</a> is derived from mongrel.  Both of them have extremely well tested and secure http handling code.  Both are known to perform well under high load and to pass <a href="http://www.valgrind.org">valgrind</a>, so they do not leak memory.  It&rsquo;s solid.</p></li>
 
-<li><p>The DSL allows common idioms to be expressed cleanly.  In our example here, we are using the common CSS approach of having two classes that control whether a particular object is visible on the screen.  Because it&rsquo;s encoded as an idiom (see below) there is no way to become confused&hellip; is the class name for turning something off <code>invisible</code> or <code>notvisible</code> or <code>not_visible</code>?  The <code>BinaryChoiceSelector</code> creates the second choice, <code>_On</code> programmatically.</p></li>
-
-<li><p>The resulting code in CSS uses names that are identical to the names in the go code (via go&rsquo;s reflection mechanism). You can say &ldquo;css class &lsquo;capital-O-n&rsquo; is all frobbed up&rdquo; to another developer without ambiguity.</p></li>
-
-<li><p>Because CSS has no run-time component, the DSL output is controlled by a simple function call, css() on an object you want to use in your app.</p></li>
-
-<li><p>Objects such as <code>On</code> arrive in the go code because are needed <a href="http://programming-motherfucker.com/"><strong>by programmers</strong></a>.  If other types things are needed by web designers, graphic artists, or other parts of the team, they should go in the static file, <code>foo.css</code>.</p></li>
+<li><p>Mongrel2 is friendly for deployment/operations and can be easily configured to work in a cluster.  Mongrel2 can also handle having clusters, not necessarily in the same configuration, that handle the requests for one or more applications deployed on the cluster.  It&rsquo;s scalable.</p></li>
 </ul>
 
-<h3>HTML Guise</h3>
+<h3>Testing Reasons</h3>
 
-<p>The DSL associated with the HTML guise takes the place of &ldquo;templates&rdquo; in other web frameworks. Consider this template, in the go template language:</p>
+<ul>
+<li><p>Test the &ldquo;front door&rdquo; not some other path.  In other words, the best tests  use the code path that is as close&mdash;or better yet identical too&ndash;the code path  that is used by the end-user.  Unit tests in Seven5 code through the exact same dispatching (sometimes called &ldquo;routing&rdquo;) as a request in a production deployment, even in a clustered deployment.</p></li>
 
-<pre><code>{{if user_is_logged_in $some_context}} 
-&lt;strong&gt;Hello {{.User}}, welcome to my world!&lt;/strong&gt;
-{{else}} 
-&lt;strong&gt;Hello Anonymous&lt;/strong&gt;
-{{/* fixme: need to add some CSS */}}
-{{end}}
-</code></pre>
+<li><p>Mongrel is easy to configure and control programmatically.  Seven5  exploits this ability to allow the server to be configured based on its own conventions of how to develop a web application.  During development it  should never be necessary to touch a configuration file.  Seven5 also uses this ability to programmatically start or restart mongrel2 as needed to run the developer&rsquo;s web application.</p></li>
+</ul>
 
-<p>Seven5 takes the position that this is broken and wrong. It is not lost on Seven5 that many people have also identified the pain and suffering that templating like the above causes, particularly as websites grow to reasonable sizes or have several different developers.  The Seven5 developers smile slightly in quixotic reflection at the efforts of <a href="http://mustache.github.com/">mustache</a>: an effort to build a templating system without the pain of a templating system. Tilt on, brothers!</p>
-
-<p>The author of the template above is attempting to do programming, not write HTML code &mdash; note the &lsquo;fixme&rsquo; comment to remind him or herself go back later!   Seven5&rsquo;s DSL for HTML means that code uses the best tools and practices we know of for building software.  Put in the negative, &ldquo;How can a development environment or a best practice like once and only once help you with the conflation of ideas and technologies in the cesspool above?&rdquo;</p>
-
-<p>Let&rsquo;s consider the same attempted programming task using the HTML guise&rsquo;s DSL:</p>
-
-<pre><code>var (
-    Welcome = NewId()  // create a unique ID within the page
-    WelcomeSection = Div(Welcome, On) // On? See above!
-)
-
-func welcome_message(ctx Context) {
-    if is_logged_in(ctx[User]) {
-        return WelcomeSection.html(Strong(&quot;Hello,&quot; + ctx[User]+ &quot;welcome to my world!&quot;))
-    } else {
-        return WelcomeSection.html(Strong(&quot;Hello, Anonymous welcome to my world!&quot;))
-    }
-}
-</code></pre>
-
-<p>One can certainly make the argument that writing a &ldquo;template&rdquo; in this form
-keeps other parts of the project team who do not code in go &ldquo;out in the cold.&rdquo;
-This is both correct and proper.   Seven5 states that the task being
-attempted above is programming, and should be dealt with as such; in the amount
-of time you save by not messing with stupid template files, you can teach people
-enough to write in the DSL!</p>
-
-<h3>How Does It Work?</h3>
-
-<p>The DSL above is actually translated, by the <code>HTMLGuise</code>, into the horrific template shown originally! The construction of the <code>HTMLGuise</code> is analogous to  the poor sod who had to write the go compiler; his pain of dealing with a far lower language&ndash;assembly&ndash;benefits a great many people if he gets it right one time and encodes it in a tool.</p>
-
-<p>The above strategy has two implications that may be somewhat startling for those unaccustomed to this approach.  First, the project&rsquo;s <em>source code</em> must be available at run-time so the <code>HTMLGuise</code> can do its job. The source code typically is not visible to external users of the application, but it must be  visible to Seven5.  Second, to do its job perfectly the <code>HTMLGuise</code> must  be able to understand arbitrary go code&ndash;for example to do correct  type-checking.  In practice, only a subset of go can processed by the  <code>HTMLGuise</code> and it is possible that the HTMLGuise can fail to produce a  valid result.  If you don&rsquo;t like this, help improve the HTMLGuise to  understand the go features you want!</p>
-
-<h3>JSGuise, or &lsquo;The Other Side Of The Wire&rsquo;</h3>
-
-<p>&ldquo;Poignard&rdquo; is a Javascript toolkit that is spiritually similar to tools like <a href="http://jquery.org/">JQuery</a> but designed carefully to work with Seven5 applications&mdash;and Seven5&rsquo;s DSLs for CSS and HTML.  Let&rsquo;s try a simple  example that would be coded by a Poignard developer:</p>
-
-<pre><code>function toggleWelcome() {
-    var on = GO_Welcome().hasCSSClass(GO_On(true))
-    GO_Welcome().dropAllCSSClasses()
-
-    if (on) {
-        GO_Welcome().addCSSClass(GO_On(false)) 
-    } else {
-        GO_Welcome().addCSSClass(GO_On(true)) 
-    }
-}
-</code></pre>
-
-<blockquote>
-<p>Perhaps Poignard should be a layer on top of JQuery?</p>
-</blockquote>
-
-<p>The above example shows how the Javascript layer can be hooked to go language  entities.  A function like <code>GO_Welcome()</code> has as its definition the necessary Javascript code to select the &ldquo;Welcome&rdquo; node (a <code>div</code>, see example above!) from the DOM of the page.</p>
-
-<p>For a Javascript file request, it is the responsibility of the <code>JSGuise</code> to examine the DSLs for both the CSS and HTML used for the page that the  Poignard code is attached to.  It then suffixes the file, say <code>welcome.js</code>,  with the additional function definitions necessary to access the  DSL-plus-go-defined items at run-time in a browser.</p>
+<h1>Abandon all editing all ye who enter here</h1>
 
 <h2>Testing Javascript Code In Go</h2>
 
@@ -178,32 +108,6 @@ exactly one item in it, with the contents &ldquo;iansmith.&rdquo;</p>
 <p>Mongrel2 <a href="https://gist.github.com/920729">already has</a> support for the WebSockets proposal by <a href="http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-07">HyBi working group</a> as well as support for flash-based socket communication with JSON, XML, and blah blah blah.  We should get this for free via our mongrel2 connection.</p>
 
 <p>Seven5 needs to exploit the client/server separation carefully to allow unit tests to drive both client and server.</p>
-
-<h2>Naming</h2>
-
-<p>The framework is called Seven5 because the originator lives in Paris, France. All the postal codes for Paris, proper, begin with 75.  Besides, names don&rsquo;t matter that much.</p>
-
-<p>The use of the strange pronounciation of guise is because it sounds cooler. Plus, the originator lives very close to the residence (compound?) of the  <a href="http://en.wikipedia.org/wiki/House_of_Guise">House de Guise</a> which is  pronounced in this way.   The English word that is spelled the same way comes from the rumor that a dis<em>guise</em> was used by the Duc an attempt to mask his involvement in the attempted assassination of  <a href="http://en.wikipedia.org/wiki/Gaspard_de_Coligny">Gaspard de Coligny</a> that lead directly to the  <a href="http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre">St. Bartholomew&rsquo;s Day Massacre</a>. Web frameworks  may educate in many ways.</p>
-
-<p>The use of the name  <a href="http://en.wikipedia.org/wiki/Poignard">Poignard</a> is because sharp, narrow tools  are often needed when working with web frameworks.  Such tools, correctly  applied, can be the killing stroke whereas huge, but relatively blunt, tools like Javascript often provide less death.  More death is better.</p>
-
-<h2>Why Mongrel2</h2>
-
-<h3>Production Reasons</h3>
-
-<ul>
-<li><p><a href="http://www.mongrel2.org">Mongrel2</a> is derived from mongrel.  Both of them have extremely well tested and secure http handling code.  Both are known to perform well under high load and to pass <a href="http://www.valgrind.org">valgrind</a>, so they do not leak memory.  It&rsquo;s solid.</p></li>
-
-<li><p>Mongrel2 is friendly for deployment/operations and can be easily configured to work in a cluster.  Mongrel2 can also handle having clusters, not necessarily in the same configuration, that handle the requests for one or more applications deployed on the cluster.  It&rsquo;s scalable.</p></li>
-</ul>
-
-<h3>Testing Reasons</h3>
-
-<ul>
-<li><p>Test the &ldquo;front door&rdquo; not some other path.  In other words, the best tests  use the code path that is as close&mdash;or better yet identical too&ndash;the code path  that is used by the end-user.  Unit tests in Seven5 code through the exact same dispatching (sometimes called &ldquo;routing&rdquo;) as a request in a production deployment, even in a clustered deployment.</p></li>
-
-<li><p>Mongrel is easy to configure and control programmatically.  Seven5  exploits this ability to allow the server to be configured based on its own conventions of how to develop a web application.  During development it  should never be necessary to touch a configuration file.  Seven5 also uses this ability to programmatically start or restart mongrel2 as needed to run the developer&rsquo;s web application.</p></li>
-</ul>
 
 </body>
 </html>
