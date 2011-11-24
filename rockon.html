@@ -1,0 +1,91 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Seven5: Rock On!</title>
+  <meta name="GENERATOR" content="Blackfriday Markdown Processor v1.1" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <link rel="stylesheet" type="text/css" href="css/base.css" />
+</head>
+<body>
+
+<h1>Seven5: Rock On!</h1>
+
+<pre><code>You may, at your sole discretion, make the Ozzy hand gesture while reading this document
+if you strongly agree with its claims or approve of its features.  If you choose to,
+you may also raise the Ozzy hand gesture above your head while performing the &quot;synchronized
+head banging maneuver,&quot; although this is not recommended for the slower students.
+
+If you really believe that a feature of rock_on is truly world-changing or a near-death 
+experience, you may also attempt the rarely-seen &quot;doubly Ozzy.&quot;  In this gesture 
+you make the Ozzy hand gesture with both hands simultaneously, with palms forward 
+or backward (respectively), while waving both above your head--synchronously.  
+
+Keep Rock Evil.
+</code></pre>
+
+<p><code>rock_on</code> is the entry point to the magic of <em>Seven5</em>.  <code>rock_on</code> is responsible for doing all the necessary work to keep your project up-to-date with <em>Seven5</em> love; it provides all the <em>extras</em> that make working with <em>Seven5</em> fun, as well as interacting with various external services.  Some services need a little &ldquo;poke&rdquo; to handle the speed of <em>Seven5</em> development.</p>
+
+<blockquote>
+<p>Trevor: The next part you may not agree with. Please advise.</p>
+</blockquote>
+
+<p>Before you can &ldquo;rock on!&rdquo; you must run <code>gb -t</code> at the root of your project&rsquo;s directory structure.  This will build your project into a go package (<code>.a</code> file) and run all tests.  There&rsquo;s no point in running <code>rock_on</code> if you don&rsquo;t have a project that builds and passes all tests as these are problems you have to fix in any case.  We could have <code>rock_on</code> compile your project and run tests, but that would be repeating the work of fine go-based build tools like <code>gb</code>.  If you are the type that wants &ldquo;one command to be all that and a bag of chips,&rdquo; try <code>gb -t &amp;&amp; rock_on</code>.  (The test infrastructure of <em>Seven5</em> is carefully crafted to not slow down your development cycle; you <em>can</em> afford to run all tests on every build, trust us.)</p>
+
+<p><code>rock_on</code> has four main areas of responsibility:</p>
+
+<ol>
+<li>Validate the project&rsquo;s structure (&ldquo;does it meet our standard project layout?&rdquo;) and discover all the entities you are using to which the <em>Seven5</em> conventions apply.</li>
+<li>Generate the necessary go code&ndash;based on what was discovered in the previous step.  Compile and link this generated code with your package created above into a runnable program.</li>
+<li>If requested, synchronize resources that are &ldquo;in the network&rdquo; (not on your local dev machine).  This step is optional since you may not have network connectivity when doing your development, or the network resources may be networkologically distant, and thus interacting with them could slow down the break-neck speed of your coding.</li>
+<li>Run the executable generated in step 2.<br /></li>
+</ol>
+
+<p>With <code>rock_on</code> running on a modern laptop, you should expect <code>rock_on</code> to take less than 1 second. Yes, o-n-e second. Once you have proclaimed &ldquo;rock on!&rdquo;, you can reload any web pages in your browser to see your changes.</p>
+
+<p>Thus, the development cycle for a <em>Seven5</em> developer is this:</p>
+
+<ul>
+<li><p>Make changes to your source go code using your favorite programmer&rsquo;s editor.</p></li>
+
+<li><p><code>gb -t</code> to run all tests and make sure you didn&rsquo;t break anything.</p></li>
+
+<li><p><code>rock_on  [project directory]</code> to bring everything up to date.</p></li>
+
+<li><p>Reload your web pages.</p></li>
+
+<li><p>Crack open a beer and enjoy.  Repeat as necessary.</p></li>
+</ul>
+
+<h1>An Example</h1>
+
+<h2>Discovery</h2>
+
+<p>In step 1 above, <code>rock_on</code> scans your project&rsquo;s files looking for conventions.  For this example, we will assume that you have a file called <code>foo_rawhttp.go</code> and a file called <code>bar.css.go</code> in the root of your project directory.  Both of these are conventions of <em>Seven5</em> that <code>rock_on</code> knows about, so it swings into action.</p>
+
+<h2>Code Generation</h2>
+
+<p>Given what it discovered, <code>rock_on</code> must do two code generation actions: First, it needs to generate an executable program that &ldquo;binds&rdquo; your raw http-level handler to mongrel2 so it handles requests destined for <code>/foo/whatever</code>.  Second, it needs to generate javascript code based on the DSL inside the file <code>bar.js.go</code>.</p>
+
+<p>In the first case, <code>rock_on</code> generates a <code>main()</code> function that hooks a type called <code>Foo</code> (note capitalization convention) to mongrel2 as an http handler.  Mongrel2 has a special protocol for such handlers, and <code>Foo</code> is expected to understand this protocol.  The resulting main is compiled and held for step 4, coming right up!</p>
+
+<p>The second code generation task is more complex.  <em>Seven5</em> wants to give you the impression that the web is &lsquo;just go&rsquo; all the way down!  The reality, sadly, is that there are less palatable tools involved, but <code>rock_on</code> and <em>Seven5</em> hide them from you.  When doing development of something like <code>bar.css.go</code> you get the strong typing and &ldquo;once and only once&rdquo; of go, but the result is a <code>.css</code> file that a browser can consume.  When doing <em>Seven5</em> development, never write a <code>.css</code> file by hand: Either you are doing something wrong or the framework is broken.  Both are better remedied by hacking go code.</p>
+
+<p>Since CSS has no conditionals, the code generation process is quite simple.  <code>rock_on</code> takes the go function <code>bar()</code> from within <code>bar.css.go</code>, creates a new temporary file with a <code>main()</code> that has the contents of the original <code>bar()</code>, compiles it, executes it, and the output of the program&rsquo;s standard output is the CSS file.  <code>rock_on</code> puts this result into the proper place in the project (the <code>static</code> directory) as if it was written by a human.</p>
+
+<h2>Network Sync</h2>
+
+<p><em>Seven5</em> expects you to keep your static resources, such as the CSS generated previously, but also all your graphics and text in a Content Delivery Network (CDN) such as Amozon&rsquo;s S3.  If you pass the <code>-net</code> option to <code>rock_on</code>, it will check the last update times of all static resources in the CDN and update them as necessary.</p>
+
+<blockquote>
+<p>Trevor: We will need to think what happens if the developer chooses to not do this and just wants to use the static directory for content.  This is a reasonable choice for many people but we need to generate different URLs.  Probably should be a global switch of some kind, perhaps the developer can change the name of <code>static</code> to <code>static.no_net</code> to indicate they never want CDN delivery.</p>
+
+<p>Trevor: This is also the phase of <code>rock_on</code> where I&rsquo;m imagining that amazon machines could be either booted or updated. It would be <em>super_sweet</em> if somehow we &ldquo;marked&rdquo; the amazon nodes (tiny sized and free by default, of course) in some way with a property that says &ldquo;managed by rock_on&rdquo; and had an open &ldquo;control channel&rdquo; to the node where we could do updates <em>super</em> fast&ndash;maybe just be shooting a tarball of the project through the channel.</p>
+</blockquote>
+
+<h2>Restart</h2>
+
+<p><code>rock_on</code> now runs the executable it generated in step 2 and your changes are visible via
+a web browser <code>localhost:6767</code>.</p>
+
+</body>
+</html>
