@@ -1,6 +1,9 @@
 
 See also, the [Documentation Hub](http://seven5.github.com/seven5)
 
+Design
+------------
+
 Installation
 ------------
 

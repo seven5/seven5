@@ -24,7 +24,8 @@ type ProjectConfig struct {
 	Path     string
 	Name     string
 	Logger   *log.Logger
-	Addr  []*mongrel2.HandlerAddr
+	Addr     []*mongrel2.M2HandlerSpec
+	Service  []string
 	ServerId string
 }
 
@@ -50,15 +51,18 @@ const (
 
 	STATIC = "static/" //must have trailing slash
 
-	NO_SUCH_TABLE    = "no such table"
-	HANDLER_SUFFIX   = "_handler.go"
-	HANDLER_INSERT   = `insert into handler(send_spec,send_ident,recv_spec,recv_ident) values("%s","%s","%s","");`
-	HOST_INSERT      = `insert into host(server_id,name,matching) values(last_insert_rowid(),"%s","%s");`
-	SERVER_INSERT    = `insert into server(uuid,access_log,error_log,pid_file,chroot,default_host,name,port) values("%s","%s","%s","%s","%s","%s","%s","%d");`
-	MIME_INSERT      = `insert into mimetype(mimetype,extension) values("%s","%s");`
-	DIRECTORY_INSERT = `insert into directory(base,index_file,default_ctype) values("%s","index.html","text/plain");`
-	ROUTE_INSERT     = `insert into route(path,host_id,target_id,target_type) values("%s",%s, %s, "%s");`
-	LOG_INSERT       = `insert into log(who,what,location,how,why) values("user","load", "localhost", "%s","webapp_start");`
+	NO_SUCH_TABLE = "no such table"
+
+	HANDLER_SUFFIX = "_rawhttp.go"
+	SERVICE_SUFFIX = "_jsservice.go"
+
+	HANDLER_OR_SERVICE_INSERT = `insert into handler(send_spec,send_ident,recv_spec,recv_ident) values("%s","%s","%s","");`
+	HOST_INSERT               = `insert into host(server_id,name,matching) values(last_insert_rowid(),"%s","%s");`
+	SERVER_INSERT             = `insert into server(uuid,access_log,error_log,pid_file,chroot,default_host,name,port) values("%s","%s","%s","%s","%s","%s","%s","%d");`
+	MIME_INSERT               = `insert into mimetype(mimetype,extension) values("%s","%s");`
+	DIRECTORY_INSERT          = `insert into directory(base,index_file,default_ctype) values("%s","index.html","text/plain");`
+	ROUTE_INSERT              = `insert into route(path,host_id,target_id,target_type) values("%s",%s, %s, "%s");`
+	LOG_INSERT                = `insert into log(who,what,location,how,why) values("user","load", "localhost", "%s","webapp_start");`
 )
 
 //VerifyProjectLayout checks that the directory structure that is expected for
@@ -132,7 +136,8 @@ func ClearTestDB(config *ProjectConfig) error {
 }
 
 //DiscoverHandlers looks for handlers in the standard place in a Seven5 project
-//(project_name/*_handler.go) and assigns each one a mongrel2 address.  If
+//(project_name/*_handler.go) and assigns each one a mongrel2 address. 
+//It also looks for project_name/*_service.go and assigns these a mongrel address. If
 //there is no error, it puts the assigned mongrel2 addresses (type is
 //mongrel2.HandlerAddr) into the ProjectConfig sruct.
 func DiscoverHandlers(config *ProjectConfig) error {
@@ -145,24 +150,35 @@ func DiscoverHandlers(config *ProjectConfig) error {
 	if err != nil {
 		return err
 	}
-	address := []*mongrel2.HandlerAddr{}
+	address := []*mongrel2.M2HandlerSpec{}
+	service := []string{}
 	for _, child := range children {
-		if !strings.HasSuffix(child, HANDLER_SUFFIX) {
+		if !strings.HasSuffix(child, HANDLER_SUFFIX) && !strings.HasSuffix(child, SERVICE_SUFFIX) {
 			continue
 		}
 		info, _ := os.Stat(filepath.Join(config.Path, child))
 		if info == nil || !info.IsRegular() {
 			continue
 		}
-		end := strings.Index(child, HANDLER_SUFFIX)
-		name := child[0:end]
-		a, err := mongrel2.GetHandlerAddress(name)
+		var name string
+		if strings.HasSuffix(child, HANDLER_SUFFIX) {
+			end := strings.Index(child, HANDLER_SUFFIX)
+			name = child[0:end]
+			config.Logger.Printf("[DISCOVER] found raw handler %s\n",name)
+		} else {
+			end := strings.Index(child, SERVICE_SUFFIX)
+			name = child[0:end]
+			config.Logger.Printf("[DISCOVER] found service %s\n",name)
+			service = append(service, name)
+		}
+		a, err := mongrel2.GetM2HandlerSpec(name)
 		if err != nil {
 			return nil
 		}
 		address = append(address, a)
 	}
 	config.Addr = address
+	config.Service = service
 	return nil
 }
 
@@ -208,7 +224,7 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 
 	//HANDLER
 	for _, addr := range config.Addr {
-		sqlText = fmt.Sprintf(HANDLER_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
+		sqlText = fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
 		r, err = db.Exec(sqlText)
 		if err != nil {
 			return err
@@ -226,7 +242,15 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 	// ROUTE TO HANDLERS
 	for _, addr := range config.Addr {
 		nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
-		sqlText = fmt.Sprintf(ROUTE_INSERT, "/"+addr.Name, nestedHost, nestedHandler, "handler")
+		pathPrefix := "/"
+		//services use different insert ...
+		for _, n := range config.Service {
+			if n == addr.Name {
+				pathPrefix = "@"
+				break
+			}
+		}
+		sqlText = fmt.Sprintf(ROUTE_INSERT, pathPrefix+addr.Name, nestedHost, nestedHandler, "handler")
 		_, err = db.Exec(sqlText)
 		if err != nil {
 			return err
@@ -466,11 +490,11 @@ func SendMongrelControl(cmd string, wait int64, path string, ctx gozmq.Context) 
 	}()
 
 	//immediate death
-	err = s.SetSockOptInt32(gozmq.LINGER, 0)
+	err = s.SetSockOptInt(gozmq.LINGER, 0)
 	if err != nil {
-		return "",err
+		return "", err
 	}
-	
+
 	//connect to it... but not guaranteed somebody is listening
 	err = s.Connect(path)
 	if err != nil {

@@ -9,16 +9,16 @@ import (
 //PrepareFunctionalTest configures mongrel to run the RawHandler supplied.
 //Return value is nil on error, and that's a fatal error that has already
 //been logged.
-func PrepareFunctionalTest(rh RawHandler, c *gocheck.C) gozmq.Context {
+func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 	//using . because 'gb -t' changes the cwd to the right place
 	path, err := filepath.Abs(".")
 	if err != nil {
 		c.Fatalf("unable to start up, can't find absolute path to cwd!")
 	}
 	path = filepath.Clean(path)
-	context := StartUp([]RawHandler{rh}, path)
+	context := StartUp([]Named{n}, path)
 	if context == nil {
-		c.Fatalf("unable to start the handlers, no context found")
+		c.Fatalf("unable to start the handlers, no context found: %s, %s",n.Name(),path)
 	} 
 	return context	
 }
@@ -26,13 +26,12 @@ func PrepareFunctionalTest(rh RawHandler, c *gocheck.C) gozmq.Context {
 //This function performs a mapping test on the URL provided.  It checks that if
 //mongrel2 sees the url, it invokes the handler you supplied.  (It actually just checks
 //the name, not the pointer.) If it fails, it notes the failure in the provided gocheck.C
-func MappingTest(url string, rh RawHandler,c *gocheck.C) {
-	name := "echo"
+func MappingTest(url string, h Httpified,c *gocheck.C) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		c.Fatalf("failed to create request for test!")
 	}
-	req.Header.Add(ROUTE_TEST_HEADER, rh.Name())
+	req.Header.Add(ROUTE_TEST_HEADER, h.Name())
 
 	client := new(http.Client)
 	resp, err := client.Do(req)
@@ -41,5 +40,5 @@ func MappingTest(url string, rh RawHandler,c *gocheck.C) {
 		c.Fatalf("failed trying to use http to localhost:6767: %s", err)
 	}
 	c.Check(resp.StatusCode, gocheck.Equals, ROUTE_TEST_RESPONSE_CODE)
-	c.Check(resp.Header[ROUTE_TEST_HEADER][0], gocheck.Equals, name)
+	c.Check(resp.Header[ROUTE_TEST_HEADER][0], gocheck.Equals, h.Name())
 }
