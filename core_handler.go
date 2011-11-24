@@ -20,7 +20,6 @@ const (
 
 type Named interface {
 	Name() string
-	M2Handler() mongrel2.M2RawHandler
 }
 
 //==StartUp is what most web apps will want to use as an entry point. ===
@@ -44,25 +43,20 @@ func StartUp(raw []Named, proposedDir string) gozmq.Context {
 		return nil
 	}
 
+
 	for _, h := range raw {
-		m2h:=h.M2Handler()
-		if m2h==nil {
-			m2h=new(mongrel2.M2RawHandlerDefault)
-		}
-		fmt.Fprintf(os.Stderr,"in Startup %s about to bind\n",h.Name())
-		if err:=m2h.Bind(h.Name(),ctx); err!=nil {
+		m2rh:=h.(mongrel2.M2RawHandler)
+		if err:=m2rh.Bind(h.Name(),ctx); err!=nil {
 			fmt.Fprintf(os.Stderr,"unable to bind %s to socket! %s\n", h.Name(),err)
 			return nil
 		}
 		switch x:=h.(type) {
 		case Httpified:
-			runner:=x.HttpRunner()
-			if runner==nil {
-				runner=new(HttpRunnerDefault)
-			}
-			runner.RunHttp(conf,x)
+			go x.(HttpRunner).RunHttp(conf,x)
+		case Jsonified:
+			go x.(JsonRunner).RunJson(conf,x)
 		default:
-			panic(fmt.Sprintf("unknown handler type! %T",h))
+			panic(fmt.Sprintf("unknown handler type! %T is not Httpified or Jsonified!",h))
 		}
 	}
 

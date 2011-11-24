@@ -13,9 +13,12 @@ type JsonRunnerDefault struct {
 	*mongrel2.M2JsonHandlerDefault
 }
 
+func (self *JsonRunnerDefault) RunJson(config *ProjectConfig, target Jsonified) {
+	
+}
+
 type Jsonified interface {
 	Named
-	JsonRunner() JsonRunner
 	ProcessJson(map[string]interface{}) map[string]interface{}
 }
 

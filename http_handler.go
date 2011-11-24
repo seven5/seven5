@@ -17,7 +17,6 @@ type HttpRunner interface {
 //messages as expected for a mongrel2 handler.  
 type Httpified interface {
 	Named
-	HttpRunner() HttpRunner
 	ProcessRequest(request *mongrel2.M2HttpRequest) *mongrel2.M2HttpResponse
 }
 
@@ -47,7 +46,7 @@ func (self *HttpRunnerDefault) RunHttp(config *ProjectConfig, target Httpified) 
 			config.Logger.Printf("[%s]: close of mongrel2 connection in raw handler!", target.Name())
 			return
 		} else {
-			config.Logger.Printf("[%s]: serving %s", target.Name(), config.Name, req.Path)
+			config.Logger.Printf("[%s]: serving %s", target.Name(), req.Path)
 		}
 
 		//note: mongrel converts this to lower case!
