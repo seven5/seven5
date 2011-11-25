@@ -11,3 +11,8 @@ nav li a { text-decoration: none; }
 nav li, nav a { color: #844; }
 
 img[alt="Block Diagram"] { text-align: center; }
+
+ul {
+	list-style-type: disc;
+	list-style-position: inside;
+}
