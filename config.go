@@ -54,7 +54,7 @@ const (
 	NO_SUCH_TABLE = "no such table"
 
 	HANDLER_SUFFIX = "_rawhttp.go"
-	SERVICE_SUFFIX = "_jsservice.go"
+	SERVICE_SUFFIX = "_jsonservice.go"
 
 	HANDLER_OR_SERVICE_INSERT = `insert into handler(send_spec,send_ident,recv_spec,recv_ident) values("%s","%s","%s","");`
 	HOST_INSERT               = `insert into host(server_id,name,matching) values(last_insert_rowid(),"%s","%s");`
@@ -221,6 +221,8 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 		return err
 	}
 	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText, res)
+
+	config.Logger.Printf("[FART] size of addr list %d\n",len(config.Addr))
 
 	//HANDLER
 	for _, addr := range config.Addr {
