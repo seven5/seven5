@@ -9,7 +9,7 @@ import (
 )
 
 type HttpRunner interface {
-	mongrel2.M2HttpHandler
+	mongrel2.HttpHandler
 	RunHttp(config *ProjectConfig, target Httpified)
 }
 
@@ -17,11 +17,11 @@ type HttpRunner interface {
 //messages as expected for a mongrel2 handler.  
 type Httpified interface {
 	Named
-	ProcessRequest(request *mongrel2.M2HttpRequest) *mongrel2.M2HttpResponse
+	ProcessRequest(request *mongrel2.HttpRequest) *mongrel2.HttpResponse
 }
 
 type HttpRunnerDefault struct {
-	*mongrel2.M2HttpHandlerDefault
+	*mongrel2.HttpHandlerDefault
 }
 
 
@@ -32,8 +32,8 @@ type HttpRunnerDefault struct {
 //to have implementations that detect a problem use the HTTP error code set.
 func (self *HttpRunnerDefault) RunHttp(config *ProjectConfig, target Httpified) {
 
-	in := make(chan *mongrel2.M2HttpRequest)
-	out := make(chan *mongrel2.M2HttpResponse)
+	in := make(chan *mongrel2.HttpRequest)
+	out := make(chan *mongrel2.HttpResponse)
 
 	go self.ReadLoop(in)
 	go self.WriteLoop(out)
@@ -52,7 +52,7 @@ func (self *HttpRunnerDefault) RunHttp(config *ProjectConfig, target Httpified) 
 		//note: mongrel converts this to lower case!
 		testHeader := req.Header[strings.ToLower(ROUTE_TEST_HEADER)]
 		if target.Name() == testHeader {
-			testResp := new(mongrel2.M2HttpResponse)
+			testResp := new(mongrel2.HttpResponse)
 			config.Logger.Printf("[ROUTE TEST] %s : %s\n", target.Name(), req.Path)
 			testResp.ClientId = []int{req.ClientId}
 			testResp.ServerId = req.ServerId
@@ -71,11 +71,11 @@ func (self *HttpRunnerDefault) RunHttp(config *ProjectConfig, target Httpified) 
 //protectedProcessRequest is present to allow us to trap panic's that occur inside the web 
 //application.  The web application should not really ever do this, it should generate 500
 //pages instead but a nil pointer dereference or similar is possible.
-func protectedProcessRequest(config *ProjectConfig, req *mongrel2.M2HttpRequest, target Httpified) (resp *mongrel2.M2HttpResponse) {
+func protectedProcessRequest(config *ProjectConfig, req *mongrel2.HttpRequest, target Httpified) (resp *mongrel2.HttpResponse) {
 	defer func() {
 		if x := recover(); x != nil {
 			config.Logger.Printf("[%s]: PANIC! sent error page for %s: %v\n", target.Name(), req.Path, x)
-			resp = new(mongrel2.M2HttpResponse)
+			resp = new(mongrel2.HttpResponse)
 			resp.StatusCode = 500
 			resp.StatusMsg = "Internal Server Error"
 			resp.Body = fmt.Sprintf("Panic: %v\n", x)
@@ -88,8 +88,8 @@ func protectedProcessRequest(config *ProjectConfig, req *mongrel2.M2HttpRequest,
 
 //Generate500Page returns an error page as a mongrel2.Response.  This includes a call stack of the point
 //where the caller called this function.
-func Generate500Page(err string, request *mongrel2.M2HttpRequest) *mongrel2.M2HttpResponse {
-	fiveHundred := new(mongrel2.M2HttpResponse)
+func Generate500Page(err string, request *mongrel2.HttpRequest) *mongrel2.HttpResponse {
+	fiveHundred := new(mongrel2.HttpResponse)
 
 	fiveHundred.ServerId = request.ServerId
 	fiveHundred.ClientId = []int{request.ClientId}

@@ -24,7 +24,7 @@ type ProjectConfig struct {
 	Path     string
 	Name     string
 	Logger   *log.Logger
-	Addr     []*mongrel2.M2HandlerSpec
+	Addr     []*mongrel2.HandlerSpec
 	Service  []string
 	ServerId string
 }
@@ -150,7 +150,7 @@ func DiscoverHandlers(config *ProjectConfig) error {
 	if err != nil {
 		return err
 	}
-	address := []*mongrel2.M2HandlerSpec{}
+	address := []*mongrel2.HandlerSpec{}
 	service := []string{}
 	for _, child := range children {
 		if !strings.HasSuffix(child, HANDLER_SUFFIX) && !strings.HasSuffix(child, SERVICE_SUFFIX) {
@@ -171,7 +171,7 @@ func DiscoverHandlers(config *ProjectConfig) error {
 			config.Logger.Printf("[DISCOVER] found service %s\n",name)
 			service = append(service, name)
 		}
-		a, err := mongrel2.GetM2HandlerSpec(name)
+		a, err := mongrel2.GetHandlerSpec(name)
 		if err != nil {
 			return nil
 		}
@@ -221,8 +221,6 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 		return err
 	}
 	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText, res)
-
-	config.Logger.Printf("[FART] size of addr list %d\n",len(config.Addr))
 
 	//HANDLER
 	for _, addr := range config.Addr {
@@ -274,7 +272,7 @@ func GenerateMongrel2Config(config *ProjectConfig) error {
 
 	// ROUTE TO STATIC CONTENT
 	staticDirectory := fmt.Sprintf(`(select id from directory where base="%s")`, STATIC)
-	routeText := fmt.Sprintf(ROUTE_INSERT, "/", nestedHost, staticDirectory, "dir")
+	routeText := fmt.Sprintf(ROUTE_INSERT, "/static/", nestedHost, staticDirectory, "dir")
 
 	r, err = db.Exec(routeText)
 	if err != nil {

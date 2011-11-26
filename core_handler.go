@@ -18,11 +18,13 @@ const (
 	ROUTE_TEST_HEADER = "X-Seven5-Route-Test"
 )
 
+//Named is use to indicate that your object has a name method.  This is used to avoid specific
+//knowlege of the concrete type in some places.
 type Named interface {
 	Name() string
 }
 
-//==StartUp is what most web apps will want to use as an entry point. ===
+//StartUp is what most web apps will want to use as an entry point. 
 // 
 //The return parameter is the zmq context for this application and this should be closed 
 // on shutdown (usually using defer). This functions runs all the seven5.RawHandlers provided
@@ -45,8 +47,8 @@ func StartUp(raw []Named, proposedDir string) gozmq.Context {
 
 
 	for _, h := range raw {
-		m2rh:=h.(mongrel2.M2RawHandler)
-		if err:=m2rh.Bind(h.Name(),ctx); err!=nil {
+		rh:=h.(mongrel2.RawHandler)
+		if err:=rh.Bind(h.Name(),ctx); err!=nil {
 			fmt.Fprintf(os.Stderr,"unable to bind %s to socket! %s\n", h.Name(),err)
 			return nil
 		}

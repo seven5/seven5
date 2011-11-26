@@ -5,33 +5,34 @@ import (
 )
 
 type JsonRunner interface {
-	mongrel2.M2JsonHandler
+	mongrel2.JsonHandler
 	RunJson(config *ProjectConfig, target Jsonified)
 }
 
 
 type Jsonified interface {
 	Named
-	ProcessJson(*mongrel2.M2JsonRequest) *mongrel2.M2JsonResponse
+	ProcessJson(*mongrel2.JsonRequest) []*mongrel2.JsonResponse
 }
 
 
 type JsonRunnerDefault struct {
-	*mongrel2.M2JsonHandlerDefault
+	*mongrel2.JsonHandlerDefault
 }
 
 func (self *JsonRunnerDefault) RunJson(config *ProjectConfig, target Jsonified) {
-	in := make(chan *mongrel2.M2JsonRequest)
-	out := make(chan *mongrel2.M2JsonResponse)
+	in := make(chan *mongrel2.JsonRequest)
+	out := make(chan *mongrel2.JsonResponse)
 
 	go self.ReadLoop(in)
 	go self.WriteLoop(out)
 
 	for {
 		req:=<-in
-		resp:=target.ProcessJson(req)
-		if resp!=nil {
-			out <- resp
+		for _, resp:=range target.ProcessJson(req) {
+			if resp!=nil {
+				out <- resp
+			}
 		}
 	}
 }
