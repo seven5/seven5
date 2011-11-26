@@ -1,0 +1,188 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta name="GENERATOR" content="Blackfriday Markdown Processor v1.1" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <link rel="stylesheet" type="text/css" href="css/base.css" />
+</head>
+<body>
+
+<h3>Aside About Type Discovery</h3>
+
+<p>Because the HTML or any other guise would need to know what resources to serve, we are back to the problem of type discovery.  The real solution is, of course, to machine generate a snippet of code that &ldquo;glues together&rdquo; the developer package (<code>.a</code> file) and seven5 packages (as <code>.a</code> files) with a <code>main.main()</code> function. I propose this temporary solution:</p>
+
+<ul>
+<li>Use the <code>init()</code> method of the file to &ldquo;hook&rdquo; a file of developer code to the toolkit. <code>init()</code> is automatically run at load-time.</li>
+<li>The toolkit calls should be super-simple and able to take multiple parameter types.</li>
+</ul>
+
+<p>The latter is to ease
+the machine-generation process later and avoid having to do fancy things like understand types in go for real.</p>
+
+<p>This is an example from <code>sass-examples.css.go</code> currently in the <code>samples/dsl</code> project:</p>
+
+<pre><code>func init() {
+    //note: Any &quot;var&quot; at top level should get shoved into here... could probably even
+    //note: generate this init method this with some horrible shell script with some
+    //note: sed that looks for var and then =
+    Reg(contentNavigation)
+    Reg(border)
+    Reg(heavyList)
+    Reg(errorIntrusion)  
+    Reg(error)
+    Reg(badError) 
+    Reg(dataTableBase)
+    Reg(dataLeft)
+    CSS(&quot;sass_examples&quot;)//signal that you have told it everything
+}
+</code></pre>
+
+<h1>Proposal on DSLs</h1>
+
+<h2>HTML</h2>
+
+<p>There are two versions of the HTML DSL idea, <em>cheap and easy</em>, and <em>expensive and hard</em>.  Naturally, the latter is preferable but will take a lot longer to build.  We&rsquo;ll just call them &ldquo;simple&rdquo; and &ldquo;complex&rdquo; in here.</p>
+
+<p>For simple, I&rsquo;m proposing that <code>[anything].html</code> outside of <code>static/</code> gets sent to the <code>HtmlGuise</code>.  This guise looks up his known list of pages and if he knows the page, he renders it. Otherwise he gives 404.  (I do think an <code>ErrorGuise</code> might somehow be a good idea to concentrate all the logic of that in one place, especially the ability to turn on or off debugging messages, etc.)</p>
+
+<p>The <code>HtmlGuise</code>, in the simple version, just finds the object and calls <code>dumpMeYourDamnHtml()</code> on it. <em>There is no need for, and no utility to, generating this to disk.</em>  The &ldquo;DSL part&rdquo; is all about trying to make writing the implementation of that nicer.  For simple, I&rsquo;m proposing something dead-stupid:</p>
+
+<pre><code>page:=new(Page)
+page.add(new Head().add(new (StyleSheet).setName(MYSTYLESHEET)),
+         new Body().add(...)
+</code></pre>
+
+<p>I think you see how this works.  The only way I see to make this palatable is to permit a wide variety of argument &ldquo;types&rdquo; to be used in various places, plus any number of arguments, to make it flow more nicely.  Go has pretty good support for methods that take any number of arguments and a wide range types&ndash;using reflection to figure out what to do with the parameters as you go.</p>
+
+<p>Probably something much better/nicer/pretty/more terse can be done that the crap I have above. For me the key thing is that something like a stylesheet name, or a div id is an actual go variable.  OAOO.  If the typing is right I&rsquo;d like to be able to say:</p>
+
+<pre><code>const NAVBAR = DomId(&quot;nav&quot;)  //DomId 'is' a string but typechecked as a different type
+</code></pre>
+
+<p>and then use that in both the creation of the HTML&ndash;where it gets slapped onto a Div object&ndash;and in the CSS where it gets other love (see below, it is already in place at the current time).</p>
+
+<p>In this simple version, the &ldquo;code&rdquo; of the page has to be rendered (run) completely every time.  Consider this:</p>
+
+<pre><code>if inbox.Empty() {
+    page.add(...some message that nobody loves you and you have no mail...)
+} else {
+    page.add(...table headers...)
+    for i,m:=range(inbox.Messages()) {
+        if i%2=0 {
+            page.add(...row based on properties of m...gray background)
+        } else {
+            page.add(...row based on properties of m...white background)
+        }
+    page.add(...table footers...)
+}
+</code></pre>
+
+<p>Normally, this kind of cruft is done inside the templating mechanism of the web framework&ndash;which is why I rebel and say that this is really programming.  However, this simple version is a bit verbose because you end up having to write your HTML in a weird, somewhat indirect way.  This is, roughly, <em>the same experience</em> as templating since templating allows you to write the HTML naturally, but the code is written in a weird and indirect way.  I&rsquo;d argue this is superior to templating only in that it allows OAOO for many critical things and&ndash;if you do it right&ndash;HTML coding which is basically the same task that you would do in a <code>.html</code> file anyway, except checked by the compiler for correct nesting and so forth.</p>
+
+<h3>Possible area for opinion</h3>
+
+<p>We could make the decision that HTML code with conditionals in it is broken and wrong, and thus
+the HTML guise and the DSL would get simpler and could be run only once.  This seems to be just
+moving the problem to the Javascript code which then would have to do various DOM manipulations
+when the inbox is empty, deal with pagination, etc.  Maybe that&rsquo;s ok, and then the HTML
+DSL could be reduced to something broadly similar to the CSS DSL&hellip;</p>
+
+<h2>CSS</h2>
+
+<p>CSS has no dynamics, so it only needs the simple version of the DSL.  I implemented this as
+<code>css.go</code> in the <code>seven5/css</code> package.  I really wanted to see if the notation was acceptable;
+not sure if it is super &ldquo;clean&rdquo; but it does have the nice properties for programmers about
+type-checking, OAOO, development tools that can do completion on css fields, etc.</p>
+
+<p>This is a somewhat reduced version of the <code>sass-examples.go</code> CSS that is in <code>samples/dsl</code>.  It is a direct translation of the examples from the <a href="http://sass-lang.com">homepage of SASS</a>.  It expects that you really understand composite literals in go.</p>
+
+<pre><code>//this is not really recommended (use of .) but it makes the DSL cleaner
+import . &quot;seven5/css&quot;
+
+//init() method removed, it's above
+
+//OAOO...used below
+const blue = 0x3bbfce
+
+//OAOO if we wanted to use in other parts of the program it is now visible... note the type
+//prevents this from being used in bogus places
+const CONTENT_NAV = CSSClass(&quot;content_navigation&quot;)
+
+var contentNavigation = ClassStyle{
+    CONTENT_NAV, 
+    Style{ 
+        //shorthand 
+        BorderColor{0x3bbfce}, 
+        //more explicit
+        Color{Rgb: 0x2b9eabe},
+        },
+    nil, //no inheritance... this nil is annoying but it can be avoided, see next example
+    }
+
+
+//if you name the fields you ARE using, you can omit others so this
+//can be used to avoid the &quot;extra&quot; nil
+var border = ClassStyle{ Class: CSSClass(&quot;border&quot;), 
+    Style: Style{ 
+        Padding{Px: 16},
+        Margin{All: Size{Px:16}},
+        BorderColor{blue},
+    },
+}
+
+//functions are legal just like in sass
+func tableBase(id DomId) IdStyle {
+    twoPixOfPadding:=Padding{Px:2}//OAOO!
+    return IdStyle{Name: id, Style: Style{
+        TH{TextAlign{Center:true}, FontWeight{Bold:true}, twoPixOfPadding},
+        TD{twoPixOfPadding},
+    }}
+}
+//better type checking than sass! only a size can be passed to function!
+func left(id DomId, size Size)  IdStyle{
+    return IdStyle{Name: DomId(id), Style: Style{Float{Left:true},MarginLeft(size) }}
+}
+
+//note strong typing means you MUST convert this to a DomId to be able to use it! sweet!
+var data = DomId(&quot;data&quot;)
+var dataTableBase = tableBase(data)
+var dataLeft = left(data,Size{Px:10})
+</code></pre>
+
+<h2>Javascript</h2>
+
+<p>I don&rsquo;t know enough about javascript to really do much with this.  The only rough idea I had
+was to arrange the go types that you &ldquo;program against&rdquo; in &ldquo;foo.js.go&rdquo; to work out to be very close
+textually to the &ldquo;looser typed&rdquo; Javascript entities:</p>
+
+<pre><code>func bar(p1 type1) {
+    Alert(&quot;you suck:&quot;,p1)
+}
+</code></pre>
+
+<p>becomes</p>
+
+<pre><code>function bar(p1) {
+    Alert(&quot;you suck:&quot;,p1)
+}
+</code></pre>
+
+<p>There would be a very stupid machine translator that would do the work of this transformation&ndash;but it would <em>assume</em> that you had already passed the go compiler.   In other words, it will be mostly a text-to-text program, not really a compiler.</p>
+
+<p>The hope would be that you could just do enough typing on the go side to get you the things you want to do on the javascript side. Note that the go code in this design is never actually <em>run</em> so you don&rsquo;t have to implement things in go, just do enough to get the types right.</p>
+
+<p>Then seven5 would supply a &ldquo;bridge&rdquo; library of Javascript code that would aid the translator in its effort to be stupid by providing a version of <code>Alert()</code> that called <code>window.alert()</code> and shoved the parameters passed to <code>Alert()</code> into a string so <code>window.alert()</code> wouldn&rsquo;t complain about number of arguments&hellip; you get the idea.  I would hope that most dom manipulation could be supported with a translator that was <em>uberstupid</em>.</p>
+
+<p>It should be clear that you can write a valid go programs in <code>foo.js.go</code> which translates to something that doesn&rsquo;t make sense, even syntactically, in javascript.  The key is finding the sweet spot of stupidity, particularly for control structures (like <code>range</code> in go) and the ability to do some function definitions in go that &ldquo;map&rdquo; to the JS side correctly.</p>
+
+<p>Obviously, if we are going to use <code>backbone.js</code> as our story for REST we need to provide go classes that &ldquo;look like&rdquo; backbone&rsquo;s objects, functions, etc.</p>
+
+<p>The only actually &ldquo;good thing&rdquo; I thought of along this line is providing a &ldquo;go side wrapper&rdquo; (if you see my meaning) around jquery&ndash;plus the necessary support on the JS side&ndash;so that people that already know jquery will feel at home.  I just hate the jquery notation soooo much.</p>
+
+<h2>The Complex Version</h2>
+
+<p>This idea applies mostly to the HTML DSL, although the level of translator sophistication needed to do this would probably help the Javascript DSL if you go with the approach outlined above.</p>
+
+</body>
+</html>
