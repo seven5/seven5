@@ -184,6 +184,7 @@ With this in place, you can also debug in "always up to date mode" but when "goi
 Need For The Complex Version
 ----------------------------
 
+If you go with the opinionated approach above, you may be able to concentrate all your effort on the JS translator/bridge and obviate the need for the complex version with the HTML guise.  This may be a good rationale for the decision to go with a dead-simple HTML DSL.
 
  
 

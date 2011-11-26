@@ -168,7 +168,7 @@ textually to the &ldquo;looser typed&rdquo; Javascript entities:</p>
 }
 </code></pre>
 
-<p>There would be a very stupid machine translator that would do the work of this transformation&ndash;but it would <em>assume</em> that you had already passed the go compiler.   In other words, it will be mostly a text-to-text program, not really a compiler.</p>
+<p>There would be a very stupid machine translator that would do the work of this transformation&ndash;but it would <em>assume</em> that you had already passed the go compiler.   In other words, it will be mostly a text-to-text translation, not really a compiler.</p>
 
 <p>The hope would be that you could just do enough typing on the go side to get you the things you want to do on the javascript side. Note that the go code in this design is never actually <em>run</em> so you don&rsquo;t have to implement things in go, just do enough to get the types right.</p>
 
@@ -182,7 +182,23 @@ textually to the &ldquo;looser typed&rdquo; Javascript entities:</p>
 
 <h2>The Complex Version</h2>
 
-<p>This idea applies mostly to the HTML DSL, although the level of translator sophistication needed to do this would probably help the Javascript DSL if you go with the approach outlined above.</p>
+<p>This idea applies mostly to the HTML DSL, although the level of translator sophistication needed to do this would probably help the Javascript DSL as well&ndash;if you go with something like the approach outlined above.</p>
+
+<p>In this approach, you actually need to do some analysis of the go code in the HTML DSL.  The objective is to try to find &ldquo;snippets&rdquo; (roughly <a href="http://en.wikipedia.org/wiki/Basic_block">basic blocks</a>) that can be run to completion and the result cached.  Then a new version of the DSL code would get emitted that contained <em>only</em> the necessary logic (control structures and such) and data that could possibly change and affect the outcome of the HTML generation.  So, a very complex page is reduced to only needing to compute (say) the inner loop of some varying data at run-time.  All the rest comes straight from cache!</p>
+
+<p>Doing this right also means having a few conventions about how aggressive you want the cache to be.  For example:</p>
+
+<pre><code>//This is the critical part of the home page! It's hit 10 times per second on average!
+for i_30secs, v:=range values {
+    //generate wicked complex HTML here and compute 400 mersienne primes...
+}
+</code></pre>
+
+<p>With this in place, you can also debug in &ldquo;always up to date mode&rdquo; but when &ldquo;going big&rdquo; you know that each evaluation of the loop serves all page views for 30 seconds or something like that&hellip;</p>
+
+<h2>Need For The Complex Version</h2>
+
+<p>If you go with the opinionated approach above, you may be able to concentrate all your effort on the JS translator/bridge and obviate the need for the complex version with the HTML guise.  This may be a good rationale for the decision to go with a dead-simple HTML DSL.</p>
 
 </body>
 </html>
