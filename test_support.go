@@ -16,11 +16,41 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 		c.Fatalf("unable to start up, can't find absolute path to cwd!")
 	}
 	path = filepath.Clean(path)
-	context := StartUp([]Named{n}, path)
-	if context == nil {
+	config, ctx := BootstrapFromDir(path)
+	
+	if err=WriteTestConfig(config,n); err!=nil {
+		c.Fatalf("unable to write mongrel2 test configuration: %s",err)	
+	}
+	
+	if !StartUp(ctx,config,n) {
 		c.Fatalf("unable to start the handlers, no context found: %s, %s",n.Name(),path)
 	} 
-	return context	
+	return ctx	
+}
+
+//WriteTestConfig does the necessary steps to write a mongrel 2 configuration suitable for
+//testing.
+func WriteTestConfig(config *ProjectConfig, n Named) error {
+	var err error
+	//this accepts all the defaults for log placement, pid files, etc.
+	if err = GenerateServerHostConfig(config, LOCALHOST, TEST_PORT); err!=nil {
+		return err
+	}
+	//only can do HTTP testing right now
+	if err= GenerateHandlerAddressAndRouteConfig(config, LOCALHOST, n, false); err!=nil{
+		return err
+	}
+	//static content at /static
+	if err=GenerateStaticContentConfig(config, LOCALHOST, STATIC); err!=nil {
+		return err
+	}
+
+	//normally this does nothing unless the DB is completely empty
+	if err=GenerateMimeTypeConfig(config); err!=nil {
+		return err
+	}
+	
+	return nil
 }
 
 //This function performs a mapping test on the URL provided.  It checks that if

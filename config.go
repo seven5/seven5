@@ -27,6 +27,7 @@ type ProjectConfig struct {
 	Addr     []*mongrel2.HandlerSpec
 	Service  []string
 	ServerId string
+	Db	     *sql.DB
 }
 
 const (
@@ -179,6 +180,157 @@ func DiscoverHandlers(config *ProjectConfig) error {
 	}
 	config.Addr = address
 	config.Service = service
+	return nil
+}
+
+//GenerateServerConfig writes information about the server (in mongrel2 terms) name and what host it is
+//working on behalf of.  It also configures information about the log file placement
+//and other such variables.  The optional arguments are
+//accessLog string, errorLog string, pidFile string, chroot string. The "host" portion of the
+//mongrel2 configuration is made to be exactly one host whose name is default host.
+func GenerateServerHostConfig(config *ProjectConfig,defaultHost string, port int,  opt ...string) error {
+
+	if len(opt)!=4 && len(opt)!=0 {
+		return errors.New("GenerateServerConfig: wrong number of arguments!")
+	}
+	var chroot, accessLog, errorLog, pidFile string
+	if len(opt)==0 {
+		chroot = filepath.Join(config.Path, MONGREL2)
+		accessLog=ACCESS_LOG
+		errorLog=ERROR_LOG
+		pidFile=PID_FILE
+	} else {
+		accessLog=opt[0]
+		errorLog=opt[1]
+		pidFile=opt[2]
+		chroot = opt[3]
+	}
+	sqlText := fmt.Sprintf(SERVER_INSERT, config.ServerId, accessLog, errorLog, pidFile, chroot, defaultHost, config.Name, port)
+	r, err := config.Db.Exec(sqlText)
+	if err != nil {
+		return err
+	}
+	res, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted server into config:%s (%d row)\n", sqlText, res)
+
+	//HOST: must run IMMEDIATELY after the server is inserted because sql is dependent on order
+	sqlText = fmt.Sprintf(HOST_INSERT, defaultHost, defaultHost)
+	r, err = config.Db.Exec(sqlText)
+	if err != nil {
+		return err
+	}
+	res, err = r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText, res)
+	return nil
+}
+
+//GenerateHandlerAddressAndRouteConfig creates the necessary mongrel2 configuration for a handler
+//with a given name. It creates an address for the handler, an ID for it and writes those
+//into the mongrel2 configuration.  Then it creates a mongrel2 route for the handler to 
+//be contacted on.  The route is @[name] if the handler is a JSON service, otherwise it is
+//bound into the HTTP space at /[name]
+func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, handler Named, isJson bool) error {
+	addr,err:=mongrel2.GetHandlerSpec(handler.Name())
+	if err!=nil {
+		return err
+	}
+	sqlText := fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
+	r, err := config.Db.Exec(sqlText)
+	if err != nil {
+		return err
+	}
+	res, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted %s handler configuration:%s (%d row)\n", addr.Name, sqlText, res)
+
+	//this is the query used to find the host that routes point at
+	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, host)
+
+	// ROUTE TO HANDLER
+	nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
+	pathPrefix := "/"
+	if isJson {
+		pathPrefix="@"
+	}
+	sqlText = fmt.Sprintf(ROUTE_INSERT, pathPrefix+addr.Name, nestedHost, nestedHandler, "handler")
+	r, err = config.Db.Exec(sqlText)
+	if err != nil {
+		return err
+	}
+	res, err = r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted handler %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
+	return nil
+} 
+
+//GenerateStaticContentConfigcreates the necessary mongrel2 configuration for a directory
+//a 'directory' and a 'route' to that directory.
+func GenerateStaticContentConfig(config *ProjectConfig, host string, path string) error {
+	//this is the query used to find the host that routes point at
+	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, host)
+	
+	
+	dirText := fmt.Sprintf(DIRECTORY_INSERT, path)
+	r, err := config.Db.Exec(dirText)
+	if err != nil {
+		return err
+	}
+	res, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted directory into config:%s (%d row)\n", dirText, res)
+
+	// ROUTE TO STATIC CONTENT
+	staticDirectory := fmt.Sprintf(`(select id from directory where base="%s")`, STATIC)
+	routeText := fmt.Sprintf(ROUTE_INSERT, "/static/", nestedHost, staticDirectory, "dir")
+
+	r, err = config.Db.Exec(routeText)
+	if err != nil {
+		return err
+	}
+	res, err = r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted static content route into config:%s (%d row)\n", routeText, res)
+	return nil
+}
+
+//GenerateMimeTypeConfig puts the mime-type table.
+func GenerateMimeTypeConfig(config *ProjectConfig) error {
+	rows, err := config.Db.Query("select count(*) from mimetype;")
+	if err != nil {
+		return err
+	}
+
+	var result int
+	rows.Next()
+	rows.Scan(&result)
+	rows.Close()
+
+	config.Logger.Printf("[MONGREL2 SQL] currenty %d items in mimetype table\n", result)
+
+	if result == 0 {
+		for _, pair := range MIME_TYPE {
+			mimeText := fmt.Sprintf(MIME_INSERT, pair[0], pair[1])
+			_, err = config.Db.Exec(mimeText)
+			if err != nil {
+				return err
+			}
+		}
+		config.Logger.Printf("[MONGREL2 SQL] inserted %d mime types in mongrel2 configuration\n", len(MIME_TYPE))
+	}
 	return nil
 }
 
@@ -375,18 +527,20 @@ func BootstrapFromDir(projectDir string) (*ProjectConfig, gozmq.Context) {
 		return nil, nil
 	}
 
+	/*
 	err = DiscoverHandlers(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to discover mongrel2 handlers:%s\n", err.Error())
 		return nil, nil
 	}
-
+	
 	err = GenerateMongrel2Config(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to write mongrel2 config:%s\n", err.Error())
 		return nil, nil
 	}
-
+	*/
+	
 	ctx, err := gozmq.NewContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to create zmq context :%s\n", err.Error())
@@ -398,6 +552,13 @@ func BootstrapFromDir(projectDir string) (*ProjectConfig, gozmq.Context) {
 		fmt.Fprintf(os.Stderr, "unable to start/reset mongrel2:%s\n", err.Error())
 		return nil, nil
 	}
+
+	db, err := sql.Open("sqlite3", db_path(config))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to open configuration database:%s\n", err.Error())
+		return nil,nil
+	}
+	config.Db=db
 
 	return config, ctx
 }

@@ -32,8 +32,8 @@ type Named interface {
 //apps will just want to exit since the error has already been printed to stderr.  If you are
 //calling this from test code, you will want to set the second parameter to the proposed
 //project directory; otherwise pass "" and it will be retreived from the command line args.
-func StartUp(raw []Named, proposedDir string) gozmq.Context {
-	var conf *ProjectConfig
+func StartUp(ctx gozmq.Context, conf *ProjectConfig, raw ... Named) bool {
+	/*var conf *ProjectConfig
 	var ctx gozmq.Context
 
 	if proposedDir != "" {
@@ -44,13 +44,12 @@ func StartUp(raw []Named, proposedDir string) gozmq.Context {
 	if conf == nil {
 		return nil
 	}
-
-
+	*/
 	for _, h := range raw {
 		rh:=h.(mongrel2.RawHandler)
 		if err:=rh.Bind(h.Name(),ctx); err!=nil {
 			fmt.Fprintf(os.Stderr,"unable to bind %s to socket! %s\n", h.Name(),err)
-			return nil
+			return false
 		}
 		switch x:=h.(type) {
 		case Httpified:
@@ -62,5 +61,5 @@ func StartUp(raw []Named, proposedDir string) gozmq.Context {
 		}
 	}
 
-	return ctx
+	return true
 }
