@@ -4,7 +4,7 @@ package seven5
 const WEBAPP_TEMPLATE = `package main
 
 import (
-	"{{.import}}"
+	//"{{.import}}"
 	"seven5"
 	"time"
 	"github.com/alecthomas/gozmq"
@@ -46,6 +46,7 @@ func main() {
 
 	//derive from filenames... need to know if it is json or not
 	//host much match the one above
+	/*
 	if err= seven5.GenerateHandlerAddressAndRouteConfig(config, host, echo, false); err!=nil{
 		msg="error writing mongrel2 config: address/route (echo)"
 		goto abort
@@ -54,6 +55,7 @@ func main() {
 		msg="error writing mongrel2 config: address/route (chat)"
 		goto abort
 	}
+	*/
 
 	//static content at /static
 	if err=seven5.GenerateStaticContentConfig(config, host, seven5.STATIC); err!=nil {
@@ -76,7 +78,7 @@ func main() {
 	//wait forever in 10 sec increments... need to keep this function alive because when
 	//it exits (such as control-c) the context gets closed
 	for {
-		time.Sleep(10000000000)
+		time.Sleep(1e10)
 	}
 	
 	//cleanup operations, if any.

@@ -70,14 +70,22 @@ func (rock *Rock) NeedsRebuild() bool {
 }
  
 func (rock *Rock) StartServer() (success bool) {
-	fmt.Println("Running the web server")
-	// TODO: Run webapp_start and save to rock.webProcess
+	rock.StopServer()
+	rock.webCmd  = exec.Command(filepath.Join(".", seven5.WEBAPP_START_DIR, seven5.WEBAPP_START_DIR), ".")
+	rock.webCmd.Stdout = os.Stdout
+	rock.webCmd.Stderr = os.Stderr
+	err := rock.webCmd.Start()
+	if err != nil{
+		fmt.Println("Error starting the web server: ", err)
+		return false
+	}
 	return true
 }
 
 func (rock *Rock) StopServer() (success bool) {
-	fmt.Println("Stopping the web server")
-	//TODO: kill the rock.webProcess
+	if rock.webCmd == nil { return true }
+	rock.webCmd.Process.Kill()
+	rock.webCmd = nil
 	return true
 }
 
