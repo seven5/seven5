@@ -66,7 +66,12 @@ func (rock *Rock) Build() (success bool) {
 
 func (rock *Rock) NeedsRebuild() bool {
 	// TODO: Poll the directory monitor
-	return false
+	changed, err := rock.dirMonitor.Poll()
+	if err != nil {
+		fmt.Println("Error monitoring the directory", err)
+		os.Exit(1)
+	}
+	return changed
 }
  
 func (rock *Rock) StartServer() (success bool) {
@@ -92,7 +97,7 @@ func (rock *Rock) StopServer() (success bool) {
 func NewRock(projectDirPath string) (rock *Rock, err error) {
 	dir, err := os.Open(projectDirPath)
 	if err != nil { return }
-	dirMon, err := seven5.NewDirectoryMonitor(projectDirPath)
+	dirMon, err := seven5.NewDirectoryMonitor(projectDirPath, ".go")
 	if err != nil { return }
 	return &Rock{dir, dirMon, nil, nil}, nil
 }
