@@ -2,10 +2,9 @@ package seven5
 
 import (
 	"os"
-	"fmt"
 	"bufio"
 	"testing"
-	//"path/filepath"
+	"path/filepath"
 )
 
 type TestDirectoryListener struct {
@@ -30,17 +29,14 @@ func (listener *TestDirectoryListener) FileAdded(fileInfo os.FileInfo){
 
 func TestInit(t *testing.T) {
 	
-	info, _ := os.Stat("./")
-	fmt.Printf("PWD mode %v\n", info.Mode)
-	
 	const dirName string = "./temp-test-dir"
-	monitor, err := NewDirectoryMonitor(dirName)
+	monitor, err := NewDirectoryMonitor(dirName, ".foo")
 	if monitor != nil { t.Error("Should not return a monitor for a non-existant directory")}
 	if err == nil { t.Error("Should return an error for a non-existant directory")}
 
 	os.Mkdir(dirName, 16877)
 	defer os.RemoveAll(dirName)
-	monitor, err = NewDirectoryMonitor(dirName)
+	monitor, err = NewDirectoryMonitor(dirName, ".foo")
 	if monitor == nil { t.Error("Should return a monitor for a directory")}
 	if err != nil { t.Error("Should not return an error for a directory")}
 	
@@ -49,25 +45,18 @@ func TestInit(t *testing.T) {
 
 	changed, err := monitor.Poll()
 	if err != nil { t.Error("Should not return an error")}
-	if changed { t.Error("Should not be changed on the first poll") }
-	if len(testListener.AddedFiles) != 0 { t.Error()}
-	if len(testListener.RemovedFiles) != 0 { t.Error()}
-	if len(testListener.ChangedFiles) != 0 { t.Error()}
-
-	changed, err = monitor.Poll()
-	if err != nil { t.Error("Should not return an error")}
 	if changed { t.Error("Nothing should have changed", testListener.ChangedFiles[0].Name) }
 	if len(testListener.AddedFiles) != 0 { t.Error()}
 	if len(testListener.RemovedFiles) != 0 { t.Error()}
 	if len(testListener.ChangedFiles) != 0 { t.Error()}
 	
-	tempFile,err := os.Create(dirName + "/temp-test-file")
+	tempFile,err := os.Create(filepath.Join(dirName, "temp-test-file.foo"))
 	defer os.Remove(tempFile.Name())
 	tempFileInfo,err := tempFile.Stat()
 	wr := bufio.NewWriter(tempFile) 
 	wr.WriteString("I like traffic lights.\n") 
 	wr.Flush()
-	
+	tempFile.Sync()
 	changed, err = monitor.Poll()
 	if err != nil { t.Error("Should not return an error")}
 	if !changed { t.Error("Should have changed") }
@@ -77,8 +66,12 @@ func TestInit(t *testing.T) {
 	if testListener.AddedFiles[0].Name != tempFileInfo.Name { t.Error("Should have added the temp file") }
 	testListener.Clear()
 
+	tempFile,err = os.Create(filepath.Join(dirName, "temp-test-file.foo"))
+	defer os.Remove(tempFile.Name())
+	wr = bufio.NewWriter(tempFile) 
 	wr.WriteString("But not when they are red.\n") 
 	wr.Flush()
+	tempFile.Sync()
 	changed, err = monitor.Poll()
 	if err != nil { t.Error("Should not return an error")}
 	if !changed { t.Error("Should have changed") }
@@ -86,6 +79,10 @@ func TestInit(t *testing.T) {
 	if len(testListener.RemovedFiles) != 0 { t.Error("Should not have received a removed file", testListener.RemovedFiles)}
 	if len(testListener.ChangedFiles) != 1 { t.Error("Should have received a changed file")}
 	testListener.Clear()
+
+	changed, err = monitor.Poll()
+	if err != nil { t.Error("Should not return an error")}
+	if changed { t.Error("Should not have changed") }
 
 	os.Remove(tempFile.Name())
 	changed, err = monitor.Poll()
@@ -95,5 +92,18 @@ func TestInit(t *testing.T) {
 	if len(testListener.RemovedFiles) != 1 { t.Error("Should have received a removed file")}
 	if len(testListener.ChangedFiles) != 0 { t.Error("Should not have received a changed file")}
 	testListener.Clear()
-	
+
+	tempFile,err = os.Create(filepath.Join(dirName, "temp-test-file.goo"))
+	defer os.Remove(tempFile.Name())
+	wr = bufio.NewWriter(tempFile) 
+	wr.WriteString("I like traffic lights.\n") 
+	wr.Flush()
+
+	changed, err = monitor.Poll()
+	if err != nil { t.Error("Should not return an error because the extension did not match")}
+	if changed { t.Error("Should not have changed") }
+	if len(testListener.AddedFiles) != 0 { t.Error("Should not receive added file")}
+	if len(testListener.RemovedFiles) != 0 { t.Error("Should have received a removed file")}
+	if len(testListener.ChangedFiles) != 0 { t.Error("Should not have received a changed file")}
+	testListener.Clear()
 }

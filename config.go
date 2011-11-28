@@ -37,6 +37,8 @@ const (
 	MONGREL2 = "mongrel2"
 	OUR_LOG  = "seven5.log"
 
+	WEBAPP_START_DIR = "webapp_start"
+
 	LOCALHOST  = "localhost"
 	ACCESS_LOG = "/" + LOGDIR + "/access.log"
 	ERROR_LOG  = "/" + LOGDIR + "/error.log"

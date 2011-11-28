@@ -3,6 +3,7 @@ package seven5
 
 import (
 	"os"
+	"strings"
 )
 
 //Receiver for directory change events
@@ -14,7 +15,7 @@ type DirectoryListener interface {
 
 type DirectoryMonitor struct {
 	Path string
-	
+	Extension string
 	listeners []DirectoryListener
 	previousPoll []os.FileInfo
 }
@@ -28,9 +29,11 @@ func (dirMon *DirectoryMonitor) isIn(file os.FileInfo, poll []os.FileInfo) bool 
 
 func (dirMon *DirectoryMonitor) changed(file os.FileInfo, poll []os.FileInfo) bool {
 	for _, info := range poll{
-		if file.Name == info.Name { return file.Mtime_ns == info.Mtime_ns }
+		if file.Name == info.Name {
+			return file.Mtime_ns != info.Mtime_ns
+		}
 	}
-	return true
+	return false
 }
 
 func (dirMon *DirectoryMonitor) Poll() (changed bool, err error){
@@ -44,6 +47,7 @@ func (dirMon *DirectoryMonitor) Poll() (changed bool, err error){
 		return
 	}
 	for _, info := range currentPoll {
+		if !strings.HasSuffix(info.Name, dirMon.Extension) { continue }
 		if !dirMon.isIn(info, dirMon.previousPoll){
 			changed = true
 			for _, listener := range dirMon.listeners {
@@ -72,10 +76,11 @@ func (dirMon *DirectoryMonitor) Listen(listener DirectoryListener) {
 }
 func (dirMon *DirectoryMonitor) StopListening(listener *DirectoryListener) { }
 
-func NewDirectoryMonitor(path string) (monitor *DirectoryMonitor, err error) {
+func NewDirectoryMonitor(path string, extension string) (monitor *DirectoryMonitor, err error) {
 	info, err := os.Stat(path)
 	if err != nil { return }
 	if !info.IsDirectory() { return }
-	monitor = &DirectoryMonitor{Path: path}
+	monitor = &DirectoryMonitor{Path: path, Extension: extension}
+	monitor.Poll()
 	return
 }
