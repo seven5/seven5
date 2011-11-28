@@ -14,21 +14,23 @@ type DirectoryListener interface {
 }
 
 type DirectoryMonitor struct {
-	Path string
-	Extension string
-	listeners []DirectoryListener
+	Path         string
+	Extension    string
+	listeners    []DirectoryListener
 	previousPoll []os.FileInfo
 }
 
 func (dirMon *DirectoryMonitor) isIn(file os.FileInfo, poll []os.FileInfo) bool {
-	for _, info := range poll{
-		if file.Name == info.Name { return true }
+	for _, info := range poll {
+		if file.Name == info.Name {
+			return true
+		}
 	}
-	return false;
+	return false
 }
 
 func (dirMon *DirectoryMonitor) changed(file os.FileInfo, poll []os.FileInfo) bool {
-	for _, info := range poll{
+	for _, info := range poll {
 		if file.Name == info.Name {
 			return file.Mtime_ns != info.Mtime_ns
 		}
@@ -36,19 +38,27 @@ func (dirMon *DirectoryMonitor) changed(file os.FileInfo, poll []os.FileInfo) bo
 	return false
 }
 
-func (dirMon *DirectoryMonitor) Poll() (changed bool, err error){
-	dir, err := os.Open(dirMon.Path)
-	if err != nil { return }
-
-	currentPoll, err := dir.Readdir(-1)
-	if err != nil { return }
+func (dirMon *DirectoryMonitor) Poll() (changed bool, err error) {
+	var dir *os.File
+	dir, err = os.Open(dirMon.Path)
+	if err != nil {
+		return
+	}
+	var currentPoll []os.FileInfo
+	currentPoll, err = dir.Readdir(-1)
+	if err != nil {
+		return
+	}
 	if dirMon.previousPoll == nil {
 		dirMon.previousPoll = currentPoll
 		return
 	}
-	for _, info := range currentPoll {
-		if !strings.HasSuffix(info.Name, dirMon.Extension) { continue }
-		if !dirMon.isIn(info, dirMon.previousPoll){
+	var info os.FileInfo
+	for _, info = range currentPoll {
+		if !strings.HasSuffix(info.Name, dirMon.Extension) {
+			continue
+		}
+		if !dirMon.isIn(info, dirMon.previousPoll) {
 			changed = true
 			for _, listener := range dirMon.listeners {
 				listener.FileAdded(info)
@@ -60,8 +70,8 @@ func (dirMon *DirectoryMonitor) Poll() (changed bool, err error){
 			}
 		}
 	}
-	for _, info := range dirMon.previousPoll {
-		if !dirMon.isIn(info, currentPoll){
+	for _, info = range dirMon.previousPoll {
+		if !dirMon.isIn(info, currentPoll) {
 			changed = true
 			for _, listener := range dirMon.listeners {
 				listener.FileRemoved(info)
@@ -74,12 +84,16 @@ func (dirMon *DirectoryMonitor) Poll() (changed bool, err error){
 func (dirMon *DirectoryMonitor) Listen(listener DirectoryListener) {
 	dirMon.listeners = append(dirMon.listeners, listener)
 }
-func (dirMon *DirectoryMonitor) StopListening(listener *DirectoryListener) { }
+func (dirMon *DirectoryMonitor) StopListening(listener *DirectoryListener) {}
 
 func NewDirectoryMonitor(path string, extension string) (monitor *DirectoryMonitor, err error) {
 	info, err := os.Stat(path)
-	if err != nil { return }
-	if !info.IsDirectory() { return }
+	if err != nil {
+		return
+	}
+	if !info.IsDirectory() {
+		return
+	}
 	monitor = &DirectoryMonitor{Path: path, Extension: extension}
 	monitor.Poll()
 	return
