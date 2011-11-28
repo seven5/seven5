@@ -46,16 +46,12 @@ func main() {
 
 	//derive from filenames... need to know if it is json or not
 	//host much match the one above
-	/*
-	if err= seven5.GenerateHandlerAddressAndRouteConfig(config, host, echo, false); err!=nil{
-		msg="error writing mongrel2 config: address/route (echo)"
+	{{range .handler}}
+	if err= seven5.GenerateHandlerAddressAndRouteConfig(config, host, {{.}}, false); err!=nil{
+		msg="error writing mongrel2 config: address/route ({{.}})"
 		goto abort
 	}
-	if err=seven5.GenerateHandlerAddressAndRouteConfig(config, host, chat, true); err!=nil{
-		msg="error writing mongrel2 config: address/route (chat)"
-		goto abort
-	}
-	*/
+	{{end}}
 
 	//static content at /static
 	if err=seven5.GenerateStaticContentConfig(config, host, seven5.STATIC); err!=nil {
