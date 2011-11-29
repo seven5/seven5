@@ -3,7 +3,9 @@ package css
 import (
 	//	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
+	//"os"
 )
 
 //
@@ -132,12 +134,22 @@ func (self FontFamilyValue) String() string {
 
 //we separate FontSizeValue just to discourage use of specific font sizes
 type FontSizeValue struct {
-	em float32
+	Em     float32
+	Px_bad int
+	Pt_bad int
 	//px and pt are bad, use em
 }
 
 func (self FontSizeValue) String() string {
-	return fmt.Sprintf("%.2fem", self.em)
+	switch {
+	case self.Em != float32(0):
+		return fmt.Sprintf("%.2fem", self.Em)
+	case self.Px_bad != 0:
+		return fmt.Sprintf("%dpx", self.Px_bad)
+	case self.Pt_bad != 0:
+		return fmt.Sprintf("%dpt", self.Pt_bad)
+	}
+	panic("no font size set!")
 }
 
 type DisplayValue struct {
@@ -157,25 +169,7 @@ type DisplayValue struct {
 }
 
 func (self DisplayValue) String() string {
-	switch {
-	case self.none:
-		return "none"
-	case self.inline:
-		return "none"
-	case self.table:
-		return "table"
-	case self.table_caption:
-		return "table-caption"
-	case self.table_cell:
-		return "table-cell"
-	case self.table_column:
-		return "table-column"
-	case self.table_row:
-		return "table-row"
-	case self.inherit:
-		return "inherit"
-	}
-	panic("no table display value set!")
+	return TrueFieldPrinter(self)
 }
 
 type TextAlignValue struct {
@@ -187,20 +181,7 @@ type TextAlignValue struct {
 }
 
 func (self TextAlignValue) String() string {
-	switch {
-	case self.left:
-		return "left"
-	case self.right:
-		return "right"
-	case self.center:
-		return "center"
-	case self.justify:
-		return "justify"
-	case self.inherit:
-		return "inherit"
-	}
-	panic("no text align value set!")
-
+	return TrueFieldPrinter(self)
 }
 
 type TextDecorationValue struct {
@@ -213,27 +194,15 @@ type TextDecorationValue struct {
 }
 
 func (self TextDecorationValue) String() string {
-	switch {
-	case self.none:
-		return "none"
-	case self.underline:
-		return "underline"
-	case self.overline:
-		return "overline"
-	case self.line_through:
-		return "line-through"
-	case self.inherit:
-		return "inherit"
-	}
-	panic("no text decoration value set!")
-
+	return TrueFieldPrinter(self)
 }
 
 type SizeValue struct {
-	Px int
-	Em float32
-	Mm int
-	Cm int
+	Px      int
+	Em      float32
+	Mm      int
+	Cm      int
+	Percent int
 }
 
 func (self SizeValue) String() string {
@@ -246,9 +215,24 @@ func (self SizeValue) String() string {
 		return fmt.Sprintf("%dmm", self.Mm)
 	case self.Cm != 0:
 		return fmt.Sprintf("%dcm", self.Cm)
+	case self.Percent != 0:
+		return fmt.Sprintf("%d%%", self.Percent)
 	}
 	panic("no size value set!")
 }
+
+type FloatValue struct {
+	left    bool
+	right   bool
+	none    bool
+	inherit bool
+}
+
+func (self FloatValue) String() string {
+	return TrueFieldPrinter(self)
+}
+
+/////////////////////  BORDER is a complex composite
 
 //has to be separate from other sizes because there are multiple ways to set it
 type BorderWidthValue struct {
@@ -256,11 +240,7 @@ type BorderWidthValue struct {
 }
 
 func (self BorderWidthValue) String() string {
-	result := ""
-	for _, i := range self.V {
-		result += " " + fmt.Sprintf("%v",i)
-	}
-	return strings.TrimLeft(result, " ")
+	return SpacePrinter(self.V)
 }
 
 func AllBorderWidth(v SizeValue) BorderWidthValue {
@@ -274,7 +254,7 @@ func TopAndBottomWithLeftRightSameBorderWidth(top SizeValue, leftright SizeValue
 }
 
 func BorderWidths(top SizeValue, right SizeValue, bot SizeValue, left SizeValue) BorderWidthValue {
-	return BorderWidthValue{V: []SizeValue{top,right,bot,left}}
+	return BorderWidthValue{V: []SizeValue{top, right, bot, left}}
 }
 
 type BorderStyleValueRaw struct {
@@ -284,7 +264,7 @@ type BorderStyleValueRaw struct {
 	dashed  bool
 	solid   bool
 	groove  bool
-	dbl  bool
+	dbl     bool
 	ridge   bool
 	inset   bool
 	outset  bool
@@ -292,31 +272,7 @@ type BorderStyleValueRaw struct {
 }
 
 func (self BorderStyleValueRaw) String() string {
-	switch {
-	case self.none:
-		return "none"
-	case self.hidden:
-		return "hidden"
-	case self.dotted:
-		return "dotted"
-	case self.dashed:
-		return "dashed"
-	case self.solid:
-		return "solid"
-	case self.groove:
-		return "groove"
-	case self.dbl:
-		return "double"
-	case self.ridge:
-		return "ridge"
-	case self.inset:
-		return "inset"
-	case self.inset:
-		return "outsite"
-	case self.inherit:
-		return "inherit"
-	}
-	panic("no border style set!")
+	return TrueFieldPrinter(self)
 }
 
 //has to be separate from other sizes because there are multiple ways to set it
@@ -325,11 +281,7 @@ type BorderStyleValue struct {
 }
 
 func (self BorderStyleValue) String() string {
-	result := ""
-	for _, i := range self.V {
-		result += " " + fmt.Sprintf("%v",i)
-	}
-	return strings.TrimLeft(result, " ")
+	return SpacePrinter(self.V)
 }
 
 func AllBorderStyle(v BorderStyleValueRaw) BorderStyleValue {
@@ -350,11 +302,7 @@ type BorderColorValue struct {
 }
 
 func (self BorderColorValue) String() string {
-	result := ""
-	for _, i := range self.V {
-		result += " " + fmt.Sprintf("%v",i)
-	}
-	return strings.TrimLeft(result, " ")
+	return SpacePrinter(self.V)
 }
 
 func AllBorderColor(v ColorValue) BorderColorValue {
@@ -370,6 +318,36 @@ func BorderColors(top ColorValue, right ColorValue, bot ColorValue, left ColorVa
 	return BorderColorValue{V: []ColorValue{top, right, bot, left}}
 }
 
+type OverflowValue struct {
+	visible    bool
+	hidden     bool
+	scroll     bool
+	auto       bool
+	no_display bool
+	no_content bool
+}
+
+func (self OverflowValue) String() string {
+	return TrueFieldPrinter(self)
+}
+
+//Margin
+type MarginValue struct {
+	V []SizeValue
+}
+
+func (self MarginValue) String() string {
+	return SpacePrinter(self.V)
+}
+
+//Padding
+type PaddingValue struct {
+	V []SizeValue
+}
+
+func (self PaddingValue) String() string {
+	return SpacePrinter(self.V)
+}
 
 //
 // VALUE CONSTANTS
@@ -381,9 +359,11 @@ var AntiqueWhite = ColorValue{0xFAEBD7}
 var Aqua = ColorValue{0x00FFFF}
 var Red = ColorValue{0xFF0000}
 var Black = ColorValue{0x000000}
+var Gray = ColorValue{0x808080}
 
 var Gray99 = ColorValue{0x999999}
 var Gray33 = ColorValue{0x333333}
+var Gray80 = ColorValue{0x808080}
 
 //fonts http://www.w3.org/Style/Examples/007/fonts.en.html
 var Helvetica = FontFamilyValue{[]string{"Helvetica", "sans-serif"}}
@@ -416,12 +396,12 @@ var SansSerif = FontFamilyValue{[]string{"sans serif"}}
 var Fantasy = FontFamilyValue{[]string{"fantasy"}}
 var Cursive = FontFamilyValue{[]string{"cursive"}}
 
-var DoubleSize = FontSizeValue{2.0}
-var NormalSize = FontSizeValue{1.0}
-var OneAndHalfSize = FontSizeValue{1.5}
-var OneAndQuarterSize = FontSizeValue{1.25}
-var HalfSize = FontSizeValue{0.5}
-var TwoAndHalfSize = FontSizeValue{2.5}
+var DoubleSize = FontSizeValue{Em: 2.0}
+var NormalSize = FontSizeValue{Em: 1.0}
+var OneAndHalfSize = FontSizeValue{Em: 1.5}
+var OneAndQuarterSize = FontSizeValue{Em: 1.25}
+var HalfSize = FontSizeValue{Em: 0.5}
+var TwoAndHalfSize = FontSizeValue{Em: 2.5}
 
 var OnePix = SizeValue{Px: 1}
 var TwoPix = SizeValue{Px: 2}
@@ -429,17 +409,17 @@ var ThreePix = SizeValue{Px: 3}
 var FourPix = SizeValue{Px: 4}
 var FivePix = SizeValue{Px: 5}
 
-var NoBorderStyle = BorderStyleValueRaw{none:true}
-var HiddenBorderStyle = BorderStyleValueRaw{hidden:true}
-var DottedBorderStyle = BorderStyleValueRaw{dotted:true}
-var DashedBorderStyle = BorderStyleValueRaw{dashed:true}
-var SolidBorderStyle = BorderStyleValueRaw{solid:true}
-var GrooveBorderStyle = BorderStyleValueRaw{groove:true}
-var DoubleBorderStyle = BorderStyleValueRaw{dbl:true}
-var RidgeBorderStyle = BorderStyleValueRaw{ridge:true}
-var InsetBorderStyle = BorderStyleValueRaw{inset:true}
-var OutsetBorderStyle = BorderStyleValueRaw{outset:true}
-var InheritBorderStyle = BorderStyleValueRaw{inherit:true}
+var NoBorderStyle = BorderStyleValueRaw{none: true}
+var HiddenBorderStyle = BorderStyleValueRaw{hidden: true}
+var DottedBorderStyle = BorderStyleValueRaw{dotted: true}
+var DashedBorderStyle = BorderStyleValueRaw{dashed: true}
+var SolidBorderStyle = BorderStyleValueRaw{solid: true}
+var GrooveBorderStyle = BorderStyleValueRaw{groove: true}
+var DoubleBorderStyle = BorderStyleValueRaw{dbl: true}
+var RidgeBorderStyle = BorderStyleValueRaw{ridge: true}
+var InsetBorderStyle = BorderStyleValueRaw{inset: true}
+var OutsetBorderStyle = BorderStyleValueRaw{outset: true}
+var InheritBorderStyle = BorderStyleValueRaw{inherit: true}
 
 //
 // ATTRIBUTES
@@ -449,72 +429,75 @@ type Attr interface {
 	attrTag()
 }
 
+//COLOR
 type Color struct {
 	Value ColorValue
 }
 
 func (self Color) String() string {
-	return fmt.Sprintf("color: %v", self.Value)
+	return PropPrinter("color", self.Value)
 }
-
 func (self Color) attrTag() {
 }
 
+//FONT FAMILY
 type FontFamily struct {
 	Value FontFamilyValue
 }
 
 func (self FontFamily) String() string {
-	return fmt.Sprintf("font-family: %v", self.Value)
+	return PropPrinter("font-family", self.Value)
 }
-
 func (self FontFamily) attrTag() {
 }
 
+//FONT SIZE
 type FontSize struct {
 	Value FontSizeValue
 }
 
 func (self FontSize) String() string {
-	return fmt.Sprintf("font-size: %v", self.Value)
+	return PropPrinter("font-size", self.Value)
 }
-
 func (self FontSize) attrTag() {
 }
 
+//DISPLAY
 type Display struct {
 	Value DisplayValue
 }
 
 func (self Display) String() string {
-	return fmt.Sprintf("display: %v", self.Value)
+	return PropPrinter("display", self.Value)
 }
-
 func (self Display) attrTag() {
 }
 
+//TEXT ALIGN
 type TextAlign struct {
 	Value TextAlignValue
 }
 
 func (self TextAlign) String() string {
-	return fmt.Sprintf("text-align: %v", self.Value)
+	return PropPrinter("text-align", self.Value)
 }
-
 func (self TextAlign) attrTag() {
 }
 
+//TEXT DECORATION
 type TextDecoration struct {
 	Value TextDecorationValue
 }
 
 func (self TextDecoration) String() string {
-	return fmt.Sprintf("text-decoration: %v", self.Value)
+	return PropPrinter("text-decoration", self.Value)
 }
-
 func (self TextDecoration) attrTag() {
 }
 
+//
+// BORDER
+//
 type Border struct {
 	Width BorderWidthValue
 	Style BorderStyleValue
@@ -522,21 +505,257 @@ type Border struct {
 }
 
 func (self Border) String() string {
-	if len(self.Width.V)==1 && len(self.Style.V)==1 && len(self.Color.V)==1 {
-		return fmt.Sprintf("border: %v %v %v", self.Width, self.Style, self.Color)
+	if len(self.Width.V) == 1 && len(self.Style.V) == 1 && len(self.Color.V) == 1 {
+		return fmt.Sprintf("border: %s %s %s", self.Width.V[0], self.Style.V[0], self.Color.V[0])
 	}
-	panic("not sure how to handle more complex border decls")
+	result := ""
+	if len(self.Width.V) > 0 {
+		result += PropPrinter("border-width", self.Width) + ";"
+	}
+	if len(self.Style.V) > 0 {
+		result += PropPrinter("border-style", self.Style) + ";"
+	}
+	if len(self.Color.V) > 0 {
+		result += PropPrinter("border-color", self.Style) + ";"
+	}
+	if len(self.Width.V) == 0 && len(self.Style.V) == 0 && len(self.Color.V) == 0 {
+		panic("no values set in the border!")
+	}
+	return strings.TrimRight(result, ";")
 }
-
 func (self Border) attrTag() {
 }
 
+// Border: BorderWidth
+type BorderWidth struct {
+	Width BorderWidthValue
+}
+
+func (self BorderWidth) String() string {
+	return PropPrinter("border-width", self.Width)
+}
+func (self BorderWidth) attrTag() {
+}
+
+// Border: BorderStyle
+type BorderStyle struct {
+	Style BorderStyleValue
+}
+
+func (self BorderStyle) String() string {
+	return PropPrinter("border-style", self.Style)
+}
+func (self BorderStyle) attrTag() {
+}
+
+//Border: BorderColor
+type BorderColor struct {
+	Color BorderColorValue
+}
+
+func (self BorderColor) String() string {
+	return PropPrinter("border-color", self.Color)
+}
+func (self BorderColor) attrTag() {
+}
+
+//Set all three parts to a single value
 func AllBorders(width SizeValue, style BorderStyleValueRaw, color ColorValue) Border {
 	var result Border
 	result.Width = AllBorderWidth(width)
 	result.Style = AllBorderStyle(style)
 	result.Color = AllBorderColor(color)
 	return result
+}
+
+//Width
+type Width struct {
+	Value SizeValue
+}
+
+func (self Width) String() string {
+	return PropPrinter("width", self.Value)
+}
+func (self Width) attrTag() {
+}
+//Height
+type Height struct {
+	Value SizeValue
+}
+
+func (self Height) String() string {
+	return PropPrinter("height", self.Value)
+}
+func (self Height) attrTag() {
+}
+
+//Overflow-Y
+type OverflowY struct {
+	Value OverflowValue
+}
+
+func (self OverflowY) String() string {
+	return PropPrinter("overflow-y", self.Value)
+}
+
+func (self OverflowY) attrTag() {
+}
+
+//Overflow-X
+type OverflowX struct {
+	Value OverflowValue
+}
+
+func (self OverflowX) String() string {
+	return PropPrinter("overflow-x", self.Value)
+}
+func (self OverflowX) attrTag() {
+}
+
+//Float
+type Float struct {
+	Value FloatValue
+}
+
+func (self Float) String() string {
+	return PropPrinter("float", self.Value)
+}
+func (self Float) attrTag() {
+}
+
+//Margin
+type Margin struct {
+	Value MarginValue
+}
+
+func (self Margin) String() string {
+	return PropPrinter("margin", self.Value)
+}
+func (self Margin) attrTag() {
+}
+
+func AllMargins(v SizeValue) Margin {
+	return Margin{MarginValue{V: []SizeValue{v}}}
+}
+func TopBottomAndLeftRightMargin(tb SizeValue, lr SizeValue) Margin {
+	return Margin{MarginValue{V: []SizeValue{tb, lr}}}
+}
+func TopAndBottomWithLeftRightSameMargin(top SizeValue, leftright SizeValue, bot SizeValue) Margin {
+	return Margin{MarginValue{V: []SizeValue{top, leftright, bot}}}
+}
+func Margins(top SizeValue, right SizeValue, bot SizeValue, left SizeValue) Margin {
+	return Margin{MarginValue{V: []SizeValue{top, right, bot, left}}}
+}
+
+//Padding
+type Padding struct {
+	V PaddingValue
+}
+
+func (self Padding) String() string {
+	return PropPrinter("padding", self.V)
+}
+func (self Padding) attrTag() {
+}
+
+func AllPadding(v SizeValue) Padding {
+	return Padding{PaddingValue{V: []SizeValue{v}}}
+}
+func TopBottomAndLeftRightPadding(tb SizeValue, lr SizeValue) Padding {
+	return Padding{PaddingValue{V: []SizeValue{tb, lr}}}
+}
+func TopAndBottomWithLeftRightSamePadding(top SizeValue, leftright SizeValue, bot SizeValue) Padding {
+	return Padding{PaddingValue{V: []SizeValue{top, leftright, bot}}}
+}
+func Paddings(top SizeValue, right SizeValue, bot SizeValue, left SizeValue) Padding {
+	return Padding{PaddingValue{V: []SizeValue{top, right, bot, left}}}
+}
+//Margin-top
+type MarginTop struct {
+	Value SizeValue
+}
+
+func (self MarginTop) String() string {
+	return PropPrinter("margin-top", self.Value)
+}
+func (self MarginTop) attrTag() {
+}
+
+//Margin-right
+type MarginRight struct {
+	Value SizeValue
+}
+
+func (self MarginRight) String() string {
+	return PropPrinter("margin-right", self.Value)
+}
+func (self MarginRight) attrTag() {
+}
+
+//Margin-bottom
+type MarginBottom struct {
+	Value SizeValue
+}
+
+func (self MarginBottom) String() string {
+	return PropPrinter("margin-bottom", self.Value)
+}
+func (self MarginBottom) attrTag() {
+}
+
+//Margin-left
+type MarginLeft struct {
+	Value SizeValue
+}
+
+func (self MarginLeft) String() string {
+	return PropPrinter("margin-left", self.Value)
+}
+func (self MarginLeft) attrTag() {
+}
+
+//Padding-top
+type PaddingTop struct {
+	Value SizeValue
+}
+
+func (self PaddingTop) String() string {
+	return PropPrinter("padding-top", self.Value)
+}
+func (self PaddingTop) attrTag() {
+}
+
+//Padding-right
+type PaddingRight struct {
+	Value SizeValue
+}
+
+func (self PaddingRight) String() string {
+	return PropPrinter("padding-right", self.Value)
+}
+func (self PaddingRight) attrTag() {
+}
+
+//Padding-bottom
+type PaddingBottom struct {
+	Value SizeValue
+}
+
+func (self PaddingBottom) String() string {
+	return PropPrinter("padding-bottom", self.Value)
+}
+func (self PaddingBottom) attrTag() {
+}
+
+//Padding-left
+type PaddingLeft struct {
+	Value SizeValue
+}
+
+func (self PaddingLeft) String() string {
+	return PropPrinter("padding-left", self.Value)
+}
+func (self PaddingLeft) attrTag() {
 }
 
 //
@@ -557,6 +776,24 @@ var TextDecorationOverline = TextDecoration{TextDecorationValue{overline: true}}
 var TextDecorationBlink = TextDecoration{TextDecorationValue{blink: true}}
 var TextDecorationLineThrough = TextDecoration{TextDecorationValue{line_through: true}}
 var TextDecorationInherit = TextDecoration{TextDecorationValue{inherit: true}}
+
+var OverflowXVisible = OverflowX{OverflowValue{visible: true}}
+var OverflowYVisible = OverflowY{OverflowValue{visible: true}}
+var OverflowXHidden = OverflowX{OverflowValue{hidden: true}}
+var OverflowYHidden = OverflowY{OverflowValue{hidden: true}}
+var OverflowXScroll = OverflowX{OverflowValue{scroll: true}}
+var OverflowYScroll = OverflowY{OverflowValue{scroll: true}}
+var OverflowXAuto = OverflowX{OverflowValue{scroll: true}}
+var OverflowYAuto = OverflowY{OverflowValue{scroll: true}}
+var OverflowXNoDisplay = OverflowX{OverflowValue{no_display: true}}
+var OverflowYNoDisplay = OverflowY{OverflowValue{no_display: true}}
+var OverflowXNoContent = OverflowX{OverflowValue{no_content: true}}
+var OverflowYNoContent = OverflowY{OverflowValue{no_content: true}}
+
+var FloatLeft = Float{FloatValue{left:true}}
+var FloatRight = Float{FloatValue{right:true}}
+var FloatNone = Float{FloatValue{none:true}}
+var FloatInherit= Float{FloatValue{inherit:true}}
 
 //
 // Statement
@@ -638,4 +875,40 @@ func (self StmtSeq) String() string {
 		result += fmt.Sprintf("%v", s)
 	}
 	return result
+}
+
+//
+// Utilities
+//
+func SpacePrinter(raw interface{}) string {
+	v := reflect.ValueOf(raw)
+	targ := make([]interface{}, v.Len(), v.Cap())
+	for i := 0; i < v.Len(); i++ {
+		targ[i] = v.Index(i).Interface()
+	}
+	result := ""
+	for _, b := range targ {
+		result += " " + fmt.Sprintf("%s", b)
+	}
+	return fmt.Sprintf("%s", strings.TrimLeft(result, " "))
+}
+
+func TrueFieldPrinter(raw interface{}) string {
+	t := reflect.TypeOf(raw)
+	v := reflect.ValueOf(raw)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type.Kind() != reflect.Bool {
+			continue
+		}
+		name := f.Name
+		if v.Field(i).Bool() {
+			return strings.Replace(name, "_", "-", -1 /*NOLIMIT*/ )
+		}
+	}
+	panic("no true field set in struct!")
+}
+
+func PropPrinter(prop string, v interface{}) string {
+	return fmt.Sprintf("%s: %s", prop, v)
 }

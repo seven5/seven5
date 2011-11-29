@@ -57,4 +57,18 @@ func (self *CSSSuite) TestMultipleAttrs(c *gocheck.C) {
 func (self *CSSSuite) TestBorder(c *gocheck.C) {
 	foo:=Stmt{Id("foo"),AllBorders(OnePix,SolidBorderStyle,Black)}
 	c.Check(fmt.Sprintf("%s",foo), gocheck.Equals, "#foo {\n\tborder: 1px solid #000000;\n}\n")
+
+	bar1:=Stmt{Id("bar"),Border{Style:TopBottomAndLeftRightBorderStyle(DashedBorderStyle, DottedBorderStyle)}}
+	bar2:=Stmt{Id("bar"),BorderStyle{TopBottomAndLeftRightBorderStyle(DashedBorderStyle, DottedBorderStyle)}}
+	expect:="#bar {\n\tborder-style: dashed dotted;\n}\n"
+	
+	c.Check(fmt.Sprintf("%s",bar1), gocheck.Equals, expect)
+	c.Check(fmt.Sprintf("%s",bar2), gocheck.Equals, expect)
+
+}
+
+func (self *CSSSuite) TestPrintStructFieldHandlesUnderscores(c *gocheck.C) {
+	baz:=Stmt{Id("baz"),OverflowYNoContent}
+	c.Check(fmt.Sprintf("%s",baz), gocheck.Equals, "#baz {\n\toverflow-y: no-content;\n}\n")
+	
 }
