@@ -6,8 +6,8 @@ const WEBAPP_TEMPLATE = `package main
 import (
 	//"{{.import}}"
 	"seven5"
-	"time"
-	"github.com/alecthomas/gozmq"
+	//"time"
+	//"github.com/alecthomas/gozmq"
 	"fmt"
 	"os"
 )
