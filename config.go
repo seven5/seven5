@@ -13,7 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	//"strings"
 	"syscall"
 )
 
@@ -138,53 +138,6 @@ func ClearTestDB(config *ProjectConfig) error {
 	return nil
 }
 
-//DiscoverHandlers looks for handlers in the standard place in a Seven5 project
-//(project_name/*_handler.go) and assigns each one a mongrel2 address. 
-//It also looks for project_name/*_service.go and assigns these a mongrel address. If
-//there is no error, it puts the assigned mongrel2 addresses (type is
-//mongrel2.HandlerAddr) into the ProjectConfig sruct.
-func DiscoverHandlers(config *ProjectConfig) error {
-
-	dir, err := os.Open(config.Path)
-	if err != nil {
-		return err
-	}
-	children, err := dir.Readdirnames(0)
-	if err != nil {
-		return err
-	}
-	address := []*mongrel2.HandlerSpec{}
-	service := []string{}
-	for _, child := range children {
-		if !strings.HasSuffix(child, HANDLER_SUFFIX) && !strings.HasSuffix(child, SERVICE_SUFFIX) {
-			continue
-		}
-		info, _ := os.Stat(filepath.Join(config.Path, child))
-		if info == nil || !info.IsRegular() {
-			continue
-		}
-		var name string
-		if strings.HasSuffix(child, HANDLER_SUFFIX) {
-			end := strings.Index(child, HANDLER_SUFFIX)
-			name = child[0:end]
-			config.Logger.Printf("[DISCOVER] found raw handler %s\n",name)
-		} else {
-			end := strings.Index(child, SERVICE_SUFFIX)
-			name = child[0:end]
-			config.Logger.Printf("[DISCOVER] found service %s\n",name)
-			service = append(service, name)
-		}
-		a, err := mongrel2.GetHandlerSpec(name)
-		if err != nil {
-			return nil
-		}
-		address = append(address, a)
-	}
-	config.Addr = address
-	config.Service = service
-	return nil
-}
-
 //GenerateServerConfig writes information about the server (in mongrel2 terms) name and what host it is
 //working on behalf of.  It also configures information about the log file placement
 //and other such variables.  The optional arguments are
@@ -237,7 +190,7 @@ func GenerateServerHostConfig(config *ProjectConfig,defaultHost string, port int
 //into the mongrel2 configuration.  Then it creates a mongrel2 route for the handler to 
 //be contacted on.  The route is @[name] if the handler is a JSON service, otherwise it is
 //bound into the HTTP space at /[name]
-func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, handler Named, isJson bool) error {
+func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, handler Named) error {
 	addr,err:=mongrel2.GetHandlerSpec(handler.Name())
 	if err!=nil {
 		return err
@@ -259,10 +212,15 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 	// ROUTE TO HANDLER
 	nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
 	pathPrefix := "/"
-	if isJson {
+	if handler.IsJson() {
 		pathPrefix="@"
 	}
-	sqlText = fmt.Sprintf(ROUTE_INSERT, pathPrefix+addr.Name, nestedHost, nestedHandler, "handler")
+	route:=pathPrefix+handler.Name()
+	g,ok:=handler.(Guise)
+	if ok {
+		route=g.Pattern()
+	}
+	sqlText = fmt.Sprintf(ROUTE_INSERT, route, nestedHost, nestedHandler, "handler")
 	r, err = config.Db.Exec(sqlText)
 	if err != nil {
 		return err
@@ -272,6 +230,43 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 		return err
 	}
 	config.Logger.Printf("[MONGREL2 SQL] inserted handler %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
+	return nil
+} 
+
+//GenerateGuiseAddressAndRouteConfig creates the necessary mongrel2 database entries to bind
+//a guise to a pattern (supplied) part of the URL space.  It also registers the guise to receive
+//notification when the application starts.
+func GenerateGuiseAddressAndRouteConfig(config *ProjectConfig, host string, guise Guise) error {
+	addr,err:=mongrel2.GetHandlerSpec(guise.Name())
+	if err!=nil {
+		return err
+	}
+	sqlText := fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
+	r, err := config.Db.Exec(sqlText)
+	if err != nil {
+		return err
+	}
+	res, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted guise %s configuration:%s (%d row)\n", addr.Name, sqlText, res)
+
+	//this is the query used to find the host that routes point at
+	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, host)
+
+	// ROUTE TO guise
+	nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
+	sqlText = fmt.Sprintf(ROUTE_INSERT, guise.Pattern(), nestedHost, nestedHandler, "handler")
+	r, err = config.Db.Exec(sqlText)
+	if err != nil {
+		return err
+	}
+	res, err = r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	config.Logger.Printf("[MONGREL2 SQL] inserted guise %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
 	return nil
 } 
 
@@ -336,153 +331,16 @@ func GenerateMimeTypeConfig(config *ProjectConfig) error {
 	return nil
 }
 
-//GenerateMongrelConfig all the necessary configuration for the mongrel2 server into the 
-//database in the standard location.  It sets all the variables of the mongrel2 instance
-//to their default values.
-func GenerateMongrel2Config(config *ProjectConfig) error {
-
-	db, err := sql.Open("sqlite3", db_path(config))
-	if err != nil {
-		return err
-	}
-
-	var sqlText string
-
-	//note: these are ORDER DEPENDENT because of selects later than reference tables 
-	//note: created earlier
-
-	//SERVER
-	chroot := filepath.Join(config.Path, MONGREL2)
-	sqlText = fmt.Sprintf(SERVER_INSERT, config.ServerId, ACCESS_LOG, ERROR_LOG, PID_FILE, chroot, LOCALHOST, config.Name, TEST_PORT)
-	r, err := db.Exec(sqlText)
-	if err != nil {
-		return err
-	}
-	res, err := r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted server into config:%s (%d row)\n", sqlText, res)
-
-	//HOST
-	sqlText = fmt.Sprintf(HOST_INSERT, LOCALHOST, LOCALHOST)
-	r, err = db.Exec(sqlText)
-	if err != nil {
-		return err
-	}
-	res, err = r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText, res)
-
-	//HANDLER
-	for _, addr := range config.Addr {
-		sqlText = fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
-		r, err = db.Exec(sqlText)
-		if err != nil {
-			return err
-		}
-		res, err = r.RowsAffected()
-		if err != nil {
-			return err
-		}
-		config.Logger.Printf("[MONGREL2 SQL] inserted %s handler configuration:%s (%d row)\n", addr.Name, sqlText, res)
-	}
-
-	//this is the query used to find the host that routes point at
-	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, LOCALHOST)
-
-	// ROUTE TO HANDLERS
-	for _, addr := range config.Addr {
-		nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
-		pathPrefix := "/"
-		//services use different insert ...
-		for _, n := range config.Service {
-			if n == addr.Name {
-				pathPrefix = "@"
-				break
-			}
-		}
-		sqlText = fmt.Sprintf(ROUTE_INSERT, pathPrefix+addr.Name, nestedHost, nestedHandler, "handler")
-		_, err = db.Exec(sqlText)
-		if err != nil {
-			return err
-		}
-		config.Logger.Printf("[MONGREL2 SQL] inserted handler %s into routes:%s\n", addr.Name, sqlText)
-	}
-
-	//static content
-	dirText := fmt.Sprintf(DIRECTORY_INSERT, STATIC)
-	r, err = db.Exec(dirText)
-	if err != nil {
-		return err
-	}
-	res, err = r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted directory into config:%s (%d row)\n", dirText, res)
-
-	// ROUTE TO STATIC CONTENT
-	staticDirectory := fmt.Sprintf(`(select id from directory where base="%s")`, STATIC)
-	routeText := fmt.Sprintf(ROUTE_INSERT, "/static/", nestedHost, staticDirectory, "dir")
-
-	r, err = db.Exec(routeText)
-	if err != nil {
-		return err
-	}
-	res, err = r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted static content route into config:%s (%d row)\n", routeText, res)
-
-	rows, err := db.Query("select count(*) from mimetype;")
-	if err != nil {
-		return err
-	}
-
-	var result int
-	rows.Next()
-	rows.Scan(&result)
-	rows.Close()
-
-	config.Logger.Printf("[MONGREL2 SQL] currenty %d items in mimetype table\n", result)
-
-	if result == 0 {
-		for _, pair := range MIME_TYPE {
-			mimeText := fmt.Sprintf(MIME_INSERT, pair[0], pair[1])
-			_, err = db.Exec(mimeText)
-			if err != nil {
-				return err
-			}
-		}
-		config.Logger.Printf("[MONGREL2 SQL] inserted %d mime types in mongrel2 configuration\n", len(MIME_TYPE))
-	}
-
-	/* USELESS
-	sqlText = fmt.Sprintf(LOG_INSERT, db_path(config))
-	_, err = db.Exec(sqlText)
-	if err != nil {
-		return err
-	}
-	config.Logger.Printf("inserted log entry into config:%s\n", sqlText)
-	*/
-
-	return nil
-}
-
 //Bootstrap should be called by projects that use the Seven5 infrastructure to
 //parse the command line arguments and to discover the project's structure.
 //This function returns null if the project config is not standard.  This is a 
 //wrapper on BootstrapFromDir that gets the project directory from the command line args. 
-func Bootstrap() (*ProjectConfig, gozmq.Context) {
+func Bootstrap() (*ProjectConfig) {
 
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to determine current directory: %s\n", err)
-		return nil, nil
+		return nil
 	}
 
 	flagSet := flag.NewFlagSet("seven5", flag.ExitOnError)
@@ -499,18 +357,17 @@ func Bootstrap() (*ProjectConfig, gozmq.Context) {
 }
 
 //BootstrapFromDir does the heavy lifting to set up a project, given a directory to work
-//with.  It returns a configuration (or nil on error) plus the Context object that it 
-//created for use in this application.
-func BootstrapFromDir(projectDir string) (*ProjectConfig, gozmq.Context) {
+//with.  It returns a configuration (or nil on error).
+func BootstrapFromDir(projectDir string) (*ProjectConfig) {
 	if err := VerifyProjectLayout(projectDir); err != "" {
 		dumpBadProjectLayout(projectDir, err)
-		return nil, nil
+		return nil
 	}
 
 	logger, path, err := CreateLogger(projectDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to create logger:%s\n", err)
-		return nil, nil
+		return nil
 	}
 
 	fmt.Printf("Seven5 is logging to %s\n", path)
@@ -518,31 +375,31 @@ func BootstrapFromDir(projectDir string) (*ProjectConfig, gozmq.Context) {
 	config, err := NewProjectConfig(projectDir, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to compute project configuration (problem with path to configuration db?):%s\n", err.Error())
-		return nil, nil
+		return nil
 	}
 
 	config.Logger.Printf("---- PROJECT %s @ %s ----", config.Name, config.Path)
+	
+	db, err := sql.Open("sqlite3", db_path(config))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to open configuration database:%s\n", err.Error())
+		return nil
+	}
+	config.Db=db
 
 	err = ClearTestDB(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error clearing the test db configuration:%s\n", err.Error())
-		return nil, nil
+		return nil
 	}
 
-	/*
-	err = DiscoverHandlers(config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "unable to discover mongrel2 handlers:%s\n", err.Error())
-		return nil, nil
-	}
-	
-	err = GenerateMongrel2Config(config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "unable to write mongrel2 config:%s\n", err.Error())
-		return nil, nil
-	}
-	*/
-	
+	return config
+}
+
+//CreateNetworkResources creates the necessary 0MQ context and starts or re-initializes
+//the mongrel2 server.  It returns the context if everything is ok and this should be
+//used by the whole program.
+func CreateNetworkResources(config *ProjectConfig) (gozmq.Context, error) {
 	ctx, err := gozmq.NewContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to create zmq context :%s\n", err.Error())
@@ -554,17 +411,10 @@ func BootstrapFromDir(projectDir string) (*ProjectConfig, gozmq.Context) {
 		fmt.Fprintf(os.Stderr, "unable to start/reset mongrel2:%s\n", err.Error())
 		return nil, nil
 	}
+	
+	return ctx,nil
 
-	db, err := sql.Open("sqlite3", db_path(config))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "unable to open configuration database:%s\n", err.Error())
-		return nil,nil
-	}
-	config.Db=db
-
-	return config, ctx
 }
-
 func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 
 	mongrelPath, err := exec.LookPath("mongrel2")
@@ -713,6 +563,12 @@ func dumpBadProjectLayout(projectDir, err string) {
 func db_path(config *ProjectConfig) string {
 	return filepath.Join(config.Path, fmt.Sprintf("%s_test.sqlite", config.Name))
 
+}
+
+//FinishConfig completes the process of writing the data into the mongrel2 configuration
+//database and releases any resources used.
+func FinishConfig(config *ProjectConfig) error {
+	return config.Db.Close()
 }
 
 var TABLEDEFS_SQL = []string{

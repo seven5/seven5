@@ -16,13 +16,23 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 		c.Fatalf("unable to start up, can't find absolute path to cwd!")
 	}
 	path = filepath.Clean(path)
-	config, ctx := BootstrapFromDir(path)
+	config:= BootstrapFromDir(path)
+	
+	if config==nil {
+		c.Fatalf("unable to bootstrap project from path %s",path)
+	}
 	
 	if err=WriteTestConfig(config,n); err!=nil {
 		c.Fatalf("unable to write mongrel2 test configuration: %s",err)	
 	}
 	
-	if !StartUp(ctx,config,n) {
+	var ctx gozmq.Context
+	
+	if ctx,err=CreateNetworkResources(config); err!=nil {
+		c.Fatalf("unable to create mongrel2 or 0MQ resources:",err)	
+	}
+	
+	if !StartUp(ctx,config,[]Named{n}) {
 		c.Fatalf("unable to start the handlers, no context found: %s, %s",n.Name(),path)
 	} 
 	return ctx	
@@ -37,7 +47,7 @@ func WriteTestConfig(config *ProjectConfig, n Named) error {
 		return err
 	}
 	//only can do HTTP testing right now
-	if err= GenerateHandlerAddressAndRouteConfig(config, LOCALHOST, n, false); err!=nil{
+	if err= GenerateHandlerAddressAndRouteConfig(config, LOCALHOST, n); err!=nil{
 		return err
 	}
 	//static content at /static
@@ -47,6 +57,10 @@ func WriteTestConfig(config *ProjectConfig, n Named) error {
 
 	//normally this does nothing unless the DB is completely empty
 	if err=GenerateMimeTypeConfig(config); err!=nil {
+		return err
+	}
+	
+	if err=FinishConfig(config); err!=nil {
 		return err
 	}
 	
