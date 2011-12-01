@@ -1,4 +1,4 @@
-package css
+package dsl
 
 import (
 	//	"bytes"
@@ -868,6 +868,14 @@ func (self NStmtN) stmtTag() {
 }
 
 type StmtSeq []Stmt_
+
+type StyleSheet struct {
+	Name string  /* for coordination with HTML, not for display*/
+	S StmtSeq
+}
+func (self StyleSheet) String() string {
+	return fmt.Sprintf("%s",self.S)
+}
 
 func (self StmtSeq) String() string {
 	result := ""

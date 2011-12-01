@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"mongrel2"
-	"seven5/css"
+	"seven5/dsl"
 	"strings"
 )
 
@@ -37,8 +37,7 @@ func NewCssGuise() *CssGuise {
 	return &CssGuise{&HttpRunnerDefault{&mongrel2.HttpHandlerDefault{new (mongrel2.RawHandlerDefault)}}}
 }
 
-//Handle a single request of the HTTP level of mongrel.  This simply echos back to the 
-//input information to the client and it will be displayed on any path starting with /echo.
+//Handle a single request of the HTTP level of mongrel.  
 func (self *CssGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
 	path:=req.Header["PATH"]
 	path=path[len("/css/"):]
@@ -58,8 +57,8 @@ func (self *CssGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpRe
 	return resp
 }
 
-//RegisterStyleSheet takes a css.StmtSeq and stores it in the CSS guise cache for the given
-//name. The statement sequence is only evaluted once, at the time it is register.
-func RegisterStylesheet(name string, stmt css.StmtSeq) {
-	sheet[name]=fmt.Sprintf("%v",stmt)
+//RegisterStyleSheet creates a mapping between an HTTP level resource and a dsl.StyleSheet
+//object. 
+func RegisterStylesheet(s dsl.StyleSheet) {
+	sheet[s.Name]=fmt.Sprintf("%v",s)
 }

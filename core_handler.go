@@ -34,7 +34,7 @@ type Guise interface {
 	Pattern() string
 }
 
-var SystemGuise = []Guise{NewCssGuise(),NewFaviconGuise()}
+var SystemGuise = []Guise{NewCssGuise(),NewFaviconGuise(), NewHtmlGuise()}
 
 //StartUp is what most web apps will want to use as an entry point. 
 // 

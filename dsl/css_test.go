@@ -1,4 +1,4 @@
-package css
+package dsl
 
 import (
 	"fmt"
