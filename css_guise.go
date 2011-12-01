@@ -4,7 +4,12 @@ import (
 	"fmt"
 	"os"
 	"mongrel2"
+	"seven5/css"
+	"strings"
 )
+
+var sheet = make(map[string]string)
+
 type CssGuise struct {
 	//we need the implementation of the default HTTP machinery 
 	*HttpRunnerDefault
@@ -37,6 +42,24 @@ func NewCssGuise() *CssGuise {
 func (self *CssGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
 	path:=req.Header["PATH"]
 	path=path[len("/css/"):]
-	fmt.Fprintf(os.Stderr,"css guise process: %s\n",path)
-	return nil
+	
+	resp:=new (mongrel2.HttpResponse)
+	resp.ServerId= req.ServerId
+	resp.ClientId = []int{req.ClientId}
+	
+	s,ok := sheet[path]
+	if !ok{
+		resp.StatusCode=404
+		resp.StatusMsg="No such stylesheet."
+		return resp
+	}
+	resp.ContentLength=len(s)
+	resp.Body = strings.NewReader(s)
+	return resp
+}
+
+//RegisterStyleSheet takes a css.StmtSeq and stores it in the CSS guise cache for the given
+//name. The statement sequence is only evaluted once, at the time it is register.
+func RegisterStylesheet(name string, stmt css.StmtSeq) {
+	sheet[name]=fmt.Sprintf("%v",stmt)
 }

@@ -78,11 +78,13 @@ func protectedProcessRequest(config *ProjectConfig, req *mongrel2.HttpRequest, t
 			resp = new(mongrel2.HttpResponse)
 			resp.StatusCode = 500
 			resp.StatusMsg = "Internal Server Error"
-			resp.Body = fmt.Sprintf("Panic: %v\n", x)
+			b:=fmt.Sprintf("Panic: %v\n", x)
+			resp.ContentLength=len(b)
+			resp.Body = strings.NewReader(b)
 		}
 	}()
 	resp = target.ProcessRequest(req)
-	config.Logger.Printf("[%s]: responded to %s with %d bytes of content\n", target.Name(), req.Path, len(resp.Body))
+	config.Logger.Printf("[%s]: responded to %s with %d bytes of content\n", target.Name(), req.Path, resp.ContentLength)
 	return
 }
 
@@ -96,7 +98,9 @@ func Generate500Page(err string, request *mongrel2.HttpRequest) *mongrel2.HttpRe
 
 	fiveHundred.StatusCode = 500
 	fiveHundred.StatusMsg = "Internal Server Error"
-	fiveHundred.Body = generateStackTrace(fmt.Sprintf("%v", err))
+	b:= generateStackTrace(fmt.Sprintf("%v", err))
+	fiveHundred.Body =strings.NewReader(b)
+	fiveHundred.ContentLength=len(b)
 	return fiveHundred
 }
 
