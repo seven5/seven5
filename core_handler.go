@@ -68,12 +68,16 @@ func StartUp(ctx gozmq.Context, conf *ProjectConfig, raw []Named) bool {
 //Most webapps will call this method to start their app running and it will never return.
 //Any return is probably an error.
 func WebAppRun(config *ProjectConfig, named ... Named) error {
+    fmt.Println("Web app running")
 	var ctx gozmq.Context
 	var err error
 	
 	//setup the network
 	if ctx, err=CreateNetworkResources(config); err!=nil {
 		return errors.New(fmt.Sprintf("error starting 0MQ or mongrel:%s",err.Error()))
+	}
+	if ctx == nil {
+		return errors.New("No ctx was created.\n")
 	}
 	defer ctx.Close()
 
