@@ -21,10 +21,8 @@ func toUpperFirst(x string) string {
 	return strings.ToUpper(x[0:1])+x[1:]
 }
 
-func GenerateMain(importPath string, name ...string) (main_go string, err error) {
-
-	base := filepath.Clean(filepath.Base(importPath))
-
+func GenerateMain(importPath string, base string, handlers []string, cssSources []string, htmlSources []string) (main_go string, err error) {
+	
 	myFuncs := make(map[string]interface{})
 	myFuncs["upper"]=toUpperFirst
 
@@ -34,7 +32,9 @@ func GenerateMain(importPath string, name ...string) (main_go string, err error)
 
 	data["import"] = importPath
 	data["package"] = base
-	data["handler"] = name //array
+	data["handler"] = handlers 
+	data["css"] = cssSources 
+	data["html"] = htmlSources 
 
 	buff := bytes.NewBufferString("")
 	if err = t.Execute(buff, data); err != nil {
@@ -44,35 +44,69 @@ func GenerateMain(importPath string, name ...string) (main_go string, err error)
 	return string(buff.Bytes()), nil
 }
 
-func WriteMain(main_go string) (err error) {
+func WriteMain(main_go string, projectName string) (err error) {
 	dir, err := os.Stat(seven5.WEBAPP_START_DIR)
-	if err != nil { return }
+	if err != nil { 
+		_,ok:=err.(*os.PathError)
+		if !ok {
+			return
+		}
+		var perm uint32 = 0777 
+		err = os.Mkdir(seven5.WEBAPP_START_DIR,perm)
+		if err!=nil {
+			return
+		}
+		//try again
+		dir, err = os.Stat(seven5.WEBAPP_START_DIR)
+		if err!=nil {
+			return
+		}
+	}
 	if !dir.IsDirectory() {
 		err = errors.New(seven5.WEBAPP_START_DIR + " exists but is not a directory")
 		return
 	}
-	main_file,err := os.Create(filepath.Join(seven5.WEBAPP_START_DIR, "main.go"))
+	mainPath := filepath.Join(seven5.WEBAPP_START_DIR, projectName+".go")
+	main_file,err := os.Create(mainPath)
 	if err != nil { return }
 	wr := bufio.NewWriter(main_file) 
 	wr.WriteString(main_go) 
 	wr.Flush()
-	fmt.Println("Generated " + filepath.Join(seven5.WEBAPP_START_DIR, "main.go"))
+	fmt.Println("Generated " + mainPath)
 	return
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: tune <project-package-name> <handler 1> <handler 2>")
+	if len(os.Args) !=5 {
+		fmt.Fprintln(os.Stderr,"Usage: tune <project-package-name> <handlers> <css sources> <html sources> (quote groups, space separated--empty groups must be empty-quoted)")
 		os.Exit(1)
 	}
 
-	main_go, err := GenerateMain(os.Args[1], os.Args[2:]...)
+	imp:=os.Args[1]
+	
+	handlers:=strings.Split(os.Args[2], " ")
+	if len(handlers[0])==0 {
+		handlers=[]string{}
+	}
+	cssSources:=strings.Split(os.Args[3]," ")
+	if len(cssSources[0])==0 {
+		cssSources=[]string{}
+	}
+	htmlSources:=strings.Split(os.Args[4]," ")
+	if len(htmlSources[0])==0 {
+		htmlSources=[]string{}
+	}
+		
+	base := filepath.Clean(filepath.Base(imp))
+	
+	main_go, err := GenerateMain(imp,base,handlers,cssSources,htmlSources)
+	
 	if err != nil {
 		fmt.Printf("Error processing template: %s\n",err.Error())
 		os.Exit(1)
 	}
 	
-	err = WriteMain(main_go)
+	err = WriteMain(main_go,base)
 	if err != nil { 
 		fmt.Printf("Error writing main.go: %s\n",err.Error())
 		os.Exit(1)

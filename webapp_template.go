@@ -1,13 +1,12 @@
 package seven5
 
 
-const WEBAPP_TEMPLATE = `package main
+const WEBAPP_TEMPLATE = `//target:{{.package}}
+package main
 
 import (
-	//"{{.import}}"
+	"{{.import}}"
 	"seven5"
-	//"time"
-	//"github.com/alecthomas/gozmq"
 	"fmt"
 	"os"
 )
@@ -15,8 +14,16 @@ import (
 //Because you can't dynamically load go code yet, you have to use this
 //bit of boilerplate. 
 func main() {
-
 	{{$pkg=.package}}
+
+	{{range .html}}
+    	seven5.RegisterDocument({{$pkg}}.{{upper .}})
+	{{end}}
+
+	{{range .css}}
+    	seven5.RegisterStylesheet({{$pkg}}.{{upper .}})
+	{{end}}
+
 	//derive from filenames
 	{{range .handler}}
 	{{.}} := {{$pkg}}.New{{upper .}}()
