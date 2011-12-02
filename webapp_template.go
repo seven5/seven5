@@ -4,7 +4,7 @@ package seven5
 const WEBAPP_TEMPLATE = `package main
 
 import (
-	//"{{.import}}"
+	"{{.import}}"
 	"seven5"
 	//"time"
 	//"github.com/alecthomas/gozmq"
