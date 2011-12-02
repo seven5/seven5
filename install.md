@@ -30,7 +30,7 @@ To update to a new weekly:
 
 	cd ~/Documents/Go/go/
 	hg pull
-	hg upldate weekly
+	hg update weekly
 	cd src
 	./all.bash
 	./sudo.bash
