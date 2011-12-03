@@ -5,6 +5,8 @@ import (
 	"github.com/alecthomas/gozmq"
 	"launchpad.net/gocheck"
 	"net/http"
+	"fmt"
+	"os"
 )
 //PrepareFunctionalTest configures mongrel to run the RawHandler supplied.
 //Return value is nil on error, and that's a fatal error that has already
@@ -75,6 +77,7 @@ func MappingTest(url string, h Httpified,c *gocheck.C) {
 	if err != nil {
 		c.Fatalf("failed to create request for test!")
 	}
+	
 	req.Header.Add(ROUTE_TEST_HEADER, h.Name())
 
 	client := new(http.Client)
@@ -82,6 +85,11 @@ func MappingTest(url string, h Httpified,c *gocheck.C) {
 
 	if err != nil {
 		c.Fatalf("failed trying to use http to localhost:6767: %s", err)
+	}
+	
+	
+	for k,v:=range resp.Header {
+		fmt.Fprintf(os.Stderr,"'%s'='%s'\n",k,v)
 	}
 	c.Check(resp.StatusCode, gocheck.Equals, ROUTE_TEST_RESPONSE_CODE)
 	c.Check(resp.Header[ROUTE_TEST_HEADER][0], gocheck.Equals, h.Name())
