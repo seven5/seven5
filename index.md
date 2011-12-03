@@ -19,6 +19,8 @@
 
 ### Demand a dev cycle like we're used to with interpreted languages.
 
+### Embrace stiffness. The love of flexibility is the root of all evil.
+
 ### Make out with strong typing and a fast compiler.
 
 ### Don't repeat {yourself, others, the stack}.
