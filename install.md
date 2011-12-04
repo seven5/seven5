@@ -53,12 +53,10 @@ You'll want to make sure you have an up-to-date version of gb--we use some of th
 
 ## The testing tool, gocheck
 
-    bzr branch lp:gocheck
-    cd gocheck
-    make install
+    goinstall -u launchpad.net/gocheck
 
 
-## 0mq
+## 0mq  : Networking library for talking to Mongrel2
 
     git clone https://github.com/zeromq/zeromq2-1.git zeromq
     cd zeromq
@@ -67,7 +65,7 @@ You'll want to make sure you have an up-to-date version of gb--we use some of th
     make
     sudo make install
 
-## Gozmq
+## Gozmq  : Go bindings for 0mq
 
     goinstall github.com/alecthomas/gozmq
 
@@ -99,7 +97,7 @@ There is a patch that we have been using on darwin/OS X.  It is probably not nee
 	1.7.7.1
 	
 
-## mongrel2
+## mongrel2 : Web server of choice
 
     curl http://mongrel2.org/static/downloads/mongrel2-1.7.5.tar.bz2 > mongrel2-1.7.5.tar.bz2
     bunzip2 mongrel2-1.7.5.tar.bz2
@@ -125,6 +123,14 @@ Download the source from [memcached](http://memcached.org/).
     ./configure
     sudo make install
 
+### Black Friday for markdown compilation
+
+	git clone https://github.com/russross/blackfriday.git blackfriday
+	cd blackfriday
+	gomake install
+
+Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.
+
 ## Seven5
 
 Check out some repos and branches containing the mongrel2 connector, the seven5 stack, the docs and the samples.
@@ -149,13 +155,6 @@ Check out some repos and branches containing the mongrel2 connector, the seven5 
     curl -L github.com/downloads/AlanQuatermain/go-tmbundle/install-go-tmbundle.sh | sh
 
 Edit TextMate's global PATH variable to include $GOBIN.
-
-### Black Friday for markdown compilation
-    git clone https://github.com/russross/blackfriday.git blackfriday
-    cd blackfriday
-    gomake install
-
-Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.
 
 # Seven5: The Dev Loop
 

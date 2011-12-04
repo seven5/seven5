@@ -9,7 +9,7 @@
     </ul>
 </nav>
 
-## An opinionated web framework written in go.
+## An opinionated, stiff web framework written in go.
 
 ![Block Diagram](Seven5BlockDiagram.png)
 

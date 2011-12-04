@@ -67,12 +67,10 @@ export PATH=$PATH:$GOBIN
 
 <h2>The testing tool, gocheck</h2>
 
-<pre><code>bzr branch lp:gocheck
-cd gocheck
-make install
+<pre><code>goinstall -u launchpad.net/gocheck
 </code></pre>
 
-<h2>0mq</h2>
+<h2>0mq  : Networking library for talking to Mongrel2</h2>
 
 <pre><code>git clone https://github.com/zeromq/zeromq2-1.git zeromq
 cd zeromq
@@ -82,7 +80,7 @@ make
 sudo make install
 </code></pre>
 
-<h2>Gozmq</h2>
+<h2>Gozmq  : Go bindings for 0mq</h2>
 
 <pre><code>goinstall github.com/alecthomas/gozmq
 </code></pre>
@@ -115,7 +113,7 @@ index a4225c2..be88f5c 100644
 1.7.7.1
 </code></pre>
 
-<h2>mongrel2</h2>
+<h2>mongrel2 : Web server of choice</h2>
 
 <pre><code>curl http://mongrel2.org/static/downloads/mongrel2-1.7.5.tar.bz2 &gt; mongrel2-1.7.5.tar.bz2
 bunzip2 mongrel2-1.7.5.tar.bz2
@@ -144,6 +142,15 @@ cd memcached-1.4.10
 sudo make install
 </code></pre>
 
+<h3>Black Friday for markdown compilation</h3>
+
+<pre><code>git clone https://github.com/russross/blackfriday.git blackfriday
+cd blackfriday
+gomake install
+</code></pre>
+
+<p>Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.</p>
+
 <h2>Seven5</h2>
 
 <p>Check out some repos and branches containing the mongrel2 connector, the seven5 stack, the docs and the samples.</p>
@@ -170,15 +177,6 @@ gb
 </code></pre>
 
 <p>Edit TextMate&rsquo;s global PATH variable to include $GOBIN.</p>
-
-<h3>Black Friday for markdown compilation</h3>
-
-<pre><code>git clone https://github.com/russross/blackfriday.git blackfriday
-cd blackfriday
-gomake install
-</code></pre>
-
-<p>Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.</p>
 
 <h1>Seven5: The Dev Loop</h1>
 
