@@ -27,7 +27,7 @@ type ProjectConfig struct {
 	Addr     []*mongrel2.HandlerSpec
 	Service  []string
 	ServerId string
-	Db	     *sql.DB
+	Db       *sql.DB
 }
 
 const (
@@ -74,7 +74,7 @@ func VerifyProjectLayout(projectPath string) string {
 	for _, dir := range []string{LOGDIR, RUN, STATIC} {
 		candidate := filepath.Join(projectPath, MONGREL2, dir)
 		clean := filepath.Clean(candidate)
-		if s, _ := os.Stat(clean); s == nil || !s.IsDirectory() {
+		if s, _ := os.Stat(clean); s == nil || !s.IsDir() {
 			return fmt.Sprintf("Unable to find directory %s (%v)", clean, s == nil)
 		}
 	}
@@ -143,21 +143,21 @@ func ClearTestDB(config *ProjectConfig) error {
 //and other such variables.  The optional arguments are
 //accessLog string, errorLog string, pidFile string, chroot string. The "host" portion of the
 //mongrel2 configuration is made to be exactly one host whose name is default host.
-func GenerateServerHostConfig(config *ProjectConfig,defaultHost string, port int,  opt ...string) error {
+func GenerateServerHostConfig(config *ProjectConfig, defaultHost string, port int, opt ...string) error {
 
-	if len(opt)!=4 && len(opt)!=0 {
+	if len(opt) != 4 && len(opt) != 0 {
 		return errors.New("GenerateServerConfig: wrong number of arguments!")
 	}
 	var chroot, accessLog, errorLog, pidFile string
-	if len(opt)==0 {
+	if len(opt) == 0 {
 		chroot = filepath.Join(config.Path, MONGREL2)
-		accessLog=ACCESS_LOG
-		errorLog=ERROR_LOG
-		pidFile=PID_FILE
+		accessLog = ACCESS_LOG
+		errorLog = ERROR_LOG
+		pidFile = PID_FILE
 	} else {
-		accessLog=opt[0]
-		errorLog=opt[1]
-		pidFile=opt[2]
+		accessLog = opt[0]
+		errorLog = opt[1]
+		pidFile = opt[2]
 		chroot = opt[3]
 	}
 	sqlText := fmt.Sprintf(SERVER_INSERT, config.ServerId, accessLog, errorLog, pidFile, chroot, defaultHost, config.Name, port)
@@ -191,8 +191,8 @@ func GenerateServerHostConfig(config *ProjectConfig,defaultHost string, port int
 //be contacted on.  The route is @[name] if the handler is a JSON service, otherwise it is
 //bound into the HTTP space at /[name]
 func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, handler Named) error {
-	addr,err:=mongrel2.GetHandlerSpec(handler.Name())
-	if err!=nil {
+	addr, err := mongrel2.GetHandlerSpec(handler.Name())
+	if err != nil {
 		return err
 	}
 	sqlText := fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
@@ -213,12 +213,12 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 	nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
 	pathPrefix := "/"
 	if handler.IsJson() {
-		pathPrefix="@"
+		pathPrefix = "@"
 	}
-	route:=pathPrefix+handler.Name()
-	g,ok:=handler.(Guise)
+	route := pathPrefix + handler.Name()
+	g, ok := handler.(Guise)
 	if ok {
-		route=g.Pattern()
+		route = g.Pattern()
 	}
 	sqlText = fmt.Sprintf(ROUTE_INSERT, route, nestedHost, nestedHandler, "handler")
 	r, err = config.Db.Exec(sqlText)
@@ -231,14 +231,14 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 	}
 	config.Logger.Printf("[MONGREL2 SQL] inserted handler %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
 	return nil
-} 
+}
 
 //GenerateGuiseAddressAndRouteConfig creates the necessary mongrel2 database entries to bind
 //a guise to a pattern (supplied) part of the URL space.  It also registers the guise to receive
 //notification when the application starts.
 func GenerateGuiseAddressAndRouteConfig(config *ProjectConfig, host string, guise Guise) error {
-	addr,err:=mongrel2.GetHandlerSpec(guise.Name())
-	if err!=nil {
+	addr, err := mongrel2.GetHandlerSpec(guise.Name())
+	if err != nil {
 		return err
 	}
 	sqlText := fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
@@ -268,15 +268,14 @@ func GenerateGuiseAddressAndRouteConfig(config *ProjectConfig, host string, guis
 	}
 	config.Logger.Printf("[MONGREL2 SQL] inserted guise %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
 	return nil
-} 
+}
 
 //GenerateStaticContentConfigcreates the necessary mongrel2 configuration for a directory
 //a 'directory' and a 'route' to that directory.
 func GenerateStaticContentConfig(config *ProjectConfig, host string, path string) error {
 	//this is the query used to find the host that routes point at
 	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, host)
-	
-	
+
 	dirText := fmt.Sprintf(DIRECTORY_INSERT, path)
 	r, err := config.Db.Exec(dirText)
 	if err != nil {
@@ -335,7 +334,7 @@ func GenerateMimeTypeConfig(config *ProjectConfig) error {
 //parse the command line arguments and to discover the project's structure.
 //This function returns null if the project config is not standard.  This is a 
 //wrapper on BootstrapFromDir that gets the project directory from the command line args. 
-func Bootstrap() (*ProjectConfig) {
+func Bootstrap() *ProjectConfig {
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -358,7 +357,7 @@ func Bootstrap() (*ProjectConfig) {
 
 //BootstrapFromDir does the heavy lifting to set up a project, given a directory to work
 //with.  It returns a configuration (or nil on error).
-func BootstrapFromDir(projectDir string) (*ProjectConfig) {
+func BootstrapFromDir(projectDir string) *ProjectConfig {
 	if err := VerifyProjectLayout(projectDir); err != "" {
 		dumpBadProjectLayout(projectDir, err)
 		return nil
@@ -379,13 +378,13 @@ func BootstrapFromDir(projectDir string) (*ProjectConfig) {
 	}
 
 	config.Logger.Printf("---- PROJECT %s @ %s ----", config.Name, config.Path)
-	
+
 	db, err := sql.Open("sqlite3", db_path(config))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to open configuration database:%s\n", err.Error())
 		return nil
 	}
-	config.Db=db
+	config.Db = db
 
 	err = ClearTestDB(config)
 	if err != nil {
@@ -411,8 +410,8 @@ func CreateNetworkResources(config *ProjectConfig) (gozmq.Context, error) {
 		fmt.Fprintf(os.Stderr, "unable to start/reset mongrel2:%s\n", err.Error())
 		return nil, nil
 	}
-	
-	return ctx,nil
+
+	return ctx, nil
 
 }
 func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {

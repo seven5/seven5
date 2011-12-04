@@ -363,6 +363,7 @@ var Gray = ColorValue{0x808080}
 
 var Gray99 = ColorValue{0x999999}
 var Gray33 = ColorValue{0x333333}
+var Gray44 = ColorValue{0x444444}
 var Gray80 = ColorValue{0x808080}
 
 //fonts http://www.w3.org/Style/Examples/007/fonts.en.html

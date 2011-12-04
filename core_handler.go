@@ -36,21 +36,33 @@ type Guise interface {
 
 var SystemGuise = []Guise{NewCssGuise(),NewFaviconGuise(), NewHtmlGuise()}
 
-//StartUp is what most web apps will want to use as an entry point. 
-// 
+//StartUp starts handlers running. It starts all the system guises plus the Named
+//handlers (user-level) that are provided as a parameter.
+//
 //The return parameter is the zmq context for this application and this should be closed 
-// on shutdown (usually using defer). This functions runs all the RawHandlers provided
+// on shutdown (usually using defer). This functions runs all the Named provided
 //via a goroutine.  If something went wrong this returns nil and most web
 //apps will just want to exit since the error has already been printed to stderr.  If you are
 //calling this from test code, you will want to set the second parameter to the proposed
 //project directory; otherwise pass "" and it will be retreived from the command line args.
-func StartUp(ctx gozmq.Context, conf *ProjectConfig, raw []Named) bool {
-	for _, h := range raw {
+func StartUp(ctx gozmq.Context, conf *ProjectConfig, named []Named) bool {
+	
+	allNamed := make([]Named,len(SystemGuise)+len(named))
+	for i,n:=range SystemGuise {
+		allNamed[i]=n
+	}
+	for i,n:=range named {
+		allNamed[i+len(SystemGuise)]=n
+	}
+	
+	fmt.Printf("Starting...")
+	for _, h := range allNamed {
 		rh:=h.(mongrel2.RawHandler)
 		if err:=rh.Bind(h.Name(),ctx); err!=nil {
 			fmt.Fprintf(os.Stderr,"unable to bind %s to socket! %s\n", h.Name(),err)
 			return false
 		}
+		fmt.Printf("%s...",h.Name())
 		switch x:=h.(type) {
 		case Httpified:
 			go x.(HttpRunner).RunHttp(conf,x)
@@ -60,6 +72,7 @@ func StartUp(ctx gozmq.Context, conf *ProjectConfig, raw []Named) bool {
 			panic(fmt.Sprintf("unknown handler type! %T is not Httpified or Jsonified!",h))
 		}
 	}
+	fmt.Printf("done\n")
 
 	return true
 }
@@ -81,17 +94,9 @@ func WebAppRun(config *ProjectConfig, named ... Named) error {
 	}
 	defer ctx.Close()
 
-	allNamed := make([]Named,len(SystemGuise)+len(named))
-	for i,n:=range SystemGuise {
-		allNamed[i]=n
-	}
-	for i,n:=range named {
-		allNamed[i+len(SystemGuise)]=n
-	}
-
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
-	if !StartUp(ctx, config, allNamed) {
+	if !StartUp(ctx, config, named) {
 		return errors.New(fmt.Sprintf("error starting up the handers:%s",err))
 	}
 
@@ -154,4 +159,17 @@ func WebAppDefaultConfig(named ... Named) (*ProjectConfig,error) {
 	}
 	
 	return config,nil
+}
+
+//ShutdownGuises releases the network resources associated with the system Guises.  Note that this
+//does not shutdown user defined handlers and shutting down such handlers is the responsibility
+//of test structures or user code.
+func ShutdownGuises() error {
+	for _,g:=range SystemGuise {
+		rh:=g.(mongrel2.RawHandler)
+		if err:=rh.Shutdown(); err!=nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -58,10 +58,10 @@ func TestInit(t *testing.T) {
 		t.Error("Should not return an error")
 	}
 	if changed {
-		t.Error("Nothing should have changed", testListener.ChangedFiles[0].Name)
+		t.Error("Nothing should have changed", testListener.ChangedFiles[0].Name())
 	}
 	if !changed {
-		checkListener(testListener,0,0,0,t)
+		checkListener(testListener, 0, 0, 0, t)
 	}
 
 	tempFile, err := os.Create(filepath.Join(dirName, "temp-test-file.foo"))
@@ -79,11 +79,12 @@ func TestInit(t *testing.T) {
 		t.Error("Should have changed")
 	}
 	if changed {
-		checkListener(testListener,1,0,0,t)
+		checkListener(testListener, 1, 0, 0, t)
 	}
-	if testListener.AddedFiles[0].Name != tempFileInfo.Name {
+	if testListener.AddedFiles[0].Name() != tempFileInfo.Name() {
 		t.Error("Should have added the temp file")
 	}
+	
 	testListener.Clear()
 
 	time.Sleep(1000000000) /*1secs*/
@@ -102,7 +103,7 @@ func TestInit(t *testing.T) {
 		t.Error("Should have changed")
 	}
 	if changed {
-		checkListener(testListener,0,0,1,t)
+		checkListener(testListener, 0, 0, 1, t)
 	}
 	testListener.Clear()
 
@@ -123,7 +124,7 @@ func TestInit(t *testing.T) {
 		t.Error("Should have changed")
 	}
 	if changed {
-		checkListener(testListener,0,1,0,t)
+		checkListener(testListener, 0, 1, 0, t)
 	}
 	testListener.Clear()
 
@@ -141,7 +142,7 @@ func TestInit(t *testing.T) {
 		t.Error("Should not have changed")
 	}
 	if !changed {
-		checkListener(testListener,0,0,0,t)
+		checkListener(testListener, 0, 0, 0, t)
 	}
 	testListener.Clear()
 

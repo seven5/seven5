@@ -22,7 +22,7 @@ type DirectoryMonitor struct {
 
 func (dirMon *DirectoryMonitor) isIn(file os.FileInfo, poll []os.FileInfo) bool {
 	for _, info := range poll {
-		if file.Name == info.Name {
+		if file.Name() == info.Name() {
 			return true
 		}
 	}
@@ -31,8 +31,9 @@ func (dirMon *DirectoryMonitor) isIn(file os.FileInfo, poll []os.FileInfo) bool 
 
 func (dirMon *DirectoryMonitor) changed(file os.FileInfo, poll []os.FileInfo) bool {
 	for _, info := range poll {
-		if file.Name == info.Name {
-			return file.Mtime_ns != info.Mtime_ns
+		if file.Name() == info.Name() {
+			//fmt.Printf("nano %s vs %s, %v\n",file.Name(),info.Name(),!file.ModTime().Equal(info.ModTime()))
+			return !file.ModTime().Equal(info.ModTime())
 		}
 	}
 	return false
@@ -55,7 +56,7 @@ func (dirMon *DirectoryMonitor) Poll() (changed bool, err error) {
 	}
 	var info os.FileInfo
 	for _, info = range currentPoll {
-		if !strings.HasSuffix(info.Name, dirMon.Extension) {
+		if !strings.HasSuffix(info.Name(), dirMon.Extension) {
 			continue
 		}
 		if !dirMon.isIn(info, dirMon.previousPoll) {
@@ -91,7 +92,7 @@ func NewDirectoryMonitor(path string, extension string) (monitor *DirectoryMonit
 	if err != nil {
 		return
 	}
-	if !info.IsDirectory() {
+	if !info.IsDir() {
 		return
 	}
 	monitor = &DirectoryMonitor{Path: path, Extension: extension}

@@ -6,6 +6,7 @@ import (
 	"mongrel2"
 	"strings"
 	"runtime"
+	//"os"
 )
 
 type HttpRunner interface {
@@ -48,6 +49,10 @@ func (self *HttpRunnerDefault) RunHttp(config *ProjectConfig, target Httpified) 
 		} else {
 			config.Logger.Printf("[%s]: serving %s", target.Name(), req.Path)
 		}
+
+		/*for k,v:=range req.Header {
+			fmt.Fprintf(os.Stderr,"--->>> header: '%s'='%s'\n",k,v)
+		}*/
 
 		//note: mongrel converts this to lower case!
 		testHeader := req.Header[strings.ToLower(ROUTE_TEST_HEADER)]
