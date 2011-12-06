@@ -406,6 +406,7 @@ func CreateNetworkResources(config *ProjectConfig) (gozmq.Context, error) {
 	}
 
 	err = runMongrel(config, ctx)
+	fmt.Fprintf(os.Stderr, "Ctx %v err %v\n", ctx, err)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to start/reset mongrel2:%s\n", err.Error())
 		return nil, nil
@@ -453,7 +454,7 @@ func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	socketPath := filepath.Join(config.Path, MONGREL2, RUN, CONTROL)
 	path := fmt.Sprintf("ipc://%s", socketPath)
 	config.Logger.Printf("[ZMQ] using zmq connection to mongrel2 for sync with startup '%s'", path)
-	response, err := SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, ctx)
+	response, err := SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, config, ctx)
 	if err != nil {
 		return err
 	}
@@ -468,7 +469,7 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	path := fmt.Sprintf("ipc://%s", socketPath)
 	config.Logger.Printf("[ZMQ] zmq connection to mongrel2 is '%s'", path)
 
-	result, err := SendMongrelControl(RELOAD_CMD, HUNDRED_MSECS_IN_MICROS, path, ctx)
+	result, err := SendMongrelControl(RELOAD_CMD, HUNDRED_MSECS_IN_MICROS, path, config, ctx)
 	if err != nil {
 		return err
 	}
@@ -478,7 +479,7 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	}
 	config.Logger.Printf("[ZMQ] reload successful: '%s'... will try to sync with 'time' command", result)
 	//just to make sure the server is ok
-	result, err = SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, ctx)
+	result, err = SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, config, ctx)
 	if err != nil {
 		return err
 	}
@@ -486,11 +487,12 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	return nil
 }
 
-func SendMongrelControl(cmd string, wait int64, path string, ctx gozmq.Context) (string, error) {
+func SendMongrelControl(cmd string, wait int64, path string, config *ProjectConfig, ctx gozmq.Context) (string, error) {
 
 	//create ZMQ socket
 	s, err := ctx.NewSocket(gozmq.REQ)
 	if err != nil {
+    	config.Logger.Printf("[ERROR!] could not create a new socket: '%v'", err)
 		return "", err
 	}
 
@@ -504,18 +506,21 @@ func SendMongrelControl(cmd string, wait int64, path string, ctx gozmq.Context) 
 	//immediate death
 	err = s.SetSockOptInt(gozmq.LINGER, 0)
 	if err != nil {
+    	config.Logger.Printf("[ERROR!] could not set socket int %v: '%v'", gozmq.LINGER, err)
 		return "", err
 	}
 
 	//connect to it... but not guaranteed somebody is listening
 	err = s.Connect(path)
 	if err != nil {
+    	config.Logger.Printf("[ERROR!] could not connect to path: '%v'", path)
 		return "", err
 	}
 
 	//we can do the send, whether anyone is listening or not
 	err = s.Send([]byte(cmd), 0)
 	if err != nil {
+    	config.Logger.Printf("[ERROR!] could not send the command: '%v'", cmd)
 		return "", err
 	}
 
@@ -526,6 +531,7 @@ func SendMongrelControl(cmd string, wait int64, path string, ctx gozmq.Context) 
 	//run the poll
 	count, err := gozmq.Poll(items, wait)
 	if err != nil {
+    	config.Logger.Print("[ERROR!] could not POLL")
 		return "", err
 	}
 	if count != 0 {
@@ -543,6 +549,7 @@ func SendMongrelControl(cmd string, wait int64, path string, ctx gozmq.Context) 
 
 	resp, err := s.Recv(0)
 	if err != nil {
+    	config.Logger.Printf("[ERROR!] could not receive from the socket: '%v'", err)
 		return "", err
 	}
 
