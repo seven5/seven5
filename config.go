@@ -13,7 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	//"strings"
+	"strings"
 	"syscall"
 )
 
@@ -406,7 +406,7 @@ func CreateNetworkResources(config *ProjectConfig) (gozmq.Context, error) {
 	}
 
 	err = runMongrel(config, ctx)
-	fmt.Fprintf(os.Stderr, "Ctx %v err %v\n", ctx, err)
+	//fmt.Fprintf(os.Stderr, "Ctx %v err %v\n", ctx, err)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to start/reset mongrel2:%s\n", err.Error())
 		return nil, nil
@@ -483,7 +483,11 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[ZMQ] time successful: '%s'", result)
+	if strings.Trim(result," ")=="" {
+		config.Logger.Printf("[ZMQ] WARNING! time command seemed to succeed, but empty result!")
+	} else {
+		config.Logger.Printf("[ZMQ] time successful: '%s'", result)
+	}
 	return nil
 }
 

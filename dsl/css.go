@@ -21,12 +21,18 @@ type Stor interface {
 }
 
 func (self Class) String() string {
+	if self=="" {
+		return ""
+	}
 	return "." + string(self)
 }
 func (self Class) storTag() {
 }
 
 func (self Id) String() string {
+	if self=="" {
+		return ""
+	}
 	return "#" + string(self)
 }
 func (self Id) storTag() {
@@ -79,12 +85,13 @@ func Selector(s ...Stor) Stor {
 	return Composite(strings.TrimLeft(result, " "))
 }
 
-func Inherit(c ...Class) Stor {
-	result := ""
-	for _, x := range c {
-		result += fmt.Sprintf("%v", x)
+func Inherit(c ...Class) Class {
+	s:=make([]string,len(c),len(c))
+	for i,v:=range(c) {
+		s[i]=string(v)
 	}
-	return Composite(result)
+	result := strings.Join(s,".")
+	return Class(result)
 }
 
 //
@@ -231,6 +238,17 @@ type FloatValue struct {
 func (self FloatValue) String() string {
 	return TrueFieldPrinter(self)
 }
+
+type FontVariantValue struct {
+	normal    bool
+	small_caps   bool
+	inherit bool
+}
+
+func (self FontVariantValue) String() string {
+	return TrueFieldPrinter(self)
+}
+
 
 /////////////////////  BORDER is a complex composite
 
@@ -461,6 +479,17 @@ func (self FontSize) String() string {
 	return PropPrinter("font-size", self.Value)
 }
 func (self FontSize) attrTag() {
+}
+
+//FONT Variant
+type FontVariant struct {
+	Value FontVariantValue
+}
+
+func (self FontVariant) String() string {
+	return PropPrinter("font-variant", self.Value)
+}
+func (self FontVariant) attrTag() {
 }
 
 //DISPLAY
@@ -795,6 +824,10 @@ var FloatLeft = Float{FloatValue{left:true}}
 var FloatRight = Float{FloatValue{right:true}}
 var FloatNone = Float{FloatValue{none:true}}
 var FloatInherit= Float{FloatValue{inherit:true}}
+
+var FontVariantNormal = FontVariant{FontVariantValue{normal:true}}
+var FontVariantSmallCaps = FontVariant{FontVariantValue{small_caps:true}}
+var FontVariantInherit = FontVariant{FontVariantValue{inherit:true}}
 
 //
 // Statement

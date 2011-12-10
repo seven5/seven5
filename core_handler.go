@@ -55,14 +55,14 @@ func StartUp(ctx gozmq.Context, conf *ProjectConfig, named []Named) bool {
 		allNamed[i+len(SystemGuise)]=n
 	}
 	
-	fmt.Printf("Starting...")
+	//fmt.Printf("Starting...")
 	for _, h := range allNamed {
 		rh:=h.(mongrel2.RawHandler)
 		if err:=rh.Bind(h.Name(),ctx); err!=nil {
 			fmt.Fprintf(os.Stderr,"unable to bind %s to socket! %s\n", h.Name(),err)
 			return false
 		}
-		fmt.Printf("%s...",h.Name())
+		//fmt.Printf("%s...",h.Name())
 		switch x:=h.(type) {
 		case Httpified:
 			go x.(HttpRunner).RunHttp(conf,x)
@@ -72,7 +72,7 @@ func StartUp(ctx gozmq.Context, conf *ProjectConfig, named []Named) bool {
 			panic(fmt.Sprintf("unknown handler type! %T is not Httpified or Jsonified!",h))
 		}
 	}
-	fmt.Printf("done\n")
+	//fmt.Printf("done\n")
 
 	return true
 }
