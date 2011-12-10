@@ -25,6 +25,7 @@ const (
 type Named interface {
 	Name() string
 	IsJson() bool
+	Shutdown()
 }
 
 //For guises, they don't need names but they do need app startup info
@@ -79,7 +80,7 @@ func StartUp(ctx gozmq.Context, conf *ProjectConfig, named []Named) bool {
 
 //WebAppRun takes the named handlers and begins driving HTTP or Json requests through them.
 //Most webapps will call this method to start their app running and it will never return.
-//Any return is probably an error.
+//Any return is probably an error or a shutdown request.
 func WebAppRun(config *ProjectConfig, named ... Named) error {
     fmt.Println("Web app running")
 	var ctx gozmq.Context
@@ -161,15 +162,20 @@ func WebAppDefaultConfig(named ... Named) (*ProjectConfig,error) {
 	return config,nil
 }
 
-//ShutdownGuises releases the network resources associated with the system Guises.  Note that this
-//does not shutdown user defined handlers and shutting down such handlers is the responsibility
-//of test structures or user code.
-func ShutdownGuises() error {
-	for _,g:=range SystemGuise {
-		rh:=g.(mongrel2.RawHandler)
-		if err:=rh.Shutdown(); err!=nil {
-			return err
-		}
+//Shutdown causes the channels to be closed so the various goroutines (including the system
+//guises) can close down their resources.  Normal web applications run forever so they don't
+//need this, but tests do.
+func Shutdown(named ...Named)  {
+	
+	allNamed := make([]Named,len(SystemGuise)+len(named))
+	for i,n:=range SystemGuise {
+		allNamed[i]=n
 	}
-	return nil
+	for i,n:=range named {
+		allNamed[i+len(SystemGuise)]=n
+	}
+	
+	for _,bye:=range allNamed {
+		bye.Shutdown()
+	}
 }

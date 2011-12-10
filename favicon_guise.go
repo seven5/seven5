@@ -57,7 +57,7 @@ func (self *FaviconGuise) AppStarting(config *ProjectConfig) error {
 
 //create a new one... but only one should be needed in any program
 func NewFaviconGuise() *FaviconGuise {
-	return &FaviconGuise{&HttpRunnerDefault{&mongrel2.HttpHandlerDefault{new (mongrel2.RawHandlerDefault)}}}
+	return &FaviconGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new (mongrel2.RawHandlerDefault)}}}
 }
 
 //Handle a single request of the HTTP level of mongrel.  This responds with the ico

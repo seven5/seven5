@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"mongrel2"
-	"strings"
 	"runtime"
-	//"os"
+	"strings"
 )
 
 type HttpRunner interface {
@@ -23,8 +22,9 @@ type Httpified interface {
 
 type HttpRunnerDefault struct {
 	*mongrel2.HttpHandlerDefault
+	In  chan *mongrel2.HttpRequest
+	Out chan *mongrel2.HttpResponse
 }
-
 
 //Called to launch the processing of the HTTP protocol via goroutines.  This call will 
 //never return.  It will repeatedly call ProcessRequest() as messages arrive and need
@@ -33,15 +33,17 @@ type HttpRunnerDefault struct {
 //to have implementations that detect a problem use the HTTP error code set.
 func (self *HttpRunnerDefault) RunHttp(config *ProjectConfig, target Httpified) {
 
-	in := make(chan *mongrel2.HttpRequest)
-	out := make(chan *mongrel2.HttpResponse)
+	i := make(chan *mongrel2.HttpRequest)
+	o := make(chan *mongrel2.HttpResponse)
+	self.In = i
+	self.Out = o
 
-	go self.ReadLoop(in)
-	go self.WriteLoop(out)
+	go self.ReadLoop(self.In)
+	go self.WriteLoop(self.Out)
 
 	for {
 		//block until we get a message from the server
-		req := <-in
+		req := <-self.In
 
 		if req == nil {
 			config.Logger.Printf("[%s]: close of mongrel2 connection in raw handler!", target.Name())
@@ -64,12 +66,12 @@ func (self *HttpRunnerDefault) RunHttp(config *ProjectConfig, target Httpified) 
 			testResp.StatusCode = ROUTE_TEST_RESPONSE_CODE
 			testResp.Header = map[string]string{ROUTE_TEST_HEADER: target.Name()}
 			testResp.StatusMsg = "Thanks for testing with seven5"
-			out <- testResp
+			self.Out <- testResp
 			continue
 		}
 
 		resp := protectedProcessRequest(config, req, target)
-		out <- resp
+		self.Out <- resp
 	}
 }
 
@@ -83,8 +85,8 @@ func protectedProcessRequest(config *ProjectConfig, req *mongrel2.HttpRequest, t
 			resp = new(mongrel2.HttpResponse)
 			resp.StatusCode = 500
 			resp.StatusMsg = "Internal Server Error"
-			b:=fmt.Sprintf("Panic: %v\n", x)
-			resp.ContentLength=len(b)
+			b := fmt.Sprintf("Panic: %v\n", x)
+			resp.ContentLength = len(b)
 			resp.Body = strings.NewReader(b)
 		}
 	}()
@@ -103,9 +105,9 @@ func Generate500Page(err string, request *mongrel2.HttpRequest) *mongrel2.HttpRe
 
 	fiveHundred.StatusCode = 500
 	fiveHundred.StatusMsg = "Internal Server Error"
-	b:= generateStackTrace(fmt.Sprintf("%v", err))
-	fiveHundred.Body =strings.NewReader(b)
-	fiveHundred.ContentLength=len(b)
+	b := generateStackTrace(fmt.Sprintf("%v", err))
+	fiveHundred.Body = strings.NewReader(b)
+	fiveHundred.ContentLength = len(b)
 	return fiveHundred
 }
 
@@ -124,4 +126,16 @@ func generateStackTrace(err string) string {
 		}
 	}
 	return buffer.String()
+}
+
+//Shutdown here is a bit trickier than it might look.  This sends the shutdown message
+//to the write loop.  The read loop would never see the read message if you closed it here
+//because it is blocked waiting on the socket.  So, when the context is closed the 
+//read loop will catch the ETERM error and close the channel.
+func (self *HttpRunnerDefault) Shutdown() {
+	//this check is needed because if you call shutdown before things get rolling, you'll
+	//try to close a nil channel
+	if self.Out != nil {
+		close(self.Out)
+	}
 }
