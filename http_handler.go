@@ -26,7 +26,7 @@ type HttpRunnerDefault struct {
 	Out chan *mongrel2.HttpResponse
 }
 
-//Called to launch the processing of the HTTP protocol via goroutines.  This call will 
+//RunHttp launches the processing of the HTTP protocol via goroutines.  This call will 
 //never return.  It will repeatedly call ProcessRequest() as messages arrive and need
 //to be sent to the mongrel2 server.  It is careful to protect itself from code that
 //might call panic() even though this is _not_ advised for implementors; it is preferred

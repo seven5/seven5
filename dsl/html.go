@@ -123,7 +123,7 @@ func (self *ClassIdInfo) String() string {
 	return fmt.Sprintf("<div %s>%s</div>",classAndId,inner)
 }
 
-//crucial interface for checking the grid entries for corectness and then correctly
+//Kids is the crucial interface for checking the grid entries for corectness and then correctly
 //walking the structure to emit the grid elements
 type Kids interface {
 	TotalWidth() int

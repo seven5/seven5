@@ -21,5 +21,7 @@ _cgo_export.*
 .project
 bin
 
+gb.cfg
+
 #mac specific
 .DS_Store

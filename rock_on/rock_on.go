@@ -7,7 +7,6 @@ import (
 	"seven5"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 type Rock struct {
@@ -39,32 +38,8 @@ func (rock *Rock) Build(packageName string) (success bool) {
 		cmd=filepath.Join(s5bin,"tune")
 	}
 	
-	handler, css, html, err:=discoverGoObjects(".")
-
-	handlerParam:=""
-	if len(handler)==1 {
-		handlerParam=handler[0]
-	} else {
-		handlerParam=strings.Join(handler," ")
-	}
-	
-	cssParam:=""
-	if len(css)==1 {
-		cssParam=css[0]
-	} else {
-		cssParam=strings.Join(css," ")
-	}
-
-	htmlParam:=""
-	if len(html)==1 {
-		htmlParam=html[0]
-	} else {
-		htmlParam=strings.Join(html," ")
-	}
-	
-	
 	// Tune
-	rock.buildCmd  = exec.Command(cmd, packageName,handlerParam,cssParam,htmlParam)
+	rock.buildCmd  = exec.Command(cmd, packageName)
 	output, err := rock.buildCmd.CombinedOutput()
 	if output != nil {
 		fmt.Print(string(output))
@@ -156,55 +131,4 @@ func main() {
 		return
 	}
 	rock.Run(projName)
-}
-
-const RAWHTTP = "_rawhttp.go"
-const JSONSERVICE = "_jsonservice.go"
-const CSS = ".css.go"
-const DOTGO = ".go"
-const HTML = ".html.go"
-	
-func discoverGoObjects(dir string) (handler []string, css []string, html []string, err error) {
-	var file *os.File
-	var name []string
-	
-	if file,err=os.Open(dir); err!=nil {
-		return
-	}
-	
-	if name,err=file.Readdirnames(0); err!=nil {
-		return
-	}
-	
-	handler=[]string{}
-	css=[]string{}
-	html=[]string{}
-	
-	for _,n:=range name {
-		if !strings.HasSuffix(n, DOTGO) {
-			continue
-		}
-		if strings.HasSuffix(n,RAWHTTP) || strings.HasSuffix(n,JSONSERVICE) {
-			if strings.HasSuffix(n,RAWHTTP) {
-				handler=append(handler,n[0:len(n)-len(RAWHTTP)])
-			} else {
-				handler=append(handler,n[0:len(n)-len(JSONSERVICE)])
-			}
-			continue
-		}
-		if strings.HasSuffix(n,CSS) {
-			c:=n[0:len(n)-len(DOTGO)]
-			c=strings.Replace(c,".","_",-1/*no limit*/)
-			css=append(css,c)
-			continue
-		}
-		if strings.HasSuffix(n,HTML) {
-			h:=n[0:len(n)-len(DOTGO)]
-			h=strings.Replace(h,".","_",-1 /*no limit*/)
-			html=append(html,h)
-			continue
-		}
-		
-	}
-	return
 }

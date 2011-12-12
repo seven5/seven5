@@ -21,7 +21,7 @@ func toUpperFirst(x string) string {
 	return strings.ToUpper(x[0:1]) + x[1:]
 }
 
-func GenerateMain(importPath string, base string, handlers []string, cssSources []string, htmlSources []string) (main_go string, err error) {
+func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven5Objects) (string,error) {
 
 	myFuncs := make(map[string]interface{})
 	myFuncs["upper"] = toUpperFirst
@@ -32,13 +32,15 @@ func GenerateMain(importPath string, base string, handlers []string, cssSources 
 
 	data["import"] = importPath
 	data["package"] = base
-	data["handler"] = handlers
-	data["css"] = cssSources
-	data["html"] = htmlSources
+	data["handler"] = exported.Handler
+	data["css"] = exported.StyleSheet
+	data["html"] = exported.Document
+	data["id"] = exported.CSSId
+	data["class"] = exported.CSSClass
 
 	buff := bytes.NewBufferString("")
-	if err = t.Execute(buff, data); err != nil {
-		return
+	if err := t.Execute(buff, data); err != nil {
+		return "",err
 	}
 
 	return string(buff.Bytes()), nil
@@ -79,29 +81,24 @@ func WriteMain(main_go string, projectName string) (err error) {
 }
 
 func main() {
-	if len(os.Args) != 5 {
-		fmt.Fprintln(os.Stderr, "Usage: tune <project-package-name> <handlers> <css sources> <html sources> (quote groups, space separated--empty groups must be empty-quoted)")
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, "Usage: tune <project-package-name>")
 		os.Exit(1)
 	}
 
 	imp := os.Args[1]
-
-	handlers := strings.Split(os.Args[2], " ")
-	if len(handlers[0]) == 0 {
-		handlers = []string{}
-	}
-	cssSources := strings.Split(os.Args[3], " ")
-	if len(cssSources[0]) == 0 {
-		cssSources = []string{}
-	}
-	htmlSources := strings.Split(os.Args[4], " ")
-	if len(htmlSources[0]) == 0 {
-		htmlSources = []string{}
-	}
-
 	base := filepath.Clean(filepath.Base(imp))
+	
+	cwd,err :=os.Getwd()
+	if err!=nil {
+		fmt.Fprintf(os.Stderr,"cannot get working directory!\n")
+		return
+	}
+	
+	var exported seven5.ExportedSeven5Objects
+	seven5.CheapASTAnalysis(cwd,&exported)
 
-	main_go, err := GenerateMain(imp, base, handlers, cssSources, htmlSources)
+	main_go, err := GenerateMain(imp, base, &exported)
 
 	if err != nil {
 		fmt.Printf("Error processing template: %s\n", err.Error())

@@ -24,6 +24,15 @@ func main() {
     	seven5.RegisterStylesheet({{$pkg}}.{{upper .}})
 	{{end}}
 
+	{{range .id}}
+    	seven5.RegisterCSSId("{{.}}",{{$pkg}}.{{.}})
+	{{end}}
+
+	{{range .class}}
+    	seven5.RegisterCSSClass("{{.}}",{{$pkg}}.{{.}})
+	{{end}}
+
+
 	//derive from filenames
 	{{range .handler}}
 	{{.}} := {{$pkg}}.New{{upper .}}()
