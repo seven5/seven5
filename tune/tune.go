@@ -21,11 +21,20 @@ func toUpperFirst(x string) string {
 	return strings.ToUpper(x[0:1]) + x[1:]
 }
 
+func importIfNeeded(x string,exported *seven5.ExportedSeven5Objects) string {
+	if len(exported.Handler)==0 && len(exported.StyleSheet)==0 && len(exported.Document)==0 && len(exported.CSSId)==0 && len(exported.CSSClass)==0 {
+		return ""
+	}
+	return "\""+x+"\""
+}
 func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven5Objects) (string,error) {
 
 	myFuncs := make(map[string]interface{})
 	myFuncs["upper"] = toUpperFirst
-
+	//WEIRD that this must take interface{} when the toUpperFirst is ok with string
+	myFuncs["importIfNeeded"] = func (x interface{}) string {
+		return importIfNeeded(fmt.Sprintf("%s",x),exported)
+	}
 	t := template.Must(template.New("main").Funcs(myFuncs).Parse(seven5.WEBAPP_TEMPLATE))
 
 	data := make(map[string]interface{})
@@ -37,6 +46,7 @@ func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven
 	data["html"] = exported.Document
 	data["id"] = exported.CSSId
 	data["class"] = exported.CSSClass
+	data["model"] = exported.Model
 
 	buff := bytes.NewBufferString("")
 	if err := t.Execute(buff, data); err != nil {

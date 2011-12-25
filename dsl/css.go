@@ -90,7 +90,7 @@ func Inherit(c ...Class) Class {
 	for i,v:=range(c) {
 		s[i]=string(v)
 	}
-	result := strings.Join(s,".")
+	result := strings.Join(s," .")
 	return Class(result)
 }
 
@@ -109,6 +109,11 @@ var H4 = Elem("H4")
 var H5 = Elem("H5")
 var DT = Elem("DT")
 var EM = Elem("EM")
+var P=Elem("P")
+var UL=Elem("UL")
+var OL=Elem("OL")
+var LI=Elem("LI")
+
 var STAR AllElementSelector
 
 //

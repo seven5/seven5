@@ -5,7 +5,7 @@ const WEBAPP_TEMPLATE = `//target:{{.package}}
 package main
 
 import (
-	"{{.import}}"
+	{{importIfNeeded .import}}
 	"seven5"
 	"fmt"
 	"os"
@@ -30,6 +30,10 @@ func main() {
 
 	{{range .class}}
     	seven5.RegisterCSSClass("{{.}}",{{$pkg}}.{{.}})
+	{{end}}
+
+	{{range $key,$val := .model}}
+    seven5.BackboneModel("{{$key}}",{{range .}}"{{.}}",{{end}})
 	{{end}}
 
 
