@@ -15,75 +15,115 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
 type T interface {
-	//DestroyAll should completely clear the store.  It is used primarily by tests.
-	DestroyAll(params...string) error 
 	//Write should take a pointer to a structure and store it.  The pointer may need to have
 	//its Id field filled in and this is indicated by a 0 value in the field.  Multiple calls
 	//to Write must be idempotent.
 	Write(interface{}) error
 	//FindById fills in a pointer to a structure passed as an argument based on the id passed
-	//as a parameter.  It returns NO_SUCH_KEY if the id could not be located.
+	//as a parameter.  
 	FindById(interface{}, uint64) error
-	//FindByKey fills in a pointer to a structure based on a keyName and a value. If the key
-	//cannot be found with the correct value, NO_SUCH_KEY is returned.
-	FindByKey(someStruct interface{}, keyName string, keyValue string) error}
+	//FindByKey fills in the slice values in result based on the keyName and keyValue provided.
+	//The caller must initialize the slice and the number of values returned will be the number
+	//empty slots in the slice.  Because slices are passed by value, you must pass the address
+	//of the created slice.  If you pass a slice with no empty slots, no results are returned.
+	FindByKey(result interface{}, keyName string, keyValue string) error
+	//DeleteById deletes an item from store so it cannot be found again with either FindById
+	//or FindByKey.  The first parameter is not touched, but must be a pointer to a structure
+	//of the appropriate type being deleted.  The Id value of the first parameter is ignored.
+	DeleteById(example interface{}, id uint64) error
+}
 
 var (
-	BAD_STRUCT = errors.New("stored values are always read and written as pointers to structs")
-	BAD_ID = errors.New("stored structs must have a field named 'Id' that is type uint64")
-	NO_SUCH_KEY = errors.New("key not found")
+	BAD_STRUCT       = errors.New("stored values are always read and written as pointers to structs")
+	BAD_SLICE        = errors.New("slices should have element type that is pointer to structs")
+	BAD_SLICE_PTR    = errors.New("slices are passed by value, so you must pass a pointer to a slice so it can be 'filled in' by seven")
+	BAD_ID           = errors.New("stored structs must have a field named 'Id' that is type uint64")
+	NO_STRING_METHOD = errors.New("any value used in a key field must have a String() method")
 )
 
+var ZeroValue = reflect.Value{}
 
 //VerifyStructPointerFields makes sure that the object passed is a pointer to a structure and
 //that it has a field named Id that is of type uint64.  If the check fails, it return non-nil
 //error value, otherwise the current value of the Id field and the name of the structure type
 //is return (not the name of the type passed as a parameter, as this is a POINTER to a structure)
-func VerifyStructPointerFields(s interface{}) (uint64,string,error) {
+func GetIdValueAndStructureName(s interface{}) (uint64, string, error) {
+	if err := VerifyStructPointerFieldTypes(reflect.TypeOf(s)); err != nil {
+		return uint64(0), "", err
+	}
 	v := reflect.ValueOf(s)
+	str := v.Elem()
+	typeName := str.Type().String()
+	id := str.FieldByName("Id")
+	return id.Uint(), typeName, nil
+}
+
+//VerifyStructPointerFieldType is used to check that the object described by v is a pointer to
+//structure that has an appropriate Id field.
+func VerifyStructPointerFieldTypes(v reflect.Type) error {
 	if v.Kind() != reflect.Ptr {
-		return uint64(0),"",BAD_STRUCT
+		return BAD_STRUCT
 	}
 	str := v.Elem()
 	if str.Kind() != reflect.Struct {
-		return uint64(0),"",BAD_STRUCT
+		return BAD_STRUCT
 	}
-	typeName := str.Type().String()
-	id := str.FieldByName("Id")
-	if (id == reflect.Value{}) {
-		return uint64(0),"",BAD_ID
+	id, ok := str.FieldByName("Id")
+	if !ok {
+		return BAD_ID
 	}
-	if id.Kind() != reflect.Uint64 {
-		return uint64(0),"",BAD_ID
+	if id.Type.Kind() != reflect.Uint64 {
+		return BAD_ID
 	}
-	return id.Uint(),typeName,nil
+	return nil
 }
 
-//GetStructKeys returns a slice of strings that are the names of the fields that are also to
-//be considered keys for this structure type in memcached.  It assumes that one has already
-//validated the struct with verifyStructPointerFields.
-func GetStructKeys(s interface{}) []string {
-	str:=reflect.ValueOf(s).Elem()
-	result:=[]string{}
-	
-	numFields:=str.NumField()
-	for i:=0; i<numFields; i++ {
-		f:=str.Type().Field(i)
-		if f.Name=="Id" {
+//MethodPlusName is used to allow us to return the string of the methods name along with an
+//object that points to that method plus the value of the receiver.  Without this pair,
+//the method name cannot be determined from the reflect.Value.
+type MethodPlusName struct {
+	Name string
+	Meth reflect.Value
+}
+//FieldPlusName is used to allow us to return name of a field
+//plus a value that is its value.
+type FieldPlusName struct {
+	Name string
+	Value reflect.Value
+}
+
+//GetStructKeys returns two slices that are the names of the fields that are keys
+// (first slice) or methods that generate keys for this structure type in memcached.  
+//It assumes that one has already validated the struct with verifyStructPointerFields.
+func GetStructKeys(s interface{}) ([]FieldPlusName, []MethodPlusName) {
+	str := reflect.ValueOf(s).Elem()
+	resultFields := []FieldPlusName{}
+	resultMethods := []MethodPlusName{}
+
+	numFields := str.NumField()
+	for i := 0; i < numFields; i++ {
+		f := str.Type().Field(i)
+		if f.Name == "Id" {
 			continue
 		}
-		tag:=f.Tag.Get("seven5key")
-		if tag=="" {
+		tag := f.Tag.Get("seven5key")
+		if tag == "" {
 			continue
 		}
-		if tag!="true" {
-			panic("cannot understand seven5key tag value!")
+		if tag == f.Name {
+			resultFields = append(resultFields, FieldPlusName{tag,str.Field(i)})
+			continue
 		}
-		result=append(result,f.Name)
+		m := str.MethodByName(tag)
+		if m == ZeroValue {
+			panic(fmt.Sprintf("method %s does not exist on struct! (did you define it on the POINTER to the struct?)", tag))
+		}
+		resultMethods = append(resultMethods, MethodPlusName{tag,m})
 	}
-	return result
+	return resultFields, resultMethods
 }
