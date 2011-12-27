@@ -44,6 +44,7 @@ var (
 	BAD_SLICE_PTR    = errors.New("slices are passed by value, so you must pass a pointer to a slice so it can be 'filled in' by seven")
 	BAD_ID           = errors.New("stored structs must have a field named 'Id' that is type uint64")
 	NO_STRING_METHOD = errors.New("any value used in a key field must have a String() method")
+	INDEX_MISS = errors.New("can't find that item in the index")
 )
 
 var ZeroValue = reflect.Value{}

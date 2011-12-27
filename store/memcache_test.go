@@ -23,6 +23,7 @@ var s = &MemcachedSuite{}
 // hook up suite to gocheck
 var _ = gocheck.Suite(s)
 
+//we use the extra key "Birth_year" to test that our delete routines correctly update indexes.
 type sample1 struct {
 	Username   string
 	Birth_year int `seven5key:"Birth_year"`
@@ -30,28 +31,38 @@ type sample1 struct {
 	Id         uint64
 }
 
+//the AggMonth method is used to demonstrate how to compute more complex key values to 
+//allow you to get something like a complex query from this pile of hacks.
 type BlarghParst struct {
 	Title string
 	YYYYMMDD  string `seven5key:"AggMonth"`
 	Id    uint64
 }
 
+//AggMonth makes sure that it only returns the VALUE of the year and month rather than the data
+//proper so that an index is computed based on this value.
 func (self BlarghParst) AggMonth() string {
 	return string(self.YYYYMMDD[0:6])
 }
 
+//This demonstrates to use a key "raw" without computing any function of it.  The extra index
+//is based on the value of Foo.
 type sample2 struct {
 	Foo string `seven5key:"Foo"`
 	Id  uint64
 }
 
+//we create a conn to the memcached at start of the suite
 func (self *MemcachedSuite) SetUpSuite(c *gocheck.C) {
 	self.store = &MemcacheGobStore{memcache.New(LOCALHOST)}
 }
 
+//no need to destry the connection, the program is ending anyway
 func (self *MemcachedSuite) TearDownSuite(c *gocheck.C) {
 }
 
+//before each test we destroy all data in memcached.  if memcached is connected to a terminal
+//(foreground) it will generate some bells to tell you that this is happening (annoying)
 func (self *MemcachedSuite) SetUpTest(c *gocheck.C) {
 	err := self.store.(*MemcacheGobStore).DestroyAll(LOCALHOST)
 	if err != nil {
@@ -59,6 +70,8 @@ func (self *MemcachedSuite) SetUpTest(c *gocheck.C) {
 	}
 }
 
+//test that we can work at the memcached level, since the rest of tests are at the store.T
+//level
 func (self *MemcachedSuite) TestMemcacheLevelSetupWorks1(c *gocheck.C) {
 	m := self.store.(*MemcacheGobStore)
 
@@ -76,6 +89,7 @@ func (self *MemcachedSuite) TestMemcacheLevelSetupWorks1(c *gocheck.C) {
 	}
 }
 
+//make sure the store is empty at start
 func (self *MemcachedSuite) TestMemcacheLevelSetupWorks2(c *gocheck.C) {
 	m := self.store.(*MemcacheGobStore)
 
@@ -85,6 +99,9 @@ func (self *MemcachedSuite) TestMemcacheLevelSetupWorks2(c *gocheck.C) {
 	}
 }
 
+//utility routine that is used a few places to write an instance of sample1
+//note that the parameters to the storage layer are a pointer to the structure, even in cases
+//where the structure is not modified.  
 func (self *MemcachedSuite) WriteSample1(user string, yr int, pwd string, c *gocheck.C) *sample1 {
 	s := &sample1{Username: user, Birth_year: yr, Password: pwd}
 	if err:=self.store.Write(s); err!=nil {
@@ -93,6 +110,7 @@ func (self *MemcachedSuite) WriteSample1(user string, yr int, pwd string, c *goc
 	return s
 }
 
+//basic read/write test at the level of store.T (in this case, self.store)
 func (self *MemcachedSuite) TestBasicStoreWithId(c *gocheck.C) {
 	iansmith := "iansmith"
 	yr := 1970
@@ -115,6 +133,8 @@ func (self *MemcachedSuite) TestBasicStoreWithId(c *gocheck.C) {
 	c.Check(t2.Password, gocheck.Equals, pwd)
 }
 
+//create a set of blog posts on various dates and show that they get aggregated together
+//into bunches based on the AggMonth method.
 func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	quick := "the quick and the dead"
 	mostly := "the mostly dead"
@@ -172,6 +192,7 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 
 }
 
+//test deleting works and that the indexes get updated properly
 func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	t1:= self.WriteSample1("iansmith",1970,"fart",c)
 	t2:= self.WriteSample1("trevorsmith",1972,"yech",c)
@@ -181,6 +202,9 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	err:=self.store.FindById(t3,t2.Id)
 	
 	c.Check(err,gocheck.Equals,nil)
+	c.Check(t3.Id,gocheck.Equals,t2.Id)
+	c.Check(t3.Birth_year,gocheck.Equals,t2.Birth_year)
+	c.Check(t3.Username,gocheck.Equals,t2.Username)
 	
 	//check we can get it by key
 	hits:=make([]*sample1,0,1)
@@ -188,30 +212,42 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	c.Check(err,gocheck.Equals,nil)
 	c.Assert(1,gocheck.Equals,len(hits))
 	c.Check(hits[0].Username,gocheck.Equals,"trevorsmith")
-	
-	
-	c.Check(t3.Id,gocheck.Equals,t2.Id)
-	c.Check(t3.Birth_year,gocheck.Equals,t2.Birth_year)
-	c.Check(t3.Username,gocheck.Equals,t2.Username)
 
+	//check we can't find it by wrong key
+	hits=make([]*sample1,0,1)
+	err=self.store.FindByKey(&hits, "Birth_year","1973")
+	c.Check(err,gocheck.Equals,nil)
+	c.Assert(0,gocheck.Equals,len(hits))
+
+	//check we can't delete stuff not there
 	err=self.store.DeleteById(t2,429)
 	c.Check(err,gocheck.Equals,memcache.ErrCacheMiss)
 	
+	//delete trev
 	err=self.store.DeleteById(t2,t2.Id)
 	c.Check(err,gocheck.Equals,nil)
 	
+	//now can't find trev
 	err=self.store.FindById(t3,t2.Id)
 	c.Check(err,gocheck.Equals,memcache.ErrCacheMiss)
 	
+	//still can find ian
 	err=self.store.FindById(t3,t1.Id)
 	c.Check(err,gocheck.Equals,nil)
 	c.Check(t3.Username,gocheck.Equals,"iansmith")
 	
+	//still can find ian by year
 	hits=make([]*sample1,0,1)
 	err=self.store.FindByKey(&hits, "Birth_year","1970")
 	c.Check(err,gocheck.Equals,nil)
 	c.Check(1,gocheck.Equals,len(hits))
 	c.Check(hits[0].Username,gocheck.Equals,"iansmith")
+
+	//but not trevor by year
+	hits=make([]*sample1,0,1)
+	err=self.store.FindByKey(&hits, "Birth_year","1972")
+	c.Check(err,gocheck.Equals,nil)
+	c.Check(0,gocheck.Equals,len(hits))
 }
 
 //

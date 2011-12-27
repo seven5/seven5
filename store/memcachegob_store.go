@@ -109,38 +109,60 @@ func (self *MemcacheGobStore) Write(s interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	//update all the extra keys using writeKey
+	err = self.walkAllExtraKeys(s, func(n string, v string) error {
+		return self.writeKey(s, n, typeName, v, value)
+	})
+
+	return nil
+}
+
+//fieldFunc is the type of function you have to supply to walkAllExtraKeys which will get called
+//for each key of the structure (or methods, if declared in the structure defn)
+type fieldFunc func(fieldOrMethodName string, flattenedValue string) error
+
+//walkAllExtraKeys is a utility route to run a function for every key mentioned in the structure
+//declaration of s.  This function assumes that s has already been checked an is properly
+//formed.
+func (self *MemcacheGobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error{
 	//write the extra indexes
 	fields, methods := GetStructKeys(s)
 	var mapKey string
+	var err error
 
 	//try the fields
 	for _, k := range fields {
-		//does the FIELD have a string method?
 		mapKey = toStringMethodOrSprintf(k.Value)
-		err = self.writeKey(s, k.Name, typeName, mapKey, value)
+		err = fn(k.Name, mapKey)
 		if err != nil {
 			return err
 		}
 	}
+	//now the methods
 	for _, m := range methods {
 		out := m.Meth.Call([]reflect.Value{})
 		mapKey = toStringMethodOrSprintf(out[0])
-		//hacky way to get this to be a "real" string not a value
-		err = self.writeKey(s, m.Name, typeName, mapKey, value)
+		err = fn(m.Name, mapKey)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
+//toStringMethodOrSprintf needs a lot of improvement for the basic types! It's crap right now.
+//TODO
 func toStringMethodOrSprintf(v reflect.Value) string {
 	method := v.MethodByName("String")
 	if method == ZeroValue {
 		//why do I need to elucidate all the types here?
-		if v.Kind()==reflect.Int {
-			return fmt.Sprintf("%d",v.Int())
+		if v.Kind() == reflect.Int {
+			return fmt.Sprintf("%d", v.Int())
 		}
-		
+
 		return fmt.Sprintf("%v", v)
-	} 
+	}
 	return method.Call(nil)[0].String()
 }
 
@@ -169,35 +191,22 @@ func (self *MemcacheGobStore) FindById(s interface{}, id uint64) error {
 //provided.  it creates the map if necessary.  The map is per keyName with the keys
 //of the map being values and the values are ids.
 func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName string, mapKey string, id uint64) error {
-	//compute memcached key
-	key := fmt.Sprintf(EXTRAKEY, typeName, keyName)
-
-	fmt.Printf("key is %s [%s] '%d'\n",key,mapKey,id)
-
-	item, err := self.Client.Get(key)
-
-	//map from values to ids of objects
 	var index map[string][]uint64
-
-	//if not there, create the map from scratch
-	if err == memcache.ErrCacheMiss {
-		index = make(map[string][]uint64)
-		item = nil
-	} else if err == nil {
-		//no error, read the map
-		buffer := bytes.NewBuffer(item.Value)
-		decoder := gob.NewDecoder(buffer)
-		err = decoder.Decode(&index)
-		if err != nil {
-			return err
-		}
-	} else {
-		//some other error, give up
+	var item *memcache.Item
+	if err := self.readIndex(&index, &item, typeName, keyName, true); err != nil {
 		return err
 	}
+
 	//ok, if we get here, we are ok and have the index loaded (or created)...
 	index[mapKey] = append(index[mapKey], id)
 
+	return self.writeIndex(index, item, typeName, keyName)
+}
+
+//writeIndex puts an index in memcached by serializing it with gobs.  it needs to be passed 
+//back the same item value that was returned from readIndex so we can correctly detect 
+//concurrency problems. if item is nil it assumes that this is a creation (and no concurrency check needed)
+func (self *MemcacheGobStore) writeIndex(index map[string][]uint64, item *memcache.Item, typeName string, keyName string) error {
 	//serialize to gob the index
 	buffer := new(bytes.Buffer)
 	enc := gob.NewEncoder(buffer)
@@ -212,8 +221,67 @@ func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName s
 		return self.Client.CompareAndSwap(item)
 	}
 	//this is a brand new index, write it out to disk
-	item = &memcache.Item{Key: key, Value: buffer.Bytes()}
-	return self.Client.Set(item)
+	newItem := &memcache.Item{Key: fmt.Sprintf(EXTRAKEY, typeName, keyName), Value: buffer.Bytes()}
+	return self.Client.Set(newItem)
+}
+
+//readIndex pulls an index from memcached and sets the first parameter to it, if there was no error.
+//the create flag indicates if not finding the item in memcached is an error or it should be
+//created (true).  The item parameter is set to the retrieved Item object for use later
+//with compareAndSwap
+func (self *MemcacheGobStore) readIndex(result *map[string][]uint64, item **memcache.Item, typeName string, keyName string, create bool) error {
+	//compute memcached key
+	key := fmt.Sprintf(EXTRAKEY, typeName, keyName)
+	var err error
+
+	*item, err = self.Client.Get(key)
+
+	//if not there, create the map from scratch, based on create param
+	if err == memcache.ErrCacheMiss {
+		if create {
+			*result = make(map[string][]uint64)
+			*item = nil
+		} else {
+			return err
+		}
+	} else if err == nil {
+		//no error, read the map
+		buffer := bytes.NewBuffer((*item).Value)
+		decoder := gob.NewDecoder(buffer)
+		err = decoder.Decode(result)
+		if err != nil {
+			return err
+		}
+	} else {
+		//some other error, give up
+		return err
+	}
+	//if we reach here we have the result and item updated properly
+	return nil
+}
+
+//deleteKey does the work to update an index when an item is deleted
+func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64) error {
+	var index map[string][]uint64
+	var item *memcache.Item
+	
+	if err := self.readIndex(&index, &item, typeName, keyName, true); err != nil {
+		return err
+	}
+	slice := index[mapKey]
+	ok := false
+	for i := 0; i < len(slice); i++ {
+		if slice[i] == id {
+			slice[i] = slice[len(slice)-1]
+			index[mapKey] = slice[0 : len(slice)-1]
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return INDEX_MISS
+	}
+	return self.writeIndex(index, item, typeName, keyName)
 }
 
 //FindByKey looks up a value in the memcache by a field _other_ than the Id field.  You have
@@ -245,30 +313,18 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	typeName := s.Elem().String()
 
 	var item *memcache.Item
-
-	//read index
-	key := fmt.Sprintf(EXTRAKEY, typeName, keyName)
-	if item, err = self.Client.Get(key); err != nil {
-		return err
-	}
-
 	var index map[string][]uint64
-
-	//no error, read the index
-	buffer := bytes.NewBuffer(item.Value)
-	decoder := gob.NewDecoder(buffer)
-	err = decoder.Decode(&index)
-	if err != nil {
+	if err=self.readIndex(&index,&item,typeName,keyName,false); err!=nil {
 		return err
 	}
-
+	
 	//get the item we are interested in
-	_, ok := index[value]
-	if !ok {
+	slice, ok := index[value]
+	if !ok || len(slice)==0 {
 		//just tell the caller there is nothing with that value
 		return nil
 	}
-
+	
 	//loop over all the ids in the index, until we run out of ids or run out of space in
 	//in the result slice
 	for _, v := range index[value] {
@@ -291,13 +347,35 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	return nil
 }
 
-func (self *MemcacheGobStore) DeleteById(s interface{},id uint64) error {
+//DeleteById deletes an item from the store by its unique id.  This does the work to update all
+//the index
+func (self *MemcacheGobStore) DeleteById(s interface{}, id uint64) error {
 	var typeName string
-	var err error
-	
+	var err,memcache_err error
+
 	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
 		return err
 	}
-	key:=fmt.Sprintf(RECKEY,typeName,id)
-	return self.Client.Delete(key)
+	//update all the extra keys using writeKey
+	err= self.walkAllExtraKeys(s, func(n string, v string) error {
+		return self.deleteKey(s, n, typeName, v, id)
+	})
+	
+	if err!=nil && err!=INDEX_MISS {
+		return err
+	}
+	key := fmt.Sprintf(RECKEY, typeName, id)
+	memcache_err=self.Client.Delete(key)
+	
+	if memcache_err == memcache.ErrCacheMiss && err==INDEX_MISS {
+		return memcache.ErrCacheMiss
+	}
+	
+	if err==INDEX_MISS {
+		panic(fmt.Sprintf("indexes are out of sync with data: %d not found",id))
+	}
+	
+	return memcache_err
+	
+	
 }
