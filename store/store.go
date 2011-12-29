@@ -36,6 +36,21 @@ type T interface {
 	//or FindByKey.  The first parameter is not touched, but must be a pointer to a structure
 	//of the appropriate type being deleted.  The Id value of the first parameter is ignored.
 	DeleteById(example interface{}, id uint64) error
+	//Init takes an example pointer and creates the necessary entries in the store to prepare
+	//for storing this type.  This is not necessary if you do a Write() before your first
+	//fetch, but is needed if you want FindByKey() to work properly with an empty set of objects.
+	Init(example interface{}) error
+	//FindAll fills inthe slice pointed to by the first item with all the known items of 
+	//the particular type denoted by the slice.  Note that the slice will be filled with only
+	//as many items as there is capacity to hold in the slice.
+	FindAll(result interface{}) error
+	
+}
+
+//Lesser is a shim to allow us to do sorting with exactly knowing the types.  We delegate the
+//comparison of order to the true storage class.
+type Lesser interface {
+	Less(reflect.Value,reflect.Value) bool
 }
 
 var (
@@ -105,7 +120,6 @@ func GetStructKeys(s interface{}) ([]FieldPlusName, []MethodPlusName) {
 	str := reflect.ValueOf(s).Elem()
 	resultFields := []FieldPlusName{}
 	resultMethods := []MethodPlusName{}
-
 	numFields := str.NumField()
 	for i := 0; i < numFields; i++ {
 		f := str.Type().Field(i)

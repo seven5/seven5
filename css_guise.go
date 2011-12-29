@@ -2,7 +2,7 @@ package seven5
 
 import (
 	"fmt"
-	"os"
+//	"os"
 	"mongrel2"
 	"seven5/dsl"
 	"strings"
@@ -28,7 +28,6 @@ func (self *CssGuise) Pattern() string {
 }
 
 func (self *CssGuise) AppStarting(config *ProjectConfig) error {
-	fmt.Fprintf(os.Stderr,"css guise working on %s\n",config.Path)
 	return nil
 }
 

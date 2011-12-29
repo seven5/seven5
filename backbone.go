@@ -7,16 +7,24 @@ import (
 	"os"
 	"text/template"
 	"strings"
+	"seven5/store"
 )
 
-//0 is not a valid id, signal value
-const ID_NONE = 0
+const (
+	OP_CREATE = iota
+	OP_READ
+	OP_UPDATE
+	OP_DELETE 	
+)
+
 
 type Restful interface {
-	Create(values map[string]interface{}) int64
-	Delete(id int64)
-	Read(id int64) //can be ID_NONE for all items
-	Update(id int64, values map[string]interface{}) bool
+	Create(store store.T, ptrToValues interface{}) error
+	Read(store store.T, ptrToObject interface{}, id uint64) error 
+	Update(store store.T, ptrToNewValues interface{},id uint64) error
+	Delete(store store.T, id uint64) error
+	Validate(store store.T, ptrToValues interface{}, id uint64, op int) map[string]string
+	Make() interface{}
 }
 
 var models = make(map[string][]string)
@@ -49,7 +57,6 @@ func (self *ModelGuise) Pattern() string {
 }
 
 func (self *ModelGuise) AppStarting(config *ProjectConfig) error {
-	fmt.Fprintf(os.Stderr, "model guise working on %s\n", config.Path)
 	return nil
 }
 

@@ -9,17 +9,26 @@ import (
 	//"os"
 	"reflect"
 	//	"strconv"
+	"sort"
 )
 
 type MemcacheGobStore struct {
 	*memcache.Client
 }
 
+type idslice struct {
+	S Lesser
+	Mem *MemcacheGobStore
+	Id []uint64
+} 
+
 const (
 	LOCALHOST = "localhost:11211"
 	IDKEY     = "%s-idcounter"
 	RECKEY    = "%s-%d"
 	EXTRAKEY  = "%s-key-%s"
+	MAGIC_KEY = "--"
+	MAGIC_VALUE = ""
 )
 
 //DestroyAll will delete all data from the hosts (or from localhost on 11211 if no hosts have)
@@ -80,24 +89,24 @@ func (self *MemcacheGobStore) GetNextId(typeName string) (uint64, error) {
 //an Id for the item before writing it to memcache.  The value passed must be a pointer to a 
 //struct and the struct must have an Id field that is uint64.
 func (self *MemcacheGobStore) Write(s interface{}) error {
-	var value uint64
+	var id uint64
 	var typeName string
 	var err error
 
-	if value, typeName, err = GetIdValueAndStructureName(s); err != nil {
+	if id, typeName, err = GetIdValueAndStructureName(s); err != nil {
 		return err
 	}
-	if value == uint64(0) {
-		newId, err := self.GetNextId(typeName)
+	if id == uint64(0) {
+		nextId, err := self.GetNextId(typeName)
 		if err != nil {
 			return err
 		}
-		id := reflect.ValueOf(s).Elem().FieldByName("Id")
-		id.SetUint(newId)
-		value = newId
+		newId := reflect.ValueOf(s).Elem().FieldByName("Id")
+		newId.SetUint(nextId)
+		id = nextId
 	}
-	//at this point value holds the number of the record
-	key := fmt.Sprintf(RECKEY, typeName, value)
+	//at this point id holds the number of the record
+	key := fmt.Sprintf(RECKEY, typeName, id)
 	buffer := new(bytes.Buffer)
 	enc := gob.NewEncoder(buffer)
 	if err := enc.Encode(s); err != nil {
@@ -112,9 +121,9 @@ func (self *MemcacheGobStore) Write(s interface{}) error {
 
 	//update all the extra keys using writeKey
 	err = self.walkAllExtraKeys(s, func(n string, v string) error {
-		return self.writeKey(s, n, typeName, v, value)
+		return self.writeKey(s, n, typeName, v, id)
 	})
-
+	
 	return nil
 }
 
@@ -139,6 +148,12 @@ func (self *MemcacheGobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) erro
 			return err
 		}
 	}
+	//for find all
+	err = fn(MAGIC_KEY, MAGIC_VALUE)
+	if err != nil {
+		return err
+	}
+	
 	//now the methods
 	for _, m := range methods {
 		out := m.Meth.Call([]reflect.Value{})
@@ -199,6 +214,7 @@ func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName s
 
 	//ok, if we get here, we are ok and have the index loaded (or created)...
 	index[mapKey] = append(index[mapKey], id)
+	self.Sort(s, index[mapKey])
 
 	return self.writeIndex(index, item, typeName, keyName)
 }
@@ -376,6 +392,76 @@ func (self *MemcacheGobStore) DeleteById(s interface{}, id uint64) error {
 	}
 	
 	return memcache_err
-	
-	
 }
+
+func (self *MemcacheGobStore) Init(s interface{}) error {
+	var typeName string
+	var err error
+
+
+	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
+		return err
+	}
+	
+	item :=&memcache.Item{Key:fmt.Sprintf(IDKEY, typeName),Value:[]byte("0")}
+	if err = self.Client.Set(item); err != nil {
+		return err
+	}
+	return self.walkAllExtraKeys(s, func(n string, _ string) error {
+		empty:=make(map[string][]uint64)
+		var item *memcache.Item
+		if e:=self.readIndex(&empty,&item,typeName,n,true); e!=nil {
+			return e
+		}
+		return self.writeIndex(empty, item, typeName, n)
+	})
+}
+
+//FindAll returns all the items of the particular type that is pointed to by the first parameter
+//in a slice, up to the capacity of the slice.
+func (self *MemcacheGobStore) FindAll(s interface{}) error {
+	return self.FindByKey(s,MAGIC_KEY,MAGIC_VALUE)
+}
+func (self *MemcacheGobStore) Sort(x interface{}, someIds []uint64) error {
+	s,ok:=x.(Lesser)
+	if !ok {
+		return nil
+	}
+	sortable:=&idslice{s,self,someIds}
+	sort.Sort(sortable)
+	return nil
+}
+
+//
+// SORTING CRUFT
+//
+
+//Len returns the size of the slice
+func (self *idslice) Len() int {
+	return len(self.Id)
+} 
+//Swap exchanges two elements of the slice
+func (self *idslice) Swap(i,j int) {
+	tmp:=self.Id[i]
+	self.Id[i]=self.Id[j]
+	self.Id[j]=tmp
+} 
+//Less uses delegation to underlying type
+func (self *idslice) Less(i,j int) bool{
+	v:=reflect.ValueOf(self.S)
+	newA:=reflect.New(v.Type().Elem())
+	newB:=reflect.New(v.Type().Elem())
+	
+	method:=reflect.Indirect(reflect.ValueOf(self)).FieldByName("Mem").MethodByName("FindById")
+
+	out:=method.Call([]reflect.Value{newA,reflect.ValueOf(self.Id[i])})
+	if !out[0].IsNil() {
+		panic(fmt.Sprintf("error trying to call FindById! %v",out[0]))
+	}
+	out=method.Call([]reflect.Value{newB,reflect.ValueOf(self.Id[j])})
+	if !out[0].IsNil() {
+		panic(fmt.Sprintf("error trying to call FindById! %v",out[0]))
+	}
+	return self.S.Less(newA,newB)
+} 
+

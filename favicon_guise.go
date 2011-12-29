@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"io"
 	"fmt"
-	"os"
+//	"os"
 	"bytes"
 )
 type FaviconGuise struct {
@@ -51,7 +51,6 @@ func (self *FaviconGuise) Pattern() string {
 }
 
 func (self *FaviconGuise) AppStarting(config *ProjectConfig) error {
-	fmt.Fprintf(os.Stderr,"favico guise ready",config.Path)
 	return nil
 }
 

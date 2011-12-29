@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gocheck"
 	"math/rand"
 	//"os"
+	"reflect"
 	"testing"
 )
 
@@ -34,15 +35,25 @@ type sample1 struct {
 //the AggMonth method is used to demonstrate how to compute more complex key values to 
 //allow you to get something like a complex query from this pile of hacks.
 type BlarghParst struct {
-	Title string
-	YYYYMMDD  string `seven5key:"AggMonth"`
-	Id    uint64
+	Title    string
+	YYYYMMDD string `seven5key:"AggMonth"`
+	Id       uint64
 }
 
 //AggMonth makes sure that it only returns the VALUE of the year and month rather than the data
 //proper so that an index is computed based on this value.
 func (self BlarghParst) AggMonth() string {
 	return string(self.YYYYMMDD[0:6])
+}
+
+//Make sure we meet the Lesser interface that allows us to always have sorted results.
+func (self BlarghParst) Less(i reflect.Value, j reflect.Value) bool {
+	var x, y *BlarghParst
+	//this converts to our type, which is not known to the infrastructure
+	reflect.Indirect(reflect.ValueOf(&x)).Set(i)
+	reflect.Indirect(reflect.ValueOf(&y)).Set(j)
+	//conversion accepted
+	return x.YYYYMMDD < y.YYYYMMDD
 }
 
 //This demonstrates to use a key "raw" without computing any function of it.  The extra index
@@ -104,8 +115,8 @@ func (self *MemcachedSuite) TestMemcacheLevelSetupWorks2(c *gocheck.C) {
 //where the structure is not modified.  
 func (self *MemcachedSuite) WriteSample1(user string, yr int, pwd string, c *gocheck.C) *sample1 {
 	s := &sample1{Username: user, Birth_year: yr, Password: pwd}
-	if err:=self.store.Write(s); err!=nil {
-		c.Fatalf("failed to write a sample1:%v",err)
+	if err := self.store.Write(s); err != nil {
+		c.Fatalf("failed to write a sample1:%v", err)
 	}
 	return s
 }
@@ -116,7 +127,7 @@ func (self *MemcachedSuite) TestBasicStoreWithId(c *gocheck.C) {
 	yr := 1970
 	pwd := "fart"
 
-	t1:= self.WriteSample1(iansmith,yr,pwd,c)
+	t1 := self.WriteSample1(iansmith, yr, pwd, c)
 	t2 := new(sample1)
 
 	err := self.store.Write(t1)
@@ -143,8 +154,8 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	newyear := "NYE is the amateur hour of drunks"
 
 	p1 := &BlarghParst{quick, "20111222", uint64(0)}
-	p2 := &BlarghParst{mostly, "20111223", uint64(0)}
-	p3 := &BlarghParst{jim, "20111224", uint64(0)}
+	p2 := &BlarghParst{mostly, "20111203", uint64(0)}
+	p3 := &BlarghParst{jim, "20111214", uint64(0)}
 	p4 := &BlarghParst{xmas, "20111225", uint64(0)}
 	p5 := &BlarghParst{newyear, "20120101", uint64(0)}
 
@@ -154,29 +165,18 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	c.Check(self.store.Write(p4), gocheck.Equals, nil)
 	c.Check(self.store.Write(p5), gocheck.Equals, nil)
 
-	//four posts in 2011 12
+	//four posts in dec 2011 
 	hits := make([]*BlarghParst, 0, 5)
 	err := self.store.FindByKey(&hits, "AggMonth", "201112")
 
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 4)
-	//order of return in the slice is not guaranteed!
-	for i:=0;i<len(hits);i++ {
-		p:=hits[i]
-		switch p.Id {
-		case 1:
-			c.Check(p.Title,gocheck.Equals,quick)
-		case 2:
-			c.Check(p.Title,gocheck.Equals,mostly)
-		case 3:
-			c.Check(p.Title,gocheck.Equals,jim)
-		case 4:
-			c.Check(p.Title,gocheck.Equals,xmas)
-			c.Check(p.YYYYMMDD, gocheck.Equals,"20111225")
-		default:
-			c.Fatalf("didn't expect that id in the list! %d",p.Id)
-		}
-	}
+
+	//order is increasing by date
+	c.Check(hits[0].Title, gocheck.Equals, mostly)
+	c.Check(hits[1].Title, gocheck.Equals, jim)
+	c.Check(hits[2].Title, gocheck.Equals, quick)
+	c.Check(hits[3].Title, gocheck.Equals, xmas)
 
 	//no overflow?
 	hits = make([]*BlarghParst, 0, 1)
@@ -194,60 +194,72 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 
 //test deleting works and that the indexes get updated properly
 func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
-	t1:= self.WriteSample1("iansmith",1970,"fart",c)
-	t2:= self.WriteSample1("trevorsmith",1972,"yech",c)
-	
+	t1 := self.WriteSample1("iansmith", 1970, "fart", c)
+	t2 := self.WriteSample1("trevorsmith", 1972, "yech", c)
+
 	//load a copy of t2
-	t3:=new (sample1)
-	err:=self.store.FindById(t3,t2.Id)
-	
-	c.Check(err,gocheck.Equals,nil)
-	c.Check(t3.Id,gocheck.Equals,t2.Id)
-	c.Check(t3.Birth_year,gocheck.Equals,t2.Birth_year)
-	c.Check(t3.Username,gocheck.Equals,t2.Username)
-	
+	t3 := new(sample1)
+	err := self.store.FindById(t3, t2.Id)
+
+	c.Check(err, gocheck.Equals, nil)
+	c.Check(t3.Id, gocheck.Equals, t2.Id)
+	c.Check(t3.Birth_year, gocheck.Equals, t2.Birth_year)
+	c.Check(t3.Username, gocheck.Equals, t2.Username)
+
 	//check we can get it by key
-	hits:=make([]*sample1,0,1)
-	err=self.store.FindByKey(&hits, "Birth_year","1972")
-	c.Check(err,gocheck.Equals,nil)
-	c.Assert(1,gocheck.Equals,len(hits))
-	c.Check(hits[0].Username,gocheck.Equals,"trevorsmith")
+	hits := make([]*sample1, 0, 1)
+	err = self.store.FindByKey(&hits, "Birth_year", "1972")
+	c.Check(err, gocheck.Equals, nil)
+	c.Assert(1, gocheck.Equals, len(hits))
+	c.Check(hits[0].Username, gocheck.Equals, "trevorsmith")
 
 	//check we can't find it by wrong key
-	hits=make([]*sample1,0,1)
-	err=self.store.FindByKey(&hits, "Birth_year","1973")
-	c.Check(err,gocheck.Equals,nil)
-	c.Assert(0,gocheck.Equals,len(hits))
+	hits = make([]*sample1, 0, 1)
+	err = self.store.FindByKey(&hits, "Birth_year", "1973")
+	c.Check(err, gocheck.Equals, nil)
+	c.Assert(0, gocheck.Equals, len(hits))
 
 	//check we can't delete stuff not there
-	err=self.store.DeleteById(t2,429)
-	c.Check(err,gocheck.Equals,memcache.ErrCacheMiss)
-	
+	err = self.store.DeleteById(t2, 429)
+	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+
 	//delete trev
-	err=self.store.DeleteById(t2,t2.Id)
-	c.Check(err,gocheck.Equals,nil)
-	
+	err = self.store.DeleteById(t2, t2.Id)
+	c.Check(err, gocheck.Equals, nil)
+
 	//now can't find trev
-	err=self.store.FindById(t3,t2.Id)
-	c.Check(err,gocheck.Equals,memcache.ErrCacheMiss)
-	
+	err = self.store.FindById(t3, t2.Id)
+	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+
 	//still can find ian
-	err=self.store.FindById(t3,t1.Id)
-	c.Check(err,gocheck.Equals,nil)
-	c.Check(t3.Username,gocheck.Equals,"iansmith")
-	
+	err = self.store.FindById(t3, t1.Id)
+	c.Check(err, gocheck.Equals, nil)
+	c.Check(t3.Username, gocheck.Equals, "iansmith")
+
 	//still can find ian by year
-	hits=make([]*sample1,0,1)
-	err=self.store.FindByKey(&hits, "Birth_year","1970")
-	c.Check(err,gocheck.Equals,nil)
-	c.Check(1,gocheck.Equals,len(hits))
-	c.Check(hits[0].Username,gocheck.Equals,"iansmith")
+	hits = make([]*sample1, 0, 1)
+	err = self.store.FindByKey(&hits, "Birth_year", "1970")
+	c.Check(err, gocheck.Equals, nil)
+	c.Check(1, gocheck.Equals, len(hits))
+	c.Check(hits[0].Username, gocheck.Equals, "iansmith")
 
 	//but not trevor by year
-	hits=make([]*sample1,0,1)
-	err=self.store.FindByKey(&hits, "Birth_year","1972")
-	c.Check(err,gocheck.Equals,nil)
-	c.Check(0,gocheck.Equals,len(hits))
+	hits = make([]*sample1, 0, 1)
+	err = self.store.FindByKey(&hits, "Birth_year", "1972")
+	c.Check(err, gocheck.Equals, nil)
+	c.Check(0, gocheck.Equals, len(hits))
+}
+
+//test that init creates the necessary structures
+func (self *MemcachedSuite) TestInit(c *gocheck.C) {
+	self.store.Init(&sample1{})
+	hits := make([]*sample1, 0, 1)
+	err := self.store.FindByKey(&hits, "Birth_year", "1970")
+	c.Check(err, gocheck.Equals, nil)
+	c.Check(0, gocheck.Equals, len(hits))
+	err = self.store.FindAll(&hits)
+	c.Check(err, gocheck.Equals, nil)
+	c.Check(0, gocheck.Equals, len(hits))
 }
 
 //
@@ -257,7 +269,7 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 var letter = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
 
 func randomKey() string {
-	return letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))]  + letter[rand.Intn(len(letter))]
+	return letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))]
 }
 
 func sampleData(size int) []sample2 {
@@ -273,7 +285,7 @@ func BenchmarkWriteSpeed(b *testing.B) {
 	b.StopTimer()
 	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
 	data := sampleData(b.N)
-	fmt.Printf("Write speed test: %d items...\n",b.N)
+	fmt.Printf("Write speed test: %d items...\n", b.N)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		if err := store.Write(&data[i]); err != nil {
@@ -288,9 +300,9 @@ func BenchmarkSelectSpeed(b *testing.B) {
 	b.StopTimer()
 	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
 	if !haveWrittenSampleData {
-		haveWrittenSampleData=true
-		size:=10000
-		fmt.Printf("constructing sample data set of %d items...\n",size)
+		haveWrittenSampleData = true
+		size := 10000
+		fmt.Printf("constructing sample data set of %d items...\n", size)
 		data := sampleData(size)
 		for i := 0; i < size; i++ {
 			if err := store.Write(&data[i]); err != nil {
@@ -298,9 +310,9 @@ func BenchmarkSelectSpeed(b *testing.B) {
 			}
 		}
 	}
-	target:=randomKey()
+	target := randomKey()
 	b.StartTimer()
-	fmt.Printf("benchmarking search: %d searches\n",b.N)
+	fmt.Printf("benchmarking search: %d searches\n", b.N)
 	for i := 0; i < b.N; i++ {
 		hits := make([]*sample2, 0, 5)
 		if err := store.FindByKey(&hits, "Foo", target); err != nil {

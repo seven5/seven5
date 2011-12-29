@@ -28,10 +28,15 @@ type Named interface {
 	Shutdown()
 }
 
+//AppStarter means that the object in question would like to receive a message at application 
+//startup time.
+type AppStarter interface {
+	AppStarting(*ProjectConfig) error
+}
+
 //For guises, they don't need names but they do need app startup info
 type Guise interface {
 	Named
-	AppStarting(*ProjectConfig) error
 	Pattern() string
 }
 
@@ -62,6 +67,10 @@ func StartUp(ctx gozmq.Context, conf *ProjectConfig, named []Named) bool {
 		if err:=rh.Bind(h.Name(),ctx); err!=nil {
 			fmt.Fprintf(os.Stderr,"unable to bind %s to socket! %s\n", h.Name(),err)
 			return false
+		}
+		starter,ok:=h.(AppStarter)
+		if ok {
+			starter.AppStarting(conf)
 		}
 		//fmt.Printf("%s...",h.Name())
 		switch x:=h.(type) {
