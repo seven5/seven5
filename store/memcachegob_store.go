@@ -16,19 +16,17 @@ type MemcacheGobStore struct {
 	*memcache.Client
 }
 
-type idslice struct {
-	S Lesser
+type pointerToObjSlice struct {
+	S   Lesser
 	Mem *MemcacheGobStore
-	Id []uint64
-} 
+  	SliceValue reflect.Value
+}
 
 const (
-	LOCALHOST = "localhost:11211"
-	IDKEY     = "%s-idcounter"
-	RECKEY    = "%s-%d"
-	EXTRAKEY  = "%s-key-%s"
-	MAGIC_KEY = "--"
-	MAGIC_VALUE = ""
+	LOCALHOST   = "localhost:11211"
+	IDKEY       = "%s-idcounter"
+	RECKEY      = "%s-%d"
+	EXTRAKEY    = "%s-key-%s-val-%s"
 )
 
 //DestroyAll will delete all data from the hosts (or from localhost on 11211 if no hosts have)
@@ -96,34 +94,18 @@ func (self *MemcacheGobStore) Write(s interface{}) error {
 	if id, typeName, err = GetIdValueAndStructureName(s); err != nil {
 		return err
 	}
-	if id == uint64(0) {
-		nextId, err := self.GetNextId(typeName)
-		if err != nil {
-			return err
-		}
-		newId := reflect.ValueOf(s).Elem().FieldByName("Id")
-		newId.SetUint(nextId)
-		id = nextId
-	}
-	//at this point id holds the number of the record
-	key := fmt.Sprintf(RECKEY, typeName, id)
-	buffer := new(bytes.Buffer)
-	enc := gob.NewEncoder(buffer)
-	if err := enc.Encode(s); err != nil {
+	
+	if err=self.writeItemData(s,id,typeName); err!=nil {
 		return err
 	}
-	//stuff the bytes into the store
-	item := &memcache.Item{Key: key, Value: buffer.Bytes()}
-	err = self.Client.Set(item)
-	if err != nil {
-		return err
-	}
-
+	
+	newValueOfId := reflect.ValueOf(s).Elem().FieldByName("Id")
+	
 	//update all the extra keys using writeKey
 	err = self.walkAllExtraKeys(s, func(n string, v string) error {
-		return self.writeKey(s, n, typeName, v, id)
+		return self.writeKey(s, n, typeName, v, newValueOfId.Uint(),nil)
 	})
-	
+
 	return nil
 }
 
@@ -134,7 +116,7 @@ type fieldFunc func(fieldOrMethodName string, flattenedValue string) error
 //walkAllExtraKeys is a utility route to run a function for every key mentioned in the structure
 //declaration of s.  This function assumes that s has already been checked an is properly
 //formed.
-func (self *MemcacheGobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error{
+func (self *MemcacheGobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error {
 	//write the extra indexes
 	fields, methods := GetStructKeys(s)
 	var mapKey string
@@ -142,18 +124,16 @@ func (self *MemcacheGobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) erro
 
 	//try the fields
 	for _, k := range fields {
-		mapKey = toStringMethodOrSprintf(k.Value)
+		if k.Name==MAGIC_KEY {
+			mapKey= MAGIC_VALUE
+		} else {
+			mapKey = toStringMethodOrSprintf(k.Value)
+		}
 		err = fn(k.Name, mapKey)
 		if err != nil {
 			return err
 		}
 	}
-	//for find all
-	err = fn(MAGIC_KEY, MAGIC_VALUE)
-	if err != nil {
-		return err
-	}
-	
 	//now the methods
 	for _, m := range methods {
 		out := m.Meth.Call([]reflect.Value{})
@@ -196,6 +176,12 @@ func (self *MemcacheGobStore) FindById(s interface{}, id uint64) error {
 	if item, err = self.Client.Get(key); err != nil {
 		return err
 	}
+	return self.DecodeItemBytes(s,item)
+}
+
+//decodeItemBytes returns a structured object from the gob blob of bytes. It assumes that s
+//is a pointer a structure that has already been checked.
+func (self *MemcacheGobStore) DecodeItemBytes(s interface{}, item *memcache.Item) error{
 	buffer := bytes.NewBuffer(item.Value)
 	decoder := gob.NewDecoder(buffer)
 	return decoder.Decode(s)
@@ -205,28 +191,34 @@ func (self *MemcacheGobStore) FindById(s interface{}, id uint64) error {
 //writeKey tries to find a map that it can use to index the records by the value
 //provided.  it creates the map if necessary.  The map is per keyName with the keys
 //of the map being values and the values are ids.
-func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName string, mapKey string, id uint64) error {
-	var index map[string][]uint64
+func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, fullIndex []uint64) error {
+	var index []uint64
 	var item *memcache.Item
-	if err := self.readIndex(&index, &item, typeName, keyName, true); err != nil {
+	var err error
+	
+	if err = self.readIndex(mapKey,&index, &item, typeName, keyName, true); err != nil {
 		return err
 	}
 
 	//ok, if we get here, we are ok and have the index loaded (or created)...
-	index[mapKey] = append(index[mapKey], id)
-	self.Sort(s, index[mapKey])
+	if len(fullIndex)==0 {
+		index=append(index, id)
+		err = self.writeIndex(mapKey, index, item, typeName, keyName)
+	} else {
+		err = self.writeIndex(mapKey, fullIndex, item, typeName, keyName)
+	}
 
-	return self.writeIndex(index, item, typeName, keyName)
+	return err
 }
 
 //writeIndex puts an index in memcached by serializing it with gobs.  it needs to be passed 
 //back the same item value that was returned from readIndex so we can correctly detect 
 //concurrency problems. if item is nil it assumes that this is a creation (and no concurrency check needed)
-func (self *MemcacheGobStore) writeIndex(index map[string][]uint64, item *memcache.Item, typeName string, keyName string) error {
+func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, item *memcache.Item, typeName string, keyName string) error {
 	//serialize to gob the index
 	buffer := new(bytes.Buffer)
 	enc := gob.NewEncoder(buffer)
-	if err := enc.Encode(index); err != nil {
+	if err := enc.Encode(indexValue); err != nil {
 		return err
 	}
 
@@ -237,7 +229,7 @@ func (self *MemcacheGobStore) writeIndex(index map[string][]uint64, item *memcac
 		return self.Client.CompareAndSwap(item)
 	}
 	//this is a brand new index, write it out to disk
-	newItem := &memcache.Item{Key: fmt.Sprintf(EXTRAKEY, typeName, keyName), Value: buffer.Bytes()}
+	newItem := &memcache.Item{Key: fmt.Sprintf(EXTRAKEY, typeName, keyName, keyValue), Value: buffer.Bytes()}
 	return self.Client.Set(newItem)
 }
 
@@ -245,9 +237,9 @@ func (self *MemcacheGobStore) writeIndex(index map[string][]uint64, item *memcac
 //the create flag indicates if not finding the item in memcached is an error or it should be
 //created (true).  The item parameter is set to the retrieved Item object for use later
 //with compareAndSwap
-func (self *MemcacheGobStore) readIndex(result *map[string][]uint64, item **memcache.Item, typeName string, keyName string, create bool) error {
+func (self *MemcacheGobStore) readIndex(keyValue string, result *[]uint64, item **memcache.Item, typeName string, keyName string, create bool) error {
 	//compute memcached key
-	key := fmt.Sprintf(EXTRAKEY, typeName, keyName)
+	key := fmt.Sprintf(EXTRAKEY, typeName, keyName, keyValue)
 	var err error
 
 	*item, err = self.Client.Get(key)
@@ -255,7 +247,7 @@ func (self *MemcacheGobStore) readIndex(result *map[string][]uint64, item **memc
 	//if not there, create the map from scratch, based on create param
 	if err == memcache.ErrCacheMiss {
 		if create {
-			*result = make(map[string][]uint64)
+			*result = []uint64{}
 			*item = nil
 		} else {
 			return err
@@ -278,18 +270,17 @@ func (self *MemcacheGobStore) readIndex(result *map[string][]uint64, item **memc
 
 //deleteKey does the work to update an index when an item is deleted
 func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64) error {
-	var index map[string][]uint64
+	var slice []uint64
 	var item *memcache.Item
-	
-	if err := self.readIndex(&index, &item, typeName, keyName, true); err != nil {
+
+	if err := self.readIndex(mapKey, &slice, &item, typeName, keyName, true); err != nil {
 		return err
 	}
-	slice := index[mapKey]
 	ok := false
 	for i := 0; i < len(slice); i++ {
 		if slice[i] == id {
 			slice[i] = slice[len(slice)-1]
-			index[mapKey] = slice[0 : len(slice)-1]
+			slice=slice[0:len(slice)-1]
 			ok = true
 			break
 		}
@@ -297,7 +288,7 @@ func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName 
 	if !ok {
 		return INDEX_MISS
 	}
-	return self.writeIndex(index, item, typeName, keyName)
+	return self.writeIndex(mapKey, slice, item, typeName, keyName)
 }
 
 //FindByKey looks up a value in the memcache by a field _other_ than the Id field.  You have
@@ -329,36 +320,72 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	typeName := s.Elem().String()
 
 	var item *memcache.Item
-	var index map[string][]uint64
-	if err=self.readIndex(&index,&item,typeName,keyName,false); err!=nil {
+	var slice []uint64
+	if err = self.readIndex(value, &slice, &item, typeName, keyName, false); err != nil {
+		//no key with that value at all?
+		if err==memcache.ErrCacheMiss && keyName!=MAGIC_KEY {
+			return nil
+		}
 		return err
 	}
-	
-	//get the item we are interested in
-	slice, ok := index[value]
-	if !ok || len(slice)==0 {
+
+	//had it before, but not now?
+	if len(slice) == 0 {
 		//just tell the caller there is nothing with that value
 		return nil
 	}
+
+
+	e := result.Type().Elem().Elem()
+	self.readMulti(reflect.New(e).Interface(),slice,result)
+	//try to sort the result, if there is not the proper sort function it has no effect
+	self.sort(reflect.New(e).Interface(), result)
 	
-	//loop over all the ids in the index, until we run out of ids or run out of space in
-	//in the result slice
-	for _, v := range index[value] {
-		if result.Len() == result.Cap() {
+	return nil
+}
+
+//readMulti is only used when we have found a key and need to load the actual objects that
+//are stored (as Ids, not values) under that key.
+func (self *MemcacheGobStore) readMulti(s interface{}, ids []uint64, result reflect.Value) (errReturn error) {
+	min:=len(ids);
+	avail:=result.Cap()-result.Len()
+	if  avail< min {
+		min =avail 
+	}
+	key:=make([]string,min,min)
+	var err error
+	var item map[string]*memcache.Item
+	var typeName string
+	
+	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
+		return err
+	}
+	for i,v:=range ids {
+		if i==min {
 			break
 		}
-		e := result.Type().Elem().Elem()
-		obj := reflect.New(e)
-		selfv := reflect.ValueOf(self)
-		out := selfv.MethodByName("FindById").Call([]reflect.Value{obj, reflect.ValueOf(v)})
+		key[i]=fmt.Sprintf(RECKEY,typeName,v)
+	}
+	//we are now sure that the key slice is the right size to fit the result
+	item,err = self.Client.GetMulti(key)
+	if err!=nil {
+		return err
+	}
+	ct:=0
+	method := reflect.ValueOf(self).MethodByName("DecodeItemBytes")
+	
+	for _,v:=range item {
+		x:=reflect.New(result.Type().Elem().Elem())
+		in := []reflect.Value{x,reflect.ValueOf(v)}
+		out:=method.Call(in)
 		if !out[0].IsNil() {
-			rtn := reflect.ValueOf(errReturn)
-			rtn.Set(out[0])
+			rtn := reflect.ValueOf(&errReturn)
+			reflect.Indirect(rtn).Set(out[0])
 			return
 		}
-		l := result.Len()
-		result.SetLen(l + 1)
-		result.Index(l).Set(obj)
+		result.SetLen(ct+1)
+		result.Index(ct).Set(x)
+		ct++
 	}
 	return nil
 }
@@ -367,30 +394,30 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 //the index
 func (self *MemcacheGobStore) DeleteById(s interface{}, id uint64) error {
 	var typeName string
-	var err,memcache_err error
+	var err, memcache_err error
 
 	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
 		return err
 	}
 	//update all the extra keys using writeKey
-	err= self.walkAllExtraKeys(s, func(n string, v string) error {
+	err = self.walkAllExtraKeys(s, func(n string, v string) error {
 		return self.deleteKey(s, n, typeName, v, id)
 	})
-	
-	if err!=nil && err!=INDEX_MISS {
+
+	if err != nil && err != INDEX_MISS {
 		return err
 	}
 	key := fmt.Sprintf(RECKEY, typeName, id)
-	memcache_err=self.Client.Delete(key)
-	
-	if memcache_err == memcache.ErrCacheMiss && err==INDEX_MISS {
+	memcache_err = self.Client.Delete(key)
+
+	if memcache_err == memcache.ErrCacheMiss && err == INDEX_MISS {
 		return memcache.ErrCacheMiss
 	}
-	
-	if err==INDEX_MISS {
-		panic(fmt.Sprintf("indexes are out of sync with data: %d not found",id))
+
+	if err == INDEX_MISS {
+		panic(fmt.Sprintf("indexes are out of sync with data: %d not found", id))
 	}
-	
+
 	return memcache_err
 }
 
@@ -398,37 +425,132 @@ func (self *MemcacheGobStore) Init(s interface{}) error {
 	var typeName string
 	var err error
 
-
 	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
 		return err
 	}
-	
-	item :=&memcache.Item{Key:fmt.Sprintf(IDKEY, typeName),Value:[]byte("0")}
+
+	item := &memcache.Item{Key: fmt.Sprintf(IDKEY, typeName), Value: []byte("0")}
 	if err = self.Client.Set(item); err != nil {
 		return err
 	}
-	return self.walkAllExtraKeys(s, func(n string, _ string) error {
-		empty:=make(map[string][]uint64)
+	return self.walkAllExtraKeys(s, func(n string, v string) error {
+		empty := []uint64{}
 		var item *memcache.Item
-		if e:=self.readIndex(&empty,&item,typeName,n,true); e!=nil {
+		if e := self.readIndex(v, &empty, &item, typeName, n, true); e != nil {
 			return e
 		}
-		return self.writeIndex(empty, item, typeName, n)
+		return self.writeIndex(v, empty, item, typeName, n)
 	})
 }
 
 //FindAll returns all the items of the particular type that is pointed to by the first parameter
-//in a slice, up to the capacity of the slice.
+//in a slice, up to the capacity of the slice. This returns an error if you have chose
+//to turn off this feature with seven5All:"false"
 func (self *MemcacheGobStore) FindAll(s interface{}) error {
-	return self.FindByKey(s,MAGIC_KEY,MAGIC_VALUE)
+	return self.FindByKey(s, MAGIC_KEY, MAGIC_VALUE)
 }
-func (self *MemcacheGobStore) Sort(x interface{}, someIds []uint64) error {
-	s,ok:=x.(Lesser)
+
+//sort can take a slice and sort it (second param) if the first parameter has the method
+//Less() and the types of the pointers are the same between the first parameter and the
+//slice of pointers that is the second one.
+func (self *MemcacheGobStore) sort(x interface{}, sliceValue reflect.Value) error {
+	if reflect.TypeOf(x)!=sliceValue.Index(0).Type() {
+		panic(fmt.Sprintf("types are not the same between %v and %v",reflect.TypeOf(x),sliceValue.Index(0).Type()))
+	}
+	s, ok := x.(Lesser)
 	if !ok {
 		return nil
 	}
-	sortable:=&idslice{s,self,someIds}
+	
+	sortable := &pointerToObjSlice{s, self, sliceValue}
 	sort.Sort(sortable)
+	return nil
+}
+
+//BulkWrite repeatedly writes the raw structure object to memcached but does not update the
+//indexes until the end.
+func (self *MemcacheGobStore) BulkWrite(sliceOfPtrs interface{}) error {
+	var id uint64
+	var typeName string
+	var err error
+
+	master:=make(map[string]map[string][]uint64)
+
+	v:=reflect.ValueOf(sliceOfPtrs)
+	if v.Kind()!=reflect.Slice {
+		return BAD_SLICE
+	}
+	//nothing to do
+	if v.Len()==0 {
+		return nil
+	}
+	// ok, don't repeat that work
+	for i:=0; i<v.Len(); i++ {
+		valueOfItem:=v.Index(i)
+		s:=valueOfItem.Interface()
+		if id, typeName, err = GetIdValueAndStructureNameFromValue(valueOfItem); err != nil {
+			return err
+		}
+		if err=self.writeItemData(s,id,typeName); err!=nil {
+			return err
+		}
+		newValueOfId := valueOfItem.Elem().FieldByName("Id").Uint()
+		err = self.walkAllExtraKeys(s, func(n string, v string) error {
+			index:=master[n]
+			if index==nil {
+				index=make(map[string][]uint64)
+				master[n]=index
+			}
+			index[v]=append(index[v],newValueOfId)
+			return nil
+		})
+		if err!=nil {
+			return err
+		}
+	}	
+	
+	s:=v.Index(0).Interface()
+	//we ignore the err value because we have run the check before on the 0th item
+	_, typeName, _ = GetIdValueAndStructureNameFromValue(v.Index(0))
+	
+	for keyName,maps:=range master {
+		for mapKey,index:=range maps {
+			if err:=self.writeKey(s,  keyName,  typeName,  mapKey ,  0, index); err!=nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+//writeItemData knows how to write the fields of a structure to memcache, assigning
+//a new Id number if necessary.  this is a primitive for other types of write.
+func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName string) error {
+	var err error
+		
+	if id == uint64(0) {
+		nextId, err := self.GetNextId(typeName)
+		if err != nil {
+			return err
+		}
+		newId := reflect.ValueOf(s).Elem().FieldByName("Id")
+		newId.SetUint(nextId)
+		id = nextId
+	}
+	//at this point id holds the number of the record
+	key := fmt.Sprintf(RECKEY, typeName, id)
+	buffer := new(bytes.Buffer)
+	enc := gob.NewEncoder(buffer)
+	
+	if err := enc.Encode(s); err != nil {
+		return err
+	}
+	//stuff the bytes into the store
+	item := &memcache.Item{Key: key, Value: buffer.Bytes()}
+	err = self.Client.Set(item)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -437,31 +559,20 @@ func (self *MemcacheGobStore) Sort(x interface{}, someIds []uint64) error {
 //
 
 //Len returns the size of the slice
-func (self *idslice) Len() int {
-	return len(self.Id)
-} 
+func (self *pointerToObjSlice) Len() int {
+	return self.SliceValue.Len()
+}
+
 //Swap exchanges two elements of the slice
-func (self *idslice) Swap(i,j int) {
-	tmp:=self.Id[i]
-	self.Id[i]=self.Id[j]
-	self.Id[j]=tmp
-} 
+func (self *pointerToObjSlice) Swap(i, j int) {
+	tmp := reflect.New(self.SliceValue.Index(i).Type())
+	reflect.Indirect(tmp).Set(self.SliceValue.Index(i))
+	self.SliceValue.Index(i).Set(self.SliceValue.Index(j))
+	self.SliceValue.Index(j).Set(reflect.Indirect(tmp))
+	self.S.Less(self.SliceValue.Index(i),self.SliceValue.Index(j))
+}
+
 //Less uses delegation to underlying type
-func (self *idslice) Less(i,j int) bool{
-	v:=reflect.ValueOf(self.S)
-	newA:=reflect.New(v.Type().Elem())
-	newB:=reflect.New(v.Type().Elem())
-	
-	method:=reflect.Indirect(reflect.ValueOf(self)).FieldByName("Mem").MethodByName("FindById")
-
-	out:=method.Call([]reflect.Value{newA,reflect.ValueOf(self.Id[i])})
-	if !out[0].IsNil() {
-		panic(fmt.Sprintf("error trying to call FindById! %v",out[0]))
-	}
-	out=method.Call([]reflect.Value{newB,reflect.ValueOf(self.Id[j])})
-	if !out[0].IsNil() {
-		panic(fmt.Sprintf("error trying to call FindById! %v",out[0]))
-	}
-	return self.S.Less(newA,newB)
-} 
-
+func (self *pointerToObjSlice) Less(i, j int) bool {
+	return self.S.Less(self.SliceValue.Index(i),self.SliceValue.Index(j))
+}

@@ -37,7 +37,7 @@ type sample1 struct {
 type BlarghParst struct {
 	Title    string
 	YYYYMMDD string `seven5key:"AggMonth"`
-	Id       uint64
+	Id       uint64 `seven5All:"false"`
 }
 
 //AggMonth makes sure that it only returns the VALUE of the year and month rather than the data
@@ -57,10 +57,10 @@ func (self BlarghParst) Less(i reflect.Value, j reflect.Value) bool {
 }
 
 //This demonstrates to use a key "raw" without computing any function of it.  The extra index
-//is based on the value of Foo.
+//is based on the value of Foo. 
 type sample2 struct {
 	Foo string `seven5key:"Foo"`
-	Id  uint64
+	Id  uint64 `seven5All:"false"`
 }
 
 //we create a conn to the memcached at start of the suite
@@ -78,7 +78,7 @@ func (self *MemcachedSuite) SetUpTest(c *gocheck.C) {
 	err := self.store.(*MemcacheGobStore).DestroyAll(LOCALHOST)
 	if err != nil {
 		c.Fatal("unable to setup test and clear memcached:%s\n", err)
-	}
+	}	
 }
 
 //test that we can work at the memcached level, since the rest of tests are at the store.T
@@ -88,6 +88,7 @@ func (self *MemcachedSuite) TestMemcacheLevelSetupWorks1(c *gocheck.C) {
 
 	item := &memcache.Item{Key: "fart", Value: []byte("fartvalue")}
 	err := m.Set(item)
+	
 	if err != nil {
 		c.Fatal("unable to set test value (fart) to check suite is working ok")
 	}
@@ -129,7 +130,6 @@ func (self *MemcachedSuite) TestBasicStoreWithId(c *gocheck.C) {
 
 	t1 := self.WriteSample1(iansmith, yr, pwd, c)
 	t2 := new(sample1)
-
 	err := self.store.Write(t1)
 
 	c.Check(err, gocheck.Equals, nil)
@@ -165,9 +165,16 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	c.Check(self.store.Write(p4), gocheck.Equals, nil)
 	c.Check(self.store.Write(p5), gocheck.Equals, nil)
 
+	//we turned off all keys
+	hits := make([]*BlarghParst, 0, 10)
+	err := self.store.FindAll(&hits)
+	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+	c.Check(len(hits), gocheck.Equals, 0)
+
+
 	//four posts in dec 2011 
-	hits := make([]*BlarghParst, 0, 5)
-	err := self.store.FindByKey(&hits, "AggMonth", "201112")
+	hits = make([]*BlarghParst, 0, 5)
+	err= self.store.FindByKey(&hits, "AggMonth", "201112")
 
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 4)
@@ -195,11 +202,19 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 //test deleting works and that the indexes get updated properly
 func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	t1 := self.WriteSample1("iansmith", 1970, "fart", c)
+	c.Assert(t1.Id, gocheck.Not(gocheck.Equals),0)
 	t2 := self.WriteSample1("trevorsmith", 1972, "yech", c)
+	c.Assert(t2.Id, gocheck.Not(gocheck.Equals),0)
+
+	//all is on, so see if can get them all
+	hits := make([]*sample1, 0, 5)
+	err:=self.store.FindAll(&hits)
+	c.Check(err, gocheck.Equals, nil)
+	c.Check(len(hits), gocheck.Equals, 2)
 
 	//load a copy of t2
 	t3 := new(sample1)
-	err := self.store.FindById(t3, t2.Id)
+	err = self.store.FindById(t3, t2.Id)
 
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(t3.Id, gocheck.Equals, t2.Id)
@@ -207,16 +222,16 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	c.Check(t3.Username, gocheck.Equals, t2.Username)
 
 	//check we can get it by key
-	hits := make([]*sample1, 0, 1)
+	hits = make([]*sample1, 0, 1)
 	err = self.store.FindByKey(&hits, "Birth_year", "1972")
-	c.Check(err, gocheck.Equals, nil)
+	c.Assert(err, gocheck.Equals, nil)
 	c.Assert(1, gocheck.Equals, len(hits))
 	c.Check(hits[0].Username, gocheck.Equals, "trevorsmith")
 
 	//check we can't find it by wrong key
 	hits = make([]*sample1, 0, 1)
 	err = self.store.FindByKey(&hits, "Birth_year", "1973")
-	c.Check(err, gocheck.Equals, nil)
+	c.Assert(err, gocheck.Equals, nil)
 	c.Assert(0, gocheck.Equals, len(hits))
 
 	//check we can't delete stuff not there
@@ -272,11 +287,11 @@ func randomKey() string {
 	return letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))]
 }
 
-func sampleData(size int) []sample2 {
-	result := make([]sample2, size, size)
+func sampleData(size int) []*sample2 {
+	result := make([]*sample2, size, size)
 	for i := 0; i < size; i++ {
 		k := randomKey()
-		result[i] = sample2{k, 0}
+		result[i] = &sample2{k, 0}
 	}
 	return result
 }
@@ -288,7 +303,7 @@ func BenchmarkWriteSpeed(b *testing.B) {
 	fmt.Printf("Write speed test: %d items...\n", b.N)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		if err := store.Write(&data[i]); err != nil {
+		if err := store.Write(data[i]); err != nil {
 			b.Fatalf("unable to write sample data!%v", err)
 		}
 	}
@@ -304,10 +319,8 @@ func BenchmarkSelectSpeed(b *testing.B) {
 		size := 10000
 		fmt.Printf("constructing sample data set of %d items...\n", size)
 		data := sampleData(size)
-		for i := 0; i < size; i++ {
-			if err := store.Write(&data[i]); err != nil {
-				b.Fatalf("unable to write sample data!%v\n", err)
-			}
+		if err := store.BulkWrite(data); err != nil {
+			b.Fatalf("unable to write sample data!%v\n", err)
 		}
 	}
 	target := randomKey()
