@@ -78,7 +78,7 @@ func (self *MemcachedSuite) SetUpTest(c *gocheck.C) {
 	err := self.store.(*MemcacheGobStore).DestroyAll(LOCALHOST)
 	if err != nil {
 		c.Fatal("unable to setup test and clear memcached:%s\n", err)
-	}	
+	}
 }
 
 //test that we can work at the memcached level, since the rest of tests are at the store.T
@@ -88,7 +88,7 @@ func (self *MemcachedSuite) TestMemcacheLevelSetupWorks1(c *gocheck.C) {
 
 	item := &memcache.Item{Key: "fart", Value: []byte("fartvalue")}
 	err := m.Set(item)
-	
+
 	if err != nil {
 		c.Fatal("unable to set test value (fart) to check suite is working ok")
 	}
@@ -171,10 +171,9 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
 	c.Check(len(hits), gocheck.Equals, 0)
 
-
 	//four posts in dec 2011 
 	hits = make([]*BlarghParst, 0, 5)
-	err= self.store.FindByKey(&hits, "AggMonth", "201112")
+	err = self.store.FindByKey(&hits, "AggMonth", "201112")
 
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 4)
@@ -202,13 +201,13 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 //test deleting works and that the indexes get updated properly
 func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	t1 := self.WriteSample1("iansmith", 1970, "fart", c)
-	c.Assert(t1.Id, gocheck.Not(gocheck.Equals),0)
+	c.Assert(t1.Id, gocheck.Not(gocheck.Equals), 0)
 	t2 := self.WriteSample1("trevorsmith", 1972, "yech", c)
-	c.Assert(t2.Id, gocheck.Not(gocheck.Equals),0)
+	c.Assert(t2.Id, gocheck.Not(gocheck.Equals), 0)
 
 	//all is on, so see if can get them all
 	hits := make([]*sample1, 0, 5)
-	err:=self.store.FindAll(&hits)
+	err := self.store.FindAll(&hits)
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 2)
 
@@ -284,7 +283,7 @@ func (self *MemcachedSuite) TestInit(c *gocheck.C) {
 var letter = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
 
 func randomKey() string {
-	return letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))]
+	return letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))]+letter[rand.Intn(len(letter))]//+letter[rand.Intn(len(letter))]
 }
 
 func sampleData(size int) []*sample2 {
@@ -316,7 +315,7 @@ func BenchmarkSelectSpeed(b *testing.B) {
 	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
 	if !haveWrittenSampleData {
 		haveWrittenSampleData = true
-		size := 10000
+		size := 450000
 		fmt.Printf("constructing sample data set of %d items...\n", size)
 		data := sampleData(size)
 		if err := store.BulkWrite(data); err != nil {
@@ -324,12 +323,33 @@ func BenchmarkSelectSpeed(b *testing.B) {
 		}
 	}
 	target := randomKey()
-	b.StartTimer()
 	fmt.Printf("benchmarking search: %d searches\n", b.N)
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		hits := make([]*sample2, 0, 5)
 		if err := store.FindByKey(&hits, "Foo", target); err != nil {
 			b.Fatalf("unable to read sample data!%v\n", err)
 		}
+	}
+}
+
+func BenchmarkWriteOverhead(b *testing.B) {
+	b.StopTimer()
+	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
+	item := &memcache.Item{Key: "key", Value: []byte("0")}
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		store.Client.Set(item)
+	}
+}
+
+func BenchmarkReadOverhead(b *testing.B) {
+	b.StopTimer()
+	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
+	item := &memcache.Item{Key: "key", Value: []byte("0")}
+	store.Client.Set(item)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		_,_=store.Client.Get("key")
 	}
 }

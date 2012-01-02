@@ -337,9 +337,10 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 
 
 	e := result.Type().Elem().Elem()
-	self.readMulti(reflect.New(e).Interface(),slice,result)
+	example:=reflect.New(e).Interface()
+	self.readMulti(example,slice,result)
 	//try to sort the result, if there is not the proper sort function it has no effect
-	self.sort(reflect.New(e).Interface(), result)
+	self.sort(example, result)
 	
 	return nil
 }
@@ -421,6 +422,8 @@ func (self *MemcacheGobStore) DeleteById(s interface{}, id uint64) error {
 	return memcache_err
 }
 
+//Init sets up the store to be ready to receive objects of this type.  This is useful if you
+//want to allow reads() before you have had any writes.
 func (self *MemcacheGobStore) Init(s interface{}) error {
 	var typeName string
 	var err error

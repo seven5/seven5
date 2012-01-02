@@ -40,7 +40,7 @@ type Guise interface {
 	Pattern() string
 }
 
-var SystemGuise = []Guise{NewCssGuise(),NewFaviconGuise(), NewHtmlGuise(), NewModelGuise()}
+var SystemGuise = []Guise{NewCssGuise(),NewFaviconGuise(), NewHtmlGuise(), NewModelGuise(), NewUserGuise()}
 
 //StartUp starts handlers running. It starts all the system guises plus the Named
 //handlers (user-level) that are provided as a parameter.
