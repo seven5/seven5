@@ -5,12 +5,12 @@ import (
 	"crypto/bcrypt"
 	"fmt"
 	"github.com/bradfitz/gomemcache"
+	"math/rand"
 	"mongrel2"
 	"net/http"
 	"net/url"
 	"seven5/store"
 	"time"
-	"math/rand"
 )
 
 type User struct {
@@ -38,7 +38,7 @@ type User struct {
 
 type Session struct {
 	Id        uint64 `seven5All:"false"`
-	User *User
+	User      *User
 	SessionId string `seven5key:"SessionId"`
 	Info      map[string]interface{}
 }
@@ -127,9 +127,6 @@ func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpR
 		resp.StatusMsg = "could not understand URI"
 		return resp
 	}
-
-	fmt.Printf("URI is %s\n", parsed)
-
 	values := parsed.Query()
 	user := ""
 	pwd := ""
@@ -146,43 +143,57 @@ func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpR
 	}
 	badCred := `{ "err": "Username or password is incorrect"}`
 	if user == "" || pwd == "" {
-		return fillBody(badCred,resp)
+		return fillBody(badCred, resp)
 	}
 	hits := make([]*User, 0, 1)
 	err = self.T.FindByKey(&hits, "Username", user)
 	if err != nil {
-		resp.StatusCode=http.StatusInternalServerError
-		resp.StatusMsg=fmt.Sprintf("%v",err)
+		resp.StatusCode = http.StatusInternalServerError
+		resp.StatusMsg = fmt.Sprintf("%v", err)
 		return resp
 	}
 	if len(hits) == 0 {
-		return fillBody(badCred,resp)
+		return fillBody(badCred, resp)
 	}
 	err = bcrypt.CompareHashAndPassword(hits[0].BcryptHash, []byte(pwd))
-	if err != nil && err!=bcrypt.MismatchedHashAndPasswordError {
-		resp.StatusCode=http.StatusInternalServerError
-		resp.StatusMsg=fmt.Sprintf("%v",err)
+	if err != nil && err != bcrypt.MismatchedHashAndPasswordError {
+		resp.StatusCode = http.StatusInternalServerError
+		resp.StatusMsg = fmt.Sprintf("%v", err)
 		return resp
 	}
-	if len(hits) == 0 || err==bcrypt.MismatchedHashAndPasswordError{
-		return fillBody(badCred,resp)
+	if len(hits) == 0 || err == bcrypt.MismatchedHashAndPasswordError {
+		return fillBody(badCred, resp)
 	}
-	
-	//create the new session
-	session:=new(Session)
-	session.User=hits[0]
+
+	//create the new session Id... make sure it's unique
+	for  {
+		s := make([]*Session, 0, 1)
+		r:=createRandomSessionId()
+		fmt.Printf("checking '%s'\n",r)
+		err = self.T.FindByKey(&s,"SessionId",r)
+		if err!=nil {
+			resp.StatusCode = http.StatusInternalServerError
+			resp.StatusMsg = fmt.Sprintf("%v", err)
+			return resp
+		}
+		if len(s)==0 {
+			break
+		}
+	}	
+	session := new(Session)
+	session.User = hits[0]
 	session.SessionId = createRandomSessionId()
-	session.Info=make(map[string]interface{})
-	err=self.T.Write(session)
+	session.Info = make(map[string]interface{})
+	err = self.T.Write(session)
 	if err != nil {
 		fmt.Printf("error searching for  %s:%v\n", user, err)
 		resp.StatusCode = http.StatusBadRequest
 		resp.StatusMsg = badCred
 		return resp
 	}
-	fmt.Printf("successful login %s\n", user)
-	
-	return fillBody(fmt.Sprintf(`{"sessionId":"%s"}`,session.SessionId),resp)
+	fmt.Printf("successful login %s and placed in session %s\n", user, session.SessionId)
+
+	return fillBody(fmt.Sprintf(`{"sessionId":"%s"}`, session.SessionId), resp)
 }
 
 func fillBody(jsonContent string, resp *mongrel2.HttpResponse) *mongrel2.HttpResponse {
@@ -197,10 +208,10 @@ func fillBody(jsonContent string, resp *mongrel2.HttpResponse) *mongrel2.HttpRes
 	return resp
 }
 
-var letter = []int{'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'} 
+var letter = []int{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'}
 
 func createRandomSessionId() string {
-	l:=[]int{rand.Intn(len(letter)),rand.Intn(len(letter)),rand.Intn(len(letter))}
+	l := []int{rand.Intn(len(letter)), rand.Intn(len(letter)), rand.Intn(len(letter))}
 	n := rand.Intn(1000)
-	return fmt.Sprintf("%c%c%c-%03d",letter[l[0]],letter[l[1]],letter[l[2]],n)
+	return fmt.Sprintf("%c%c%c-%03d", letter[l[0]], letter[l[1]], letter[l[2]], n)
 }

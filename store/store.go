@@ -33,12 +33,13 @@ type T interface {
 	//to Write must be idempotent.
 	Write(interface{}) error
 	//FindById fills in a pointer to a structure passed as an argument based on the id passed
-	//as a parameter.  
+	//as a parameter.  FindById should not allocate the storage for the pointer.
 	FindById(interface{}, uint64) error
 	//FindByKey fills in the slice values in result based on the keyName and keyValue provided.
 	//The caller must initialize the slice and the number of values returned will be the number
 	//empty slots in the slice.  Because slices are passed by value, you must pass the address
 	//of the created slice.  If you pass a slice with no empty slots, no results are returned.
+	//FindByKey allocates the storage needed for all the items it returns.
 	FindByKey(result interface{}, keyName string, keyValue string) error
 	//DeleteById deletes an item from store so it cannot be found again with either FindById
 	//or FindByKey.  The first parameter is not touched, but must be a pointer to a structure
@@ -46,9 +47,9 @@ type T interface {
 	DeleteById(example interface{}, id uint64) error
 	//Init takes an example pointer and creates the necessary entries in the store to prepare
 	//for storing this type.  This is not necessary if you do a Write() before your first
-	//fetch, but is needed if you want FindByKey() to work properly with an empty set of objects.
+	//Find..., but is needed if you want FindByKey() to work properly with an empty set of objects.
 	Init(example interface{}) error
-	//FindAll fills inthe slice pointed to by the first item with all the known items of 
+	//FindAll fills in the slice pointed to by the first item with all the known items of 
 	//the particular type denoted by the slice.  Note that the slice will be filled with only
 	//as many items as there is capacity to hold in the slice.  Because it can be 
 	//expensive to keep an index of all keys, this can be turned off with the structure
@@ -135,7 +136,7 @@ type MethodPlusName struct {
 	Meth reflect.Value
 }
 //FieldPlusName is used to allow us to return name of a field
-//plus a value that is its value.
+//plus a value object that is the value of the field named.
 type FieldPlusName struct {
 	Name string
 	Value reflect.Value

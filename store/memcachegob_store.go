@@ -305,7 +305,6 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	if reflect.TypeOf(ptrToResult).Kind() != reflect.Ptr {
 		return BAD_SLICE_PTR
 	}
-
 	result := reflect.ValueOf(ptrToResult).Elem()
 
 	if result.Type().Kind() != reflect.Slice {
@@ -328,7 +327,6 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 		}
 		return err
 	}
-
 	//had it before, but not now?
 	if len(slice) == 0 {
 		//just tell the caller there is nothing with that value

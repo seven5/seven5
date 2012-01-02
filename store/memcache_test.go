@@ -264,6 +264,30 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	c.Check(0, gocheck.Equals, len(hits))
 }
 
+//
+// ORDERING TEST
+//
+
+type lifo struct {
+	Name string `seven5key:"Name" seven5order:"lifo"`
+	Id uint64
+}
+
+type fifo struct {
+	Name string `seven5key:"Name" seven5order:"fifo"`
+	Id uint64
+}
+
+type neither struct {
+	Name string `seven5key:"Name"`
+	Id uint64
+}
+
+//test ordering works properly, if we force it with seven5order
+func (self *MemcachedSuite) TestOrderOfItems(c *gocheck.C) {
+}
+
+
 //test that init creates the necessary structures
 func (self *MemcachedSuite) TestInit(c *gocheck.C) {
 	self.store.Init(&sample1{})
