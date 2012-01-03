@@ -8,14 +8,15 @@
 //place restrictions on the structure itself.  The annotation 
 //seven5key:"<keyname>[,<keyname>...]" should 
 //be used on struct fields that should be considered keys.  For a simple key, set the
-//keyname value to the value of the field. Any other value must be a method on the
+//keyname value to the name of the field. Any other value must be a method on the
 //struct (not the pointer to it!) that will be called to compute a value for the field.
 //This allows construction of some types of aggregrates and some simple joins.
 //
 //Any type of value can be used an "extra" key via the annotation mechanism but it is the
 //implementors responsibility to make sure that the value correctly flattens to a "clean" key
 //when printed using the String() method and that this value is not excessively large.  
-//It is normally necessary to take steps to
+//Some stores have key length limits so lengths should be probably be less than 100
+//characters.  It is normally necessary to take steps to
 //remove special characters or convert to a base64 representation.
 //
 //Fields marked as keys should be careful to make sure that the values are well "spread" or
@@ -24,10 +25,11 @@
 //and this can be slow.  You can use the struct tag seven5order:"none" turn this off (only
 //for the Id field) and the FindAll method will always return an error.
 
-//On a given field, the order of the keys can be unspecified, fifo, or lifo.  Unspecified
-//is the default.  If you specify a field order of lifo or fifo, it is more expensive to
+//On a given field, the order of the keys stored can be unspecified, fifo, or lifo.  Unspecified
+//is the default.  If you specify a key order of lifo or fifo, it is more expensive to
 //do reads.  Most users of this feature will want this to allow an "effective sort" of
-//the results of a find that is based on the write order.
+//the results of a find that is based on the write order.  Again, the seven5order:"lifo"
+//is the way to specify the order on a field--and it applies to all keys on that field.
 package store
 
 import (
@@ -228,3 +230,4 @@ func GetStructKeys(s interface{}) ([]FieldPlusName, []MethodPlusName) {
 
 	return resultFields, resultMethods
 }
+

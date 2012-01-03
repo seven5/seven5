@@ -26,7 +26,6 @@ const (
 	LOCALHOST = "localhost:11211"
 	IDKEY     = "%s-idcounter"
 	RECKEY    = "%s-%d"
-	EXTRAKEY  = "%s-key-%s-val-%s"
 )
 
 //DestroyAll will delete all data from the hosts (or from localhost on 11211 if no hosts have)
@@ -218,7 +217,7 @@ func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName s
 //writeIndex puts an index in memcached by serializing it with gobs.  it needs to be passed 
 //back the same item value that was returned from readIndex so we can correctly detect 
 //concurrency problems. if item is nil it assumes that this is a creation (and no concurrency check needed)
-func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, item *memcache.Item, typeName string, keyName string) error {
+func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, item *memcache.Item, typeName string, keyName string, userId uint64) error {
 	//serialize to gob the index
 	buffer := new(bytes.Buffer)
 	enc := gob.NewEncoder(buffer)
@@ -233,7 +232,8 @@ func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, i
 		return self.Client.CompareAndSwap(item)
 	}
 	//this is a brand new index, write it out to disk
-	newItem := &memcache.Item{Key: fmt.Sprintf(EXTRAKEY, typeName, keyName, keyValue), Value: buffer.Bytes()}
+	memcacheKey:=self.getKeyNameForRecord(typeName,  keyName, keyValue, userId)
+	newItem := &memcache.Item{Key: memcacheKey, Value: buffer.Bytes()}
 	return self.Client.Set(newItem)
 }
 
@@ -243,7 +243,7 @@ func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, i
 //with compareAndSwap
 func (self *MemcacheGobStore) readIndex(keyValue string, result *[]uint64, item **memcache.Item, typeName string, keyName string, create bool) error {
 	//compute memcached key
-	key := fmt.Sprintf(EXTRAKEY, typeName, keyName, keyValue)
+	key := self.getKeyNameForRecord(typeName, keyName, keyValue,userId)
 	var err error
 
 	*item, err = self.Client.Get(key)
@@ -610,6 +610,16 @@ func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName s
 		return err
 	}
 	return nil
+}
+
+//getRecordKey returns a key generator string for printf based on example given as a parameter.
+//It assumes that this has already been checked to be a reasonable pointer to a structure.
+func (self *MemcacheGobStore) getKeyNameForRecord(typeName string, keyName string, keyValue string, userId uint64) {
+	if userId==uint64(0) {
+		return fmt.Sprintf("%%s-key-%s-val-%%s",typeName, keyName,keyValue)
+	} else {
+		return fmt.Sprintf("%%s-key-%s-user-%d-val-%%s",keyName,userId)
+	}
 }
 
 //
