@@ -5,26 +5,45 @@
 //
 //The Write() and Find...() interfaces take a pointer to a structure and this should 
 //not be changed by the store implementation--although the store implementation may 
-//place restrictions on the structure itself.  The annotation seven5key:"<keyname>" should 
-//be used on struct fields that should be considered keys; this is not necessary on the 
-//Id field as it is always a key visible by FindById().
+//place restrictions on the structure itself.  The annotation 
+//seven5key:"<keyname>[,<keyname>...]" should 
+//be used on struct fields that should be considered keys.  For a simple key, set the
+//keyname value to the value of the field. Any other value must be a method on the
+//struct (not the pointer to it!) that will be called to compute a value for the field.
+//This allows construction of some types of aggregrates and some simple joins.
 //
 //Any type of value can be used an "extra" key via the annotation mechanism but it is the
 //implementors responsibility to make sure that the value correctly flattens to a "clean" key
-//when printed using the String() method.  It is normally necessary to take steps to
+//when printed using the String() method and that this value is not excessively large.  
+//It is normally necessary to take steps to
 //remove special characters or convert to a base64 representation.
 //
 //Fields marked as keys should be careful to make sure that the values are well "spread" or
 //reading and writing the index can become a serious bottleneck.  An example is that
 //the FindAll() method must maintain a complete list of all the items of a particular type
-//and this can be slow.  You can use the struct tag seven5All:"false" turn this off and
-//the FindAll method will always return an error.
+//and this can be slow.  You can use the struct tag seven5order:"none" turn this off (only
+//for the Id field) and the FindAll method will always return an error.
+
+//On a given field, the order of the keys can be unspecified, fifo, or lifo.  Unspecified
+//is the default.  If you specify a field order of lifo or fifo, it is more expensive to
+//do reads.  Most users of this feature will want this to allow an "effective sort" of
+//the results of a find that is based on the write order.
 package store
 
 import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
+)
+
+const (
+	//order inserted is order returned (expensive)
+	FIFO_ORDER = iota  
+	//order inserted is opposite returned (expensive)
+	LIFO_ORDER = FIFO_ORDER+1  
+	//order returned is unrelated to order inserted (cheap)
+	UNSPECIFIED_ORDER = FIFO_ORDER+2  
 )
 
 type T interface {
@@ -67,9 +86,10 @@ type T interface {
 //comparison of order to the true storage class.  This is used automatically to sort results
 //of FindByKey() and FindAll() if it is present.  Note that a result set is sorted *after*
 //the results are found, so if you only alocate 10 places in the result slice but there are
-//100 items that could be returned you get the sort of 10 random values chosen from the 100.
+//100 items available you might not get what you expect.  Some control over this can be
+//had with the use of the seven5order annotation.
 type Lesser interface {
-	Less(reflect.Value,reflect.Value) bool
+	Less(reflect.Value, reflect.Value) bool
 }
 
 var (
@@ -78,13 +98,13 @@ var (
 	BAD_SLICE_PTR    = errors.New("slices are passed by value, so you must pass a pointer to a slice so it can be 'filled in' by seven")
 	BAD_ID           = errors.New("stored structs must have a field named 'Id' that is type uint64")
 	NO_STRING_METHOD = errors.New("any value used in a key field must have a String() method")
-	INDEX_MISS = errors.New("can't find that item in the index")
-	ZeroValue = reflect.Value{}
+	INDEX_MISS       = errors.New("can't find that item in the index")
+	ZeroValue        = reflect.Value{}
 )
 
 //these are the key name and key value for the "all" index, if used
 const (
-	MAGIC_KEY = "--"
+	MAGIC_KEY   = "--"
 	MAGIC_VALUE = "--"
 )
 
@@ -128,18 +148,23 @@ func VerifyStructPointerFieldTypes(v reflect.Type) error {
 	return nil
 }
 
+type keyOrder int
+
 //MethodPlusName is used to allow us to return the string of the methods name along with an
 //object that points to that method plus the value of the receiver.  Without this pair,
 //the method name cannot be determined from the reflect.Value.
 type MethodPlusName struct {
-	Name string
-	Meth reflect.Value
+	Name   string
+	Meth   reflect.Value
+	IsFifo keyOrder
 }
+
 //FieldPlusName is used to allow us to return name of a field
 //plus a value object that is the value of the field named.
 type FieldPlusName struct {
-	Name string
-	Value reflect.Value
+	Name   string
+	Value  reflect.Value
+	IsFifo keyOrder
 }
 
 //GetStructKeys returns two slices that are the names of the fields that are keys
@@ -147,35 +172,59 @@ type FieldPlusName struct {
 //It assumes that one has already validated the struct with verifyStructPointerFields.
 func GetStructKeys(s interface{}) ([]FieldPlusName, []MethodPlusName) {
 	str := reflect.ValueOf(s).Elem()
+	t:=str.Type()
 	resultFields := []FieldPlusName{}
 	resultMethods := []MethodPlusName{}
-	numFields := str.NumField()
-	
+	numFields := t.NumField()
+
 	for i := 0; i < numFields; i++ {
-		f := str.Type().Field(i)
-		if f.Name == "Id" {
-			tag := f.Tag.Get("seven5All")
-			if tag=="" || tag=="true" {
-				resultFields=append(resultFields,FieldPlusName{MAGIC_KEY,ZeroValue})
-				continue
-			} 
-			if tag!="false" {
-				panic("valid values for seven5All struct tag are 'true' and 'false'")
+		isFifo := UNSPECIFIED_ORDER
+		none := false
+		f := t.Field(i)
+
+		tag := f.Tag.Get("seven5order")
+		if tag != "" {
+			//lifo and none are possible other cases
+			if tag == "lifo" {
+				isFifo = LIFO_ORDER
+			} else if tag == "none" {
+				if f.Name != "Id" {
+					panic(fmt.Sprintf("setting seven5order to none makes no sense on key %s", f.Name))
+				}
+				none = true
+			} else if tag == "fifo" {
+				isFifo=FIFO_ORDER
+			} else {
+				panic(fmt.Sprintf("invalid value of seven5order on key %s [%s]", f.Name, tag))
 			}
 		}
-		tag := f.Tag.Get("seven5key")
-		if tag == "" {
+		//Id is a special case, because you can turn off the findAll()
+		if f.Name == "Id" {
+			if !none {
+				resultFields = append(resultFields, FieldPlusName{MAGIC_KEY, ZeroValue, keyOrder(isFifo)})
+			}
 			continue
 		}
-		if tag == f.Name {
-			resultFields = append(resultFields, FieldPlusName{tag,str.Field(i)})
+		//check for the other keys on other fields, possibly comma separated
+		if f.Tag.Get("seven5key") == "" {
+			if isFifo!=UNSPECIFIED_ORDER {
+				panic(fmt.Sprintf("You specified an order, but no key(s) with that order (%s)",f.Name))
+			}
 			continue
 		}
-		m := str.MethodByName(tag)
-		if m == ZeroValue {
-			panic(fmt.Sprintf("method %s does not exist on struct! (did you define it on the POINTER to the struct?)", tag))
+		tagList := strings.Split(f.Tag.Get("seven5key"), ",")
+		for _, tag := range tagList {
+			if tag == f.Name {
+				resultFields = append(resultFields, FieldPlusName{f.Name, str.Field(i), keyOrder(isFifo)})
+				continue
+			}
+			m:=str.MethodByName(tag)
+			if m==ZeroValue{
+				panic(fmt.Sprintf("method %s does not exist on struct! (did you define it on the POINTER to the struct?)", tag))
+			}
+			resultMethods = append(resultMethods, MethodPlusName{tag, m, keyOrder(isFifo)})
 		}
-		resultMethods = append(resultMethods, MethodPlusName{tag,m})
 	}
+
 	return resultFields, resultMethods
 }

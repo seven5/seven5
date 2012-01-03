@@ -37,7 +37,7 @@ type sample1 struct {
 type BlarghParst struct {
 	Title    string
 	YYYYMMDD string `seven5key:"AggMonth"`
-	Id       uint64 `seven5All:"false"`
+	Id       uint64 `seven5order:"none"`
 }
 
 //AggMonth makes sure that it only returns the VALUE of the year and month rather than the data
@@ -60,7 +60,7 @@ func (self BlarghParst) Less(i reflect.Value, j reflect.Value) bool {
 //is based on the value of Foo. 
 type sample2 struct {
 	Foo string `seven5key:"Foo"`
-	Id  uint64 `seven5All:"false"`
+	Id  uint64 `seven5order:"none"`
 }
 
 //we create a conn to the memcached at start of the suite
@@ -269,22 +269,102 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 //
 
 type lifo struct {
-	Name string `seven5key:"Name" seven5order:"lifo"`
-	Id uint64
+	Name string 
+	Id uint64 `seven5order:"lifo"`
 }
 
 type fifo struct {
-	Name string `seven5key:"Name" seven5order:"fifo"`
-	Id uint64
+	Name string 
+	Id uint64 `seven5order:"fifo"`
 }
 
 type neither struct {
-	Name string `seven5key:"Name"`
+	Name string 
 	Id uint64
 }
 
 //test ordering works properly, if we force it with seven5order
 func (self *MemcachedSuite) TestOrderOfItems(c *gocheck.C) {
+	
+	stackItem:=&lifo{"abc",0}
+	queueItem:=&fifo{"abc",0}
+	item:=&neither{"abc",0}
+	
+	c.Assert(self.store.Write(stackItem),gocheck.Equals,nil)
+	c.Assert(self.store.Write(queueItem),gocheck.Equals,nil)
+	c.Assert(self.store.Write(item),gocheck.Equals,nil)
+	
+	stackItem=&lifo{"def",0}
+	queueItem=&fifo{"def",0}
+	item=&neither{"def",0}
+
+	c.Assert(self.store.Write(stackItem),gocheck.Equals,nil)
+	c.Assert(self.store.Write(queueItem),gocheck.Equals,nil)
+	c.Assert(self.store.Write(item),gocheck.Equals,nil)
+
+	stackItem=&lifo{"ghi",0}
+	queueItem=&fifo{"ghi",0}
+	item=&neither{"ghi",0}
+
+	c.Assert(self.store.Write(stackItem),gocheck.Equals,nil)
+	c.Assert(self.store.Write(queueItem),gocheck.Equals,nil)
+	c.Assert(self.store.Write(item),gocheck.Equals,nil)
+	
+	stack:=make([]*lifo,0,10)
+	queue:=make([]*fifo,0,10)
+	dontknow:=make([]*neither,0,10)
+	
+	c.Assert(self.store.FindAll(&stack),gocheck.Equals,nil)
+	c.Assert(self.store.FindAll(&queue),gocheck.Equals,nil)
+	c.Assert(self.store.FindAll(&dontknow),gocheck.Equals,nil)
+	
+	c.Check(len(stack),gocheck.Equals,3)
+	c.Check(len(queue),gocheck.Equals,3)
+	c.Check(len(dontknow),gocheck.Equals,3)	
+
+	c.Check(stack[0].Name,gocheck.Equals,"ghi")
+	c.Check(stack[1].Name,gocheck.Equals,"def")
+	c.Check(stack[2].Name,gocheck.Equals,"abc")
+
+	c.Check(queue[0].Name,gocheck.Equals,"abc")
+	c.Check(queue[1].Name,gocheck.Equals,"def")
+	c.Check(queue[2].Name,gocheck.Equals,"ghi")
+	
+	//can be in order, but must appear exactly once
+	c.Check(isValidForDontKnow(dontknow[0].Name,true),gocheck.Equals,true)
+	c.Check(isValidForDontKnow(dontknow[1].Name,true),gocheck.Equals,true)
+	c.Check(isValidForDontKnow(dontknow[2].Name,true),gocheck.Equals,true)
+	c.Check(dontknow[0].Name,gocheck.Not(gocheck.Equals),dontknow[1].Name)
+	c.Check(dontknow[0].Name,gocheck.Not(gocheck.Equals),dontknow[2].Name)
+	c.Check(dontknow[1].Name,gocheck.Not(gocheck.Equals),dontknow[2].Name)
+	
+	//delete last item from each one
+	c.Assert(self.store.DeleteById(stackItem, uint64(2)),gocheck.Equals,nil)
+	c.Assert(self.store.DeleteById(queueItem, uint64(2)),gocheck.Equals,nil)
+	c.Assert(self.store.DeleteById(item, uint64(2)),gocheck.Equals,nil)
+	
+	c.Assert(self.store.FindAll(&stack),gocheck.Equals,nil)
+	c.Assert(self.store.FindAll(&queue),gocheck.Equals,nil)
+	c.Assert(self.store.FindAll(&dontknow),gocheck.Equals,nil)
+	
+	//note: reading these into positions #3 and #4 since first three are already filled
+	//from last call to findAll!
+	c.Check(len(stack),gocheck.Equals,5)
+	c.Check(len(queue),gocheck.Equals,5)
+	c.Check(len(dontknow),gocheck.Equals,5)	
+	
+}
+
+func isValidForDontKnow(name string, includeGHI bool) bool {
+	if name=="abc" || name=="def" {
+		return true
+	}
+	if includeGHI  {
+		if name=="ghi" {
+			return true
+		}
+	}
+	return false
 }
 
 
