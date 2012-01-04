@@ -58,7 +58,7 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 	var err error
 
 	hit := make([]*User, 0, 1)
-	err = store.FindByKey(&hit, "Username", Username)
+	err = store.FindByKey(&hit, "Username", Username, uint64(0))
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpR
 		return fillBody(badCred, resp)
 	}
 	hits := make([]*User, 0, 1)
-	err = self.T.FindByKey(&hits, "Username", user)
+	err = self.T.FindByKey(&hits, "Username", user, uint64(0))
 	if err != nil {
 		resp.StatusCode = http.StatusInternalServerError
 		resp.StatusMsg = fmt.Sprintf("%v", err)
@@ -170,7 +170,7 @@ func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpR
 		s := make([]*Session, 0, 1)
 		r:=createRandomSessionId()
 		fmt.Printf("checking '%s'\n",r)
-		err = self.T.FindByKey(&s,"SessionId",r)
+		err = self.T.FindByKey(&s,"SessionId",r, uint64(0))
 		if err!=nil {
 			resp.StatusCode = http.StatusInternalServerError
 			resp.StatusMsg = fmt.Sprintf("%v", err)

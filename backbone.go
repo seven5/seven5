@@ -26,7 +26,7 @@ type Restful interface {
 	Delete(store store.T, id uint64,session *Session) error
 	FindByKey(store store.T,key string, value string, session *Session, max int) (interface{}, error)
 	Validate(store store.T, ptrToValues interface{}, id uint64, op int,session *Session) map[string]string
-	Make() interface{}
+	Make(id uint64) interface{}
 }
 
 var models = make(map[string][]string)
