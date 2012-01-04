@@ -7,10 +7,17 @@ import (
 	"github.com/bradfitz/gomemcache"
 	"net"
 	//"os"
+	"github.com/petar/GoLLRB/llrb"
 	"reflect"
-	"strconv"
 	"sort"
+	"strconv"
 )
+
+func init() {
+	//so we can use gobs with the llrb tree nodes
+	var y ValueOwnerPair
+	gob.Register(y)
+}
 
 type MemcacheGobStore struct {
 	*memcache.Client
@@ -26,7 +33,14 @@ const (
 	LOCALHOST = "localhost:11211"
 	IDKEY     = "%s-idcounter"
 	RECKEY    = "%s-%d"
+	VALUEKEY  = "%s-value-%s"
 )
+
+func LessUint64(a,b interface{}) bool {
+	x:=a.(uint64)
+	y:=b.(uint64)
+	return x<y
+}
 
 //DestroyAll will delete all data from the hosts (or from localhost on 11211 if no hosts have)
 //have been set.  This call is "out of band" can be executed whether or not there is a connected
@@ -104,17 +118,20 @@ func (self *MemcacheGobStore) Write(s interface{}) error {
 		if userId == uint64(0) {
 			panic("You have an Owner field but tried to write a value without setting Owner!")
 		}
-	}	
+	}
 	//horrible hack to get out of value space and into an actual uint via string
-	stringified:=fmt.Sprintf("%d",newValueOfId.Uint())
-	hacked,err:=strconv.ParseUint(stringified, 10, 64)
-	if err!=nil {
-		panic(fmt.Sprintf("here, can't parse:%d %T %d",newValueOfId,newValueOfId,newValueOfId.Uint()))
+	stringified := fmt.Sprintf("%d", newValueOfId.Uint())
+	hacked, err := strconv.ParseUint(stringified, 10, 64)
+	if err != nil {
+		panic(fmt.Sprintf("here, can't parse:%d %T %d", newValueOfId, newValueOfId, newValueOfId.Uint()))
 		return err
 	}
 	//update all the extra keys using writeKey
 	err = self.walkAllExtraKeys(s, func(n string, v string, isFifo keyOrder) error {
-		return self.writeKey(s, n, typeName, v, hacked, nil, isFifo, userId)
+		if e := self.writeKey(s, n, typeName, v, hacked, nil, isFifo, userId); e != nil {
+			return e
+		}
+		return self.addUniqueKey(typeName, n, v, userId)
 	})
 
 	return nil
@@ -164,13 +181,13 @@ func toStringMethodOrSprintf(v reflect.Value) string {
 	if method == ZeroValue {
 		switch v.Kind() {
 		case reflect.Int64, reflect.Int16, reflect.Int32, reflect.Int8, reflect.Int:
-			return fmt.Sprintf("%d",v.Int())
+			return fmt.Sprintf("%d", v.Int())
 		case reflect.Uint64, reflect.Uint16, reflect.Uint32, reflect.Uint8, reflect.Uint:
-			return fmt.Sprintf("%d",v.Uint())
+			return fmt.Sprintf("%d", v.Uint())
 		case reflect.String:
-			return fmt.Sprintf("%s",v.String())
+			return fmt.Sprintf("%s", v.String())
 		default:
-			panic(fmt.Sprintf("not implemented flattener for that type yet (toStringMethodOrSprintf): %v",v.Kind()))
+			panic(fmt.Sprintf("not implemented flattener for that type yet (toStringMethodOrSprintf): %v", v.Kind()))
 		}
 	}
 	return method.Call(nil)[0].String()
@@ -306,6 +323,11 @@ func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName 
 			} else {
 				slice = append(slice[0:i], slice[i+1:]...)
 			}
+			if len(slice)==0 {
+				if e:=self.deleteUniqueKey(typeName, keyName, mapKey, userId); e!=nil {
+					return e
+				}
+			}
 			ok = true
 			break
 		}
@@ -319,10 +341,9 @@ func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName 
 //FindByKey looks up a value in the memcache by a field _other_ than the Id field.  You have
 //to supply the name of the field.  Further, that field must exist in the structure, be
 //exported (uppercase).  The value field must match exactly the flattened version of the value
-//when String() is called on it (at the time it is written). 
-//This call results in n+1 roundtrips to the memcache server for n values because
-//it first retrieves the ids of the objects that are stored under the value provided and
-//then calls FindById on each one.  The result is placed the slice pointed to by the first
+//when String() is called on it (which happened at the time it is written) or it must be a basic type. 
+//
+// The result is placed the slice pointed to by the first
 //element--and only as many results are returned as available places in the slice.
 func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string, value string, userId uint64) (errReturn error) {
 	var err error
@@ -342,8 +363,54 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	}
 	typeName := s.Elem().String()
 
+	//walk through the type structure and generate an exemplar so we can examine it for
+	//the fields and structure tages
+	e := result.Type().Elem().Elem()
+	example := reflect.New(e).Interface()
+
+	//nothing tricky with the userId?
+	_,hasOwner := e.FieldByName("Owner")
+	if !hasOwner || userId!=uint64(0) { 
+		return self.findByKeyInternal(ptrToResult,e,typeName,keyName,value,userId)
+	}
+	
+	//load up to 256 key values
+	pairs:=make([]ValueOwnerPair,0,256)
+	if err=self.UniqueKeyValues(example,keyName, &pairs, uint64(0)); err!=nil {
+		return err
+	}
+	
+	mergedResult := make([]uint64,0,256)
+	tree:=llrb.New(LessUint64)
+	
+	var ignored *memcache.Item
+	
+	for _, v:=range pairs {
+		if v.Value!=value {
+			continue
+		}	
+		ids:=make([]uint64,0,256)	
+		if err=self.readIndex(v.Value,&ids,&ignored,typeName,keyName,false,v.Owner);err!=nil {
+			return err
+		}
+		for _, id := range ids {
+			if tree.Get(id)==nil {
+				mergedResult = append(mergedResult,id)
+				tree.InsertNoReplace(id)
+			}
+		}
+	}
+	return self.fillResult(result,  mergedResult, e)
+}
+
+//findByKeyInternal does the work of a single search of the store.  It assumes that the validity
+//checking of the types (such as first parameter) has already been done by the caller.
+func (self *MemcacheGobStore) findByKeyInternal(ptrToResult interface{}, resultItemType reflect.Type, typeName string, keyName string, value string, userId uint64) (errReturn error) {
 	var item *memcache.Item
 	var slice []uint64
+	var err error
+	result := reflect.ValueOf(ptrToResult).Elem()
+	
 	if err = self.readIndex(value, &slice, &item, typeName, keyName, false, userId); err != nil {
 		//no key with that value at all?
 		if err == memcache.ErrCacheMiss {
@@ -357,12 +424,8 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 		return nil
 	}
 
-	//walk through the type structure and generate an exemplar so we can examine it for
-	//the fields and structure tages
-	e := result.Type().Elem().Elem()
-	example := reflect.New(e).Interface()
-
 	ok := false
+	example:=reflect.New(resultItemType).Interface()
 	//we need to see if they specified any order for this key
 	f, m := GetStructKeys(example)
 	order := keyOrder(UNSPECIFIED_ORDER)
@@ -390,13 +453,14 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	if order == keyOrder(UNSPECIFIED_ORDER) {
 		self.readMulti(example, slice, result)
 	} else {
+		/*
 		ct := result.Len()
 		//we have to read them in order to make sure we preserve the order in the slice
 		for _, id := range slice {
 			if ct == result.Cap() {
 				break
 			}
-			newObject := reflect.New(e)
+			newObject := reflect.New(resultItemType)
 			ptr := newObject.Interface()
 			if err = self.FindById(ptr, id); err != nil {
 				return err
@@ -404,11 +468,38 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 			result.SetLen(ct + 1)
 			result.Index(ct).Set(newObject)
 			ct++
+		}*/
+		if err=self.fillResult(result,slice,resultItemType); err!=nil {
+			return err
 		}
 	}
 	//try to sort the result, if there is not the proper sort function it has no effect
 	self.sort(example, result)
 
+	return nil
+}
+
+//fillResult will fill in a result with the values of the ids provided, up to the limit of
+//of the first parameter's capacity.  It assumes that result is a pointer to a slice that
+//has already been checked too if the items in the slice (pointed to) are ok.  The second
+//parameter is a slice of the ids to load.
+func (self *MemcacheGobStore) fillResult(result reflect.Value, slice []uint64, resultItemType reflect.Type) error {
+	var err error
+	ct := result.Len()
+	//we have to read them in order to make sure we preserve the order in the slice
+	for _, id := range slice {
+		if ct == result.Cap() {
+			break
+		}
+		newObject := reflect.New(resultItemType)
+		ptr := newObject.Interface()
+		if err = self.FindById(ptr, id); err != nil {
+			return err
+		}
+		result.SetLen(ct + 1)
+		result.Index(ct).Set(newObject)
+		ct++
+	}
 	return nil
 }
 
@@ -543,7 +634,10 @@ func (self *MemcacheGobStore) Init(s interface{}) error {
 		if e := self.readIndex(v, &empty, &item, typeName, n, true, userId); e != nil {
 			return e
 		}
-		return self.writeIndex(v, empty, item, typeName, n, userId)
+		if e:=self.writeIndex(v, empty, item, typeName, n, userId); e!=nil {
+			return e
+		}
+		return self.writeEmptyTree(typeName,n)
 	})
 }
 
@@ -630,16 +724,22 @@ func (self *MemcacheGobStore) BulkWrite(sliceOfPtrs interface{}) error {
 		}
 	}
 
-	if typeName == "" || userId == uint64(0) || s == nil {
-		panic("did not do any bulk writing! did not set typeName or userId!")
+	if typeName == "" ||  s == nil {
+		panic(fmt.Sprintf("did not do any bulk writing! did not set typeName[%v] or s[%v]!",typeName,userId,s))
 	}
 
 	for keyName, maps := range master {
+		unique:=[]ValueOwnerPair{}
 		for mapKey, index := range maps {
 			order := keyOrder(UNSPECIFIED_ORDER) /*already dealt with this issue in the loops above*/
 			if err := self.writeKey(s, keyName, typeName, mapKey, 0, index, order, userId); err != nil {
 				return err
 			}
+			q:=ValueOwnerPair{mapKey,userId}
+			unique=append(unique,q)
+		}
+		if err:=self.writeTreeBatch(typeName,keyName,unique); err!=nil {
+			return err
 		}
 	}
 	return nil
@@ -680,7 +780,7 @@ func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName s
 //used to create different keys if you supply a userId (!=0) to implement a bit of segregation
 //by owner.
 func (self *MemcacheGobStore) getKeyNameForRecord(typeName string, keyName string, keyValue string, userId uint64) string {
-	if fmt.Sprintf("%s",keyValue)=="<uint64 Value>" {
+	if fmt.Sprintf("%s", keyValue) == "<uint64 Value>" {
 		panic("here")
 	}
 	if userId == uint64(0) {
@@ -689,6 +789,141 @@ func (self *MemcacheGobStore) getKeyNameForRecord(typeName string, keyName strin
 	return fmt.Sprintf("%s-key-%s-user-%d-val-%s", typeName, keyName, userId, keyValue)
 }
 
+//UniqueKeyValues should return all the unique keys (plus the owners) for a given key and type.
+//This should filter for the owner==last parameter if the vaule is non-zero.
+func (self *MemcacheGobStore) UniqueKeyValues(example interface{}, keyName string, result *[]ValueOwnerPair, ownerFilter uint64) error {
+	_, typeName, err := GetIdValueAndStructureName(example)
+	if err!=nil {
+		return err
+	}
+	_, tree, err:=self.loadTree(typeName,keyName)
+	if err!=nil {
+		return err
+	}
+	
+	ch:=tree.IterAscend()
+	
+	for {
+		item:= <- ch
+		if item==nil {
+			 break
+		}
+		v:=item.(ValueOwnerPair)
+		if ownerFilter!=uint64(0) && v.Owner!=ownerFilter {
+			continue
+		}
+		if len(*result)==cap(*result) {
+			break
+		}
+		*result = append(*result,v)
+	}
+	return nil
+}
+
+//loadTree brings in a tree from the store, creating it if necessary.  It returns the item it read
+//so it can be used with CAS ops later.  It returns null for both values if there is an error.
+func (self *MemcacheGobStore) loadTree(typeName string, keyName string) (*memcache.Item,*llrb.Tree,error) {
+	key:=fmt.Sprintf(VALUEKEY,typeName,keyName)
+	var err error
+	var item *memcache.Item
+	if item, err = self.Client.Get(key); err != nil {
+		if err!=memcache.ErrCacheMiss {
+			return nil,nil,err
+		}
+	}
+	var root *llrb.Node
+	
+	if err==memcache.ErrCacheMiss {
+		tree:=llrb.New(LessValueOwner)
+		return nil, tree, nil
+	} 
+	buffer := bytes.NewBuffer(item.Value)
+	decoder := gob.NewDecoder(buffer)
+	err = decoder.Decode(&root)
+	if err!=nil {
+		return nil,nil, err
+	}
+	tree:=llrb.New(LessValueOwner)
+	tree.SetRoot(root)
+	
+	return item,tree,nil
+}
+
+//saveTree takes a tree and writes it back to storage.  It assumes the passed memache.Item
+//is the one returned from loadTree().  The typeName and keyName are only used if the
+//item is null (because this is a fresh create).
+func (self *MemcacheGobStore) saveTree(typeName string, keyName string, item *memcache.Item, tree *llrb.Tree) error {
+	//encode
+	buffer := new(bytes.Buffer)
+	enc := gob.NewEncoder(buffer)
+	if err := enc.Encode(tree.Root()); err != nil {
+		return err
+	}
+	
+	//write it back
+	if item!=nil {
+		item.Value=buffer.Bytes()
+		return self.Client.CompareAndSwap(item)
+	}
+	//unconditional write because we have never seen it before
+	item=&memcache.Item{Key:fmt.Sprintf(VALUEKEY,typeName,keyName), Value:buffer.Bytes()}
+	return self.Client.Set(item)
+}
+
+
+//addUniqueKey does the work to check and see if the key's value has been written before and
+//if not to update it.
+func (self *MemcacheGobStore) addUniqueKey(typeName string, n string, v string, userId uint64) error {
+
+	item, tree, err:=self.loadTree(typeName, n)
+	if err!=nil {
+		return err
+	}
+	pair:=ValueOwnerPair{v,userId}
+	before:=tree.Len()
+	tree.ReplaceOrInsert(pair)
+	
+	//nothing changed, don't bother with the rest
+	if tree.Len()==before {
+		return nil
+	}
+	
+	return self.saveTree(typeName,n,item,tree)
+
+}
+
+//deleteUnique key updates our tree that maintains what keys we have seen before
+func (self *MemcacheGobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64) error {
+	item, tree, err:=self.loadTree(typeName, n)
+	if err!=nil {
+		return err
+	}
+	pair:=ValueOwnerPair{v,userId}
+
+	if tree.Delete(pair)==nil {
+		panic(fmt.Sprintf("deleted an item from the tree but could not find it! %+v\n",pair))
+	}
+	
+	return self.saveTree(typeName,n,item,tree)
+	
+}
+
+//writeEmptyTree is used to init the data structure if you want to read  before
+//you have written anything.  
+func (self *MemcacheGobStore) writeEmptyTree(typeName string, n string) error {
+	return nil
+}
+//writeTreeBatch is used when you have many writes to do all at once.
+func (self *MemcacheGobStore) writeTreeBatch(typeName string, keyName string, possiblyUnique []ValueOwnerPair) error {
+	item, tree, err:=self.loadTree(typeName, keyName)
+	if err!=nil {
+		return err
+	}
+	for _,u:=range possiblyUnique {
+		tree.InsertNoReplace(u)
+	}
+	return self.saveTree(typeName,keyName,item,tree)
+}
 //
 // SORTING CRUFT
 //

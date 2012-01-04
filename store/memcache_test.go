@@ -159,11 +159,11 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	p4 := &BlarghParst{xmas, "20111225", uint64(0)}
 	p5 := &BlarghParst{newyear, "20120101", uint64(0)}
 
-	c.Check(self.store.Write(p1), gocheck.Equals, nil)
-	c.Check(self.store.Write(p2), gocheck.Equals, nil)
-	c.Check(self.store.Write(p3), gocheck.Equals, nil)
-	c.Check(self.store.Write(p4), gocheck.Equals, nil)
-	c.Check(self.store.Write(p5), gocheck.Equals, nil)
+	c.Assert(self.store.Write(p1), gocheck.Equals, nil)
+	c.Assert(self.store.Write(p2), gocheck.Equals, nil)
+	c.Assert(self.store.Write(p3), gocheck.Equals, nil)
+	c.Assert(self.store.Write(p4), gocheck.Equals, nil)
+	c.Assert(self.store.Write(p5), gocheck.Equals, nil)
 
 	//we turned off all keys
 	hits := make([]*BlarghParst, 0, 10)
@@ -174,7 +174,7 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	hits = make([]*BlarghParst, 0, 5)
 	err = self.store.FindByKey(&hits, "AggMonth", "201112", uint64(0))
 
-	c.Check(err, gocheck.Equals, nil)
+	c.Assert(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 4)
 
 	//order is increasing by date
@@ -186,15 +186,30 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 	//no overflow?
 	hits = make([]*BlarghParst, 0, 1)
 	err = self.store.FindByKey(&hits, "AggMonth", "201112", uint64(0))
-	c.Check(err, gocheck.Equals, nil)
+	c.Assert(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 1)
 
 	//nothing in dec 2012
 	hits = make([]*BlarghParst, 0, 5)
 	err = self.store.FindByKey(&hits, "AggMonth", "201212", uint64(0))
-	c.Check(err, gocheck.Equals, nil)
+	c.Assert(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 0)
 
+	//look for all the values
+	
+	uniqueValues:=make([]ValueOwnerPair,0,10)
+	example:=new(BlarghParst)
+	err = self.store.UniqueKeyValues(example,"AggMonth",&uniqueValues,uint64(0))
+	c.Assert(err, gocheck.Equals, nil)
+	c.Assert(len(uniqueValues),gocheck.Equals,2)
+	c.Check(uniqueValues[0].Value,gocheck.Not(gocheck.Equals),uniqueValues[1].Value)
+	if uniqueValues[0].Value!="201201" && uniqueValues[0].Value!="201112"{
+		c.Fatalf("bad key found in uniqueValues[0]:%s",uniqueValues[0].Value)
+	}
+	if uniqueValues[1].Value!="201201" && uniqueValues[1].Value!="201112"{
+		c.Fatalf("bad key found in uniqueValues[1]:%s",uniqueValues[1].Value)
+	}
+	
 }
 
 //test deleting works and that the indexes get updated properly
@@ -443,6 +458,14 @@ func (self *MemcachedSuite) TestOwner(c *gocheck.C) {
 	c.Assert(self.store.Write(req2), gocheck.Equals, nil)
 	c.Assert(self.store.Write(req3), gocheck.Equals, nil)
 	
+	//check that it is present
+	targets:=make([]ValueOwnerPair,0,5)
+	c.Assert(self.store.UniqueKeyValues(req1, "To",  &targets, duffman.Id),gocheck.Equals,nil)
+	c.Check(len(targets),gocheck.Equals,3)
+	c.Check(targets[0].Value,gocheck.Not(gocheck.Equals),targets[1].Value)
+	c.Check(targets[1].Value,gocheck.Not(gocheck.Equals),targets[2].Value)
+	c.Check(targets[0].Value,gocheck.Not(gocheck.Equals),targets[2].Value)
+	
 	//so, we have 3 pending friend reqs from duffman, none from home
 	hitsDuffman:=make([]*freundreck,0,5)
 	hitsHomer:=make([]*freundreck,0,5)
@@ -455,8 +478,8 @@ func (self *MemcachedSuite) TestOwner(c *gocheck.C) {
 	
 	//but does anybody want to be freunds with homey?
 	hitsHomer=make([]*freundreck,0,5)
-	c.Assert(self.store.FindByKey(&hitsHomer,"To",fmt.Sprintf("%d",homer.Id),duffman.Id),gocheck.Equals,nil)
-	
+	c.Assert(self.store.FindByKey(&hitsHomer,"To",fmt.Sprintf("%d",homer.Id),uint64(0)),gocheck.Equals,nil)
+
 	//yes, it's the duffman, oh yeah
 	c.Assert(len(hitsHomer),gocheck.Equals,1)
 	c.Check(hitsHomer[0].To, gocheck.Equals, homer.Id)
@@ -504,7 +527,7 @@ func BenchmarkSelectSpeed(b *testing.B) {
 	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
 	if !haveWrittenSampleData {
 		haveWrittenSampleData = true
-		size := 450000
+		size := 5000
 		fmt.Printf("constructing sample data set of %d items...\n", size)
 		data := sampleData(size)
 		if err := store.BulkWrite(data); err != nil {

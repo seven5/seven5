@@ -62,7 +62,9 @@ type T interface {
 	//of the created slice.  If you pass a slice with no empty slots, no results are returned.
 	//FindByKey allocates the storage needed for all the new items it returns. If you pass 
 	//a userId parameter, it will be used to retrieve only values who have the Owner field
-	//in the structure set to that value (use zero with no owner field)
+	//in the structure set to that value (use zero if no owner field).  If you have an
+	//Owner field in your struct, this does a "cross owner" search which is both more
+	//expensive and cannot preserve the order of insertion of the keys.
 	FindByKey(result interface{}, keyName string, keyValue string, userId uint64) error
 	//DeleteById deletes an item from store so it cannot be found again with either FindById
 	//or FindByKey.  The first parameter is not touched, but must be a pointer to a structure
@@ -90,6 +92,35 @@ type T interface {
 	//items to be written have an Owner field, it must be set to a valid value and it must
 	//be the same for all values written.
 	BulkWrite(sliceOfPtrs interface{}) error
+	//UniqueKeyValues returns the set of unique keys that have been written to the store for
+	//a given type and key.  The returned result is pairs which are unique keys and which 
+	//user "owns" that value.  Note that the store may not allow access to some of the values
+	//if they are owned by other users.  The first parameter must be a pointer to a valid
+	//structure with appropriate seven5key annotations, but it is unchanged.  The caller
+	//should pass a ptr to slice with empty spaces in it (cap!=len) and these will be filled until
+	//no more spots remain or all the values have been elucidated.  This function will
+	//allocate new objects to hold the newly returned values.  If the final parameter is
+	//not zero, then only values owned by that id will be returned in the result.
+	UniqueKeyValues(example interface{}, keyName string, result *[]ValueOwnerPair, ownerFilter uint64) error
+}
+
+//ValueOwnerPair is a structure that is used when returning the set of unique keys. Note that
+//key values have to flatten nicely, so the value portion here is always a string.
+type ValueOwnerPair struct {
+	Value string
+	Owner uint64
+}
+
+//LessValueOwner is needed because we keep a LLRB tree underneath and need a comparison function
+//for that to work.
+func LessValueOwner(a,b interface{}) bool {
+	x := a.(ValueOwnerPair)
+	y := b.(ValueOwnerPair)
+	
+	if x.Value==y.Value {
+		return x.Owner < y.Owner
+	}
+	return x.Value < y.Value
 }
 
 //Lesser is a shim to allow us to do sorting with exactly knowing the types.  We delegate the
