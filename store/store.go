@@ -60,12 +60,15 @@ type T interface {
 	//The caller must initialize the slice and the number of values returned will be the number
 	//empty slots in the slice.  Because slices are passed by value, you must pass the address
 	//of the created slice.  If you pass a slice with no empty slots, no results are returned.
-	//FindByKey allocates the storage needed for all the items it returns.
-	FindByKey(result interface{}, keyName string, keyValue string) error
+	//FindByKey allocates the storage needed for all the new items it returns. If you pass 
+	//a userId parameter, it will be used to retrieve only values who have the Owner field
+	//in the structure set to that value (use zero with no owner field)
+	FindByKey(result interface{}, keyName string, keyValue string, userId uint64) error
 	//DeleteById deletes an item from store so it cannot be found again with either FindById
 	//or FindByKey.  The first parameter is not touched, but must be a pointer to a structure
-	//of the appropriate type being deleted.  The Id value of the first parameter is ignored.
-	DeleteById(example interface{}, id uint64) error
+	//of the appropriate type being deleted.  The Id and (if present) Owner field of the structure
+	//should be set to the values needed for deletion.
+	Delete(example interface{}) error
 	//Init takes an example pointer and creates the necessary entries in the store to prepare
 	//for storing this type.  This is not necessary if you do a Write() before your first
 	//Find..., but is needed if you want FindByKey() to work properly with an empty set of objects.
@@ -74,13 +77,18 @@ type T interface {
 	//the particular type denoted by the slice.  Note that the slice will be filled with only
 	//as many items as there is capacity to hold in the slice.  Because it can be 
 	//expensive to keep an index of all keys, this can be turned off with the structure
-	//tag seven5All:"false" on the Id field of the structure.
-	FindAll(result interface{}) error
+	//tag seven5order:"none" on the Id field of the structure.  If you pass a userId
+	//only structures that have that value in the Owner field will be used. For structures
+	//without such a field, pass 0.  If on such structures have been stored, this returns
+	//a zero length result (nil)
+	FindAll(result interface{}, userId uint64) error
 	//BulkWrite does the same logical operation as write but does not write any intermediate 
 	//states so it is much more appropriate for loading a datastore with data. The first
 	//parameter should be a slice, where each entry is a pointer to the appropriate structure
 	//type.  Note that if you want to assign ids to each of these items as you go, you must
-	//insure that their Id field is uint64(0) to force the creation of an id.
+	//insure that their Id field is uint64(0) to force the creation of an id.  If the 
+	//items to be written have an Owner field, it must be set to a valid value and it must
+	//be the same for all values written.
 	BulkWrite(sliceOfPtrs interface{}) error
 }
 

@@ -167,13 +167,12 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 
 	//we turned off all keys
 	hits := make([]*BlarghParst, 0, 10)
-	err := self.store.FindAll(&hits)
-	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+	err := self.store.FindAll(&hits, uint64(0))
 	c.Check(len(hits), gocheck.Equals, 0)
 
 	//four posts in dec 2011 
 	hits = make([]*BlarghParst, 0, 5)
-	err = self.store.FindByKey(&hits, "AggMonth", "201112")
+	err = self.store.FindByKey(&hits, "AggMonth", "201112", uint64(0))
 
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 4)
@@ -186,13 +185,13 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 
 	//no overflow?
 	hits = make([]*BlarghParst, 0, 1)
-	err = self.store.FindByKey(&hits, "AggMonth", "201112")
+	err = self.store.FindByKey(&hits, "AggMonth", "201112", uint64(0))
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 1)
 
 	//nothing in dec 2012
 	hits = make([]*BlarghParst, 0, 5)
-	err = self.store.FindByKey(&hits, "AggMonth", "201212")
+	err = self.store.FindByKey(&hits, "AggMonth", "201212", uint64(0))
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 0)
 
@@ -207,7 +206,7 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 
 	//all is on, so see if can get them all
 	hits := make([]*sample1, 0, 5)
-	err := self.store.FindAll(&hits)
+	err := self.store.FindAll(&hits, uint64(0))
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(len(hits), gocheck.Equals, 2)
 
@@ -222,27 +221,29 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 
 	//check we can get it by key
 	hits = make([]*sample1, 0, 1)
-	err = self.store.FindByKey(&hits, "Birth_year", "1972")
+	err = self.store.FindByKey(&hits, "Birth_year", "1972", uint64(0))
 	c.Assert(err, gocheck.Equals, nil)
 	c.Assert(1, gocheck.Equals, len(hits))
 	c.Check(hits[0].Username, gocheck.Equals, "trevorsmith")
 
 	//check we can't find it by wrong key
 	hits = make([]*sample1, 0, 1)
-	err = self.store.FindByKey(&hits, "Birth_year", "1973")
+	err = self.store.FindByKey(&hits, "Birth_year", "1973", uint64(0))
 	c.Assert(err, gocheck.Equals, nil)
 	c.Assert(0, gocheck.Equals, len(hits))
 
 	//check we can't delete stuff not there
-	err = self.store.DeleteById(t2, 429)
+	t2.Id = 429
+	err = self.store.Delete(t2)
 	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
 
 	//delete trev
-	err = self.store.DeleteById(t2, t2.Id)
+	t2.Id = uint64(2)
+	err = self.store.Delete(t2)
 	c.Check(err, gocheck.Equals, nil)
 
 	//now can't find trev
-	err = self.store.FindById(t3, t2.Id)
+	err = self.store.FindById(t3, uint64(2))
 	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
 
 	//still can find ian
@@ -252,14 +253,14 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 
 	//still can find ian by year
 	hits = make([]*sample1, 0, 1)
-	err = self.store.FindByKey(&hits, "Birth_year", "1970")
+	err = self.store.FindByKey(&hits, "Birth_year", "1970", uint64(0))
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(1, gocheck.Equals, len(hits))
 	c.Check(hits[0].Username, gocheck.Equals, "iansmith")
 
 	//but not trevor by year
 	hits = make([]*sample1, 0, 1)
-	err = self.store.FindByKey(&hits, "Birth_year", "1972")
+	err = self.store.FindByKey(&hits, "Birth_year", "1972", uint64(0))
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(0, gocheck.Equals, len(hits))
 }
@@ -269,116 +270,200 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 //
 
 type lifo struct {
-	Name string 
-	Id uint64 `seven5order:"lifo"`
+	Name string
+	Id   uint64 `seven5order:"lifo"`
 }
 
 type fifo struct {
-	Name string 
-	Id uint64 `seven5order:"fifo"`
+	Name string
+	Id   uint64 `seven5order:"fifo"`
 }
 
 type neither struct {
-	Name string 
-	Id uint64
+	Name string
+	Id   uint64
 }
 
 //test ordering works properly, if we force it with seven5order
 func (self *MemcachedSuite) TestOrderOfItems(c *gocheck.C) {
-	
-	stackItem:=&lifo{"abc",0}
-	queueItem:=&fifo{"abc",0}
-	item:=&neither{"abc",0}
-	
-	c.Assert(self.store.Write(stackItem),gocheck.Equals,nil)
-	c.Assert(self.store.Write(queueItem),gocheck.Equals,nil)
-	c.Assert(self.store.Write(item),gocheck.Equals,nil)
-	
-	stackItem=&lifo{"def",0}
-	queueItem=&fifo{"def",0}
-	item=&neither{"def",0}
 
-	c.Assert(self.store.Write(stackItem),gocheck.Equals,nil)
-	c.Assert(self.store.Write(queueItem),gocheck.Equals,nil)
-	c.Assert(self.store.Write(item),gocheck.Equals,nil)
+	stackItem := &lifo{"abc", 0}
+	queueItem := &fifo{"abc", 0}
+	item := &neither{"abc", 0}
 
-	stackItem=&lifo{"ghi",0}
-	queueItem=&fifo{"ghi",0}
-	item=&neither{"ghi",0}
+	c.Assert(self.store.Write(stackItem), gocheck.Equals, nil)
+	c.Assert(self.store.Write(queueItem), gocheck.Equals, nil)
+	c.Assert(self.store.Write(item), gocheck.Equals, nil)
 
-	c.Assert(self.store.Write(stackItem),gocheck.Equals,nil)
-	c.Assert(self.store.Write(queueItem),gocheck.Equals,nil)
-	c.Assert(self.store.Write(item),gocheck.Equals,nil)
-	
-	stack:=make([]*lifo,0,10)
-	queue:=make([]*fifo,0,10)
-	dontknow:=make([]*neither,0,10)
-	
-	c.Assert(self.store.FindAll(&stack),gocheck.Equals,nil)
-	c.Assert(self.store.FindAll(&queue),gocheck.Equals,nil)
-	c.Assert(self.store.FindAll(&dontknow),gocheck.Equals,nil)
-	
-	c.Check(len(stack),gocheck.Equals,3)
-	c.Check(len(queue),gocheck.Equals,3)
-	c.Check(len(dontknow),gocheck.Equals,3)	
+	stackItem = &lifo{"def", 0}
+	queueItem = &fifo{"def", 0}
+	item = &neither{"def", 0}
 
-	c.Check(stack[0].Name,gocheck.Equals,"ghi")
-	c.Check(stack[1].Name,gocheck.Equals,"def")
-	c.Check(stack[2].Name,gocheck.Equals,"abc")
+	c.Assert(self.store.Write(stackItem), gocheck.Equals, nil)
+	c.Assert(self.store.Write(queueItem), gocheck.Equals, nil)
+	c.Assert(self.store.Write(item), gocheck.Equals, nil)
 
-	c.Check(queue[0].Name,gocheck.Equals,"abc")
-	c.Check(queue[1].Name,gocheck.Equals,"def")
-	c.Check(queue[2].Name,gocheck.Equals,"ghi")
-	
+	stackItem = &lifo{"ghi", 0}
+	queueItem = &fifo{"ghi", 0}
+	item = &neither{"ghi", 0}
+
+	c.Assert(self.store.Write(stackItem), gocheck.Equals, nil)
+	c.Assert(self.store.Write(queueItem), gocheck.Equals, nil)
+	c.Assert(self.store.Write(item), gocheck.Equals, nil)
+
+	stack := make([]*lifo, 0, 10)
+	queue := make([]*fifo, 0, 10)
+	dontknow := make([]*neither, 0, 10)
+
+	c.Assert(self.store.FindAll(&stack, uint64(0)), gocheck.Equals, nil)
+	c.Assert(self.store.FindAll(&queue, uint64(0)), gocheck.Equals, nil)
+	c.Assert(self.store.FindAll(&dontknow, uint64(0)), gocheck.Equals, nil)
+
+	c.Check(len(stack), gocheck.Equals, 3)
+	c.Check(len(queue), gocheck.Equals, 3)
+	c.Check(len(dontknow), gocheck.Equals, 3)
+
+	c.Check(stack[0].Name, gocheck.Equals, "ghi")
+	c.Check(stack[1].Name, gocheck.Equals, "def")
+	c.Check(stack[2].Name, gocheck.Equals, "abc")
+
+	c.Check(queue[0].Name, gocheck.Equals, "abc")
+	c.Check(queue[1].Name, gocheck.Equals, "def")
+	c.Check(queue[2].Name, gocheck.Equals, "ghi")
+
 	//can be in order, but must appear exactly once
-	c.Check(isValidForDontKnow(dontknow[0].Name,true),gocheck.Equals,true)
-	c.Check(isValidForDontKnow(dontknow[1].Name,true),gocheck.Equals,true)
-	c.Check(isValidForDontKnow(dontknow[2].Name,true),gocheck.Equals,true)
-	c.Check(dontknow[0].Name,gocheck.Not(gocheck.Equals),dontknow[1].Name)
-	c.Check(dontknow[0].Name,gocheck.Not(gocheck.Equals),dontknow[2].Name)
-	c.Check(dontknow[1].Name,gocheck.Not(gocheck.Equals),dontknow[2].Name)
-	
+	c.Check(isValidForDontKnow(dontknow[0].Name, true), gocheck.Equals, true)
+	c.Check(isValidForDontKnow(dontknow[1].Name, true), gocheck.Equals, true)
+	c.Check(isValidForDontKnow(dontknow[2].Name, true), gocheck.Equals, true)
+	c.Check(dontknow[0].Name, gocheck.Not(gocheck.Equals), dontknow[1].Name)
+	c.Check(dontknow[0].Name, gocheck.Not(gocheck.Equals), dontknow[2].Name)
+	c.Check(dontknow[1].Name, gocheck.Not(gocheck.Equals), dontknow[2].Name)
+
 	//delete last item from each one
-	c.Assert(self.store.DeleteById(stackItem, uint64(2)),gocheck.Equals,nil)
-	c.Assert(self.store.DeleteById(queueItem, uint64(2)),gocheck.Equals,nil)
-	c.Assert(self.store.DeleteById(item, uint64(2)),gocheck.Equals,nil)
-	
-	c.Assert(self.store.FindAll(&stack),gocheck.Equals,nil)
-	c.Assert(self.store.FindAll(&queue),gocheck.Equals,nil)
-	c.Assert(self.store.FindAll(&dontknow),gocheck.Equals,nil)
-	
+	stackItem.Id = uint64(3)
+	c.Assert(self.store.Delete(stackItem), gocheck.Equals, nil)
+	queueItem.Id = uint64(3)
+	c.Assert(self.store.Delete(queueItem), gocheck.Equals, nil)
+	item.Id = uint64(3)
+	c.Assert(self.store.Delete(item), gocheck.Equals, nil)
+
+	c.Assert(self.store.FindAll(&stack, uint64(0)), gocheck.Equals, nil)
+	c.Assert(self.store.FindAll(&queue, uint64(0)), gocheck.Equals, nil)
+	c.Assert(self.store.FindAll(&dontknow, uint64(0)), gocheck.Equals, nil)
+
 	//note: reading these into positions #3 and #4 since first three are already filled
 	//from last call to findAll!
-	c.Check(len(stack),gocheck.Equals,5)
-	c.Check(len(queue),gocheck.Equals,5)
-	c.Check(len(dontknow),gocheck.Equals,5)	
-	
+	c.Check(len(stack), gocheck.Equals, 5)
+	c.Check(len(queue), gocheck.Equals, 5)
+	c.Check(len(dontknow), gocheck.Equals, 5)
+
+	c.Check(stack[3].Name, gocheck.Equals, "def")
+	c.Check(stack[4].Name, gocheck.Equals, "abc")
+
+	c.Check(queue[3].Name, gocheck.Equals, "abc")
+	c.Check(queue[4].Name, gocheck.Equals, "def")
+
+	c.Check(isValidForDontKnow(dontknow[3].Name, false), gocheck.Equals, true)
+	c.Check(isValidForDontKnow(dontknow[4].Name, false), gocheck.Equals, true)
+	c.Check(dontknow[3].Name, gocheck.Not(gocheck.Equals), dontknow[4].Name)
+
 }
 
 func isValidForDontKnow(name string, includeGHI bool) bool {
-	if name=="abc" || name=="def" {
+	if name == "abc" || name == "def" {
 		return true
 	}
-	if includeGHI  {
-		if name=="ghi" {
+	if includeGHI {
+		if name == "ghi" {
 			return true
 		}
 	}
 	return false
 }
 
-
 //test that init creates the necessary structures
 func (self *MemcachedSuite) TestInit(c *gocheck.C) {
 	self.store.Init(&sample1{})
 	hits := make([]*sample1, 0, 1)
-	err := self.store.FindByKey(&hits, "Birth_year", "1970")
+	err := self.store.FindByKey(&hits, "Birth_year", "1970", uint64(0))
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(0, gocheck.Equals, len(hits))
-	err = self.store.FindAll(&hits)
+	err = self.store.FindAll(&hits, uint64(0))
 	c.Check(err, gocheck.Equals, nil)
 	c.Check(0, gocheck.Equals, len(hits))
 }
+
+type youzer struct {
+	Name    string
+	Friends []uint64 //we could do a pointers here but that implies "early" fetching (heh!)
+	Id      uint64
+}
+
+type freundreck struct {
+	To    uint64 `seven5key:"To"`
+	Owner uint64 //note, this is the SENDER of the freundreck
+	Id    uint64 
+}
+
+//http://www.youtube.com/watch?v=EcHP1tWWEvI&feature=related
+func (self *MemcachedSuite) TestOwner(c *gocheck.C) {
+	lenny := &youzer{"Lenny", []uint64{}, uint64(0)}
+	carl := &youzer{"Carl", []uint64{}, uint64(0)}
+	homer := &youzer{"Homer", []uint64{}, uint64(0)}
+	moe := &youzer{"Moe", []uint64{}, uint64(0)}
+	duffman := &youzer{"Duffman", []uint64{}, uint64(0)}
+
+	c.Assert(self.store.Write(lenny), gocheck.Equals, nil)
+	c.Assert(self.store.Write(carl), gocheck.Equals, nil)
+	c.Assert(self.store.Write(homer), gocheck.Equals, nil)
+	c.Assert(self.store.Write(moe), gocheck.Equals, nil)
+	c.Assert(self.store.Write(duffman), gocheck.Equals, nil)
+	
+	//lenny are carl are friends (?)
+	lenny.Friends=[]uint64{carl.Id}
+	carl.Friends=[]uint64{lenny.Id}
+
+	//moe and homer are friends, more or less
+	homer.Friends=[]uint64{moe.Id,lenny.Id}
+	moe.Friends=[]uint64{homer.Id, lenny.Id, carl.Id}
+
+	//note that we don't write the friends until we have established the Id fields in the structs
+	c.Assert(self.store.Write(lenny), gocheck.Equals, nil)
+	c.Assert(self.store.Write(carl), gocheck.Equals, nil)
+	c.Assert(self.store.Write(homer), gocheck.Equals, nil)
+	c.Assert(self.store.Write(moe), gocheck.Equals, nil)
+	
+	//duffman wants to get friends by spamming, capitalist pig that he is 
+	req1:=&freundreck{homer.Id,duffman.Id,uint64(0)}
+	req2:=&freundreck{moe.Id,duffman.Id,uint64(0)}
+	req3:=&freundreck{lenny.Id,duffman.Id,uint64(0)}
+	
+	//he sends the spam
+	c.Assert(self.store.Write(req1), gocheck.Equals, nil)
+	c.Assert(self.store.Write(req2), gocheck.Equals, nil)
+	c.Assert(self.store.Write(req3), gocheck.Equals, nil)
+	
+	//so, we have 3 pending friend reqs from duffman, none from home
+	hitsDuffman:=make([]*freundreck,0,5)
+	hitsHomer:=make([]*freundreck,0,5)
+	c.Assert(self.store.FindAll(&hitsDuffman,duffman.Id),gocheck.Equals,nil)
+	c.Assert(self.store.FindAll(&hitsHomer,homer.Id),gocheck.Equals,nil)
+	
+	//homer has none pending, but duffman does
+	c.Check(len(hitsHomer),gocheck.Equals,0)
+	c.Check(len(hitsDuffman),gocheck.Equals,3)
+	
+	//but does anybody want to be freunds with homey?
+	hitsHomer=make([]*freundreck,0,5)
+	c.Assert(self.store.FindByKey(&hitsHomer,"To",fmt.Sprintf("%d",homer.Id),duffman.Id),gocheck.Equals,nil)
+	
+	//yes, it's the duffman, oh yeah
+	c.Assert(len(hitsHomer),gocheck.Equals,1)
+	c.Check(hitsHomer[0].To, gocheck.Equals, homer.Id)
+	c.Check(hitsHomer[0].Owner, gocheck.Equals, duffman.Id)
+	
+}
+
 
 //
 // Benchmarks
@@ -387,7 +472,7 @@ func (self *MemcachedSuite) TestInit(c *gocheck.C) {
 var letter = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
 
 func randomKey() string {
-	return letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))]+letter[rand.Intn(len(letter))]//+letter[rand.Intn(len(letter))]
+	return letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] + letter[rand.Intn(len(letter))] //+letter[rand.Intn(len(letter))]
 }
 
 func sampleData(size int) []*sample2 {
@@ -431,7 +516,7 @@ func BenchmarkSelectSpeed(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		hits := make([]*sample2, 0, 5)
-		if err := store.FindByKey(&hits, "Foo", target); err != nil {
+		if err := store.FindByKey(&hits, "Foo", target, uint64(0)); err != nil {
 			b.Fatalf("unable to read sample data!%v\n", err)
 		}
 	}
@@ -454,6 +539,6 @@ func BenchmarkReadOverhead(b *testing.B) {
 	store.Client.Set(item)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_,_=store.Client.Get("key")
+		_, _ = store.Client.Get("key")
 	}
 }
