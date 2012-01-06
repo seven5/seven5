@@ -131,6 +131,12 @@ Download the source from [memcached](http://memcached.org/).
 
 Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.
 
+### llrb - for balanced trees used for indexing in store
+
+	git clone https://github.com/petar/GoLLRB.git	
+	cd GoLLRB
+	make install
+
 ## Seven5
 
 Check out some repos and branches containing the mongrel2 connector, the seven5 stack, the docs and the samples.
