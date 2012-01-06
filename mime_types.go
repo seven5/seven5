@@ -653,7 +653,7 @@ var MIME_TYPE = [][2]string {
 {"application/vnd.stardivision.calc",".sdc"},
 {"application/vnd.stardivision.impress",".sdd"},
 {"chemical/x-mdl-sdfile",".sdf"},
-{"application/x-javascript",".js"},
+{"application/javascript",".js"},
 {"application/vnd.stardivision.impress",".sdp"},
 {"application/vnd.stardivision.writer",".sdw"},
 {"application/vnd.3gpp.pic-bw-large",".plb"},
