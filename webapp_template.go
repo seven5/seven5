@@ -14,23 +14,6 @@ import (
 //Because you can't dynamically load go code yet, you have to use this
 //bit of boilerplate. 
 func main() {
-	{{$pkg=.package}}
-
-	{{range .html}}
-    	seven5.RegisterDocument({{$pkg}}.{{upper .}})
-	{{end}}
-
-	{{range .css}}
-    	seven5.RegisterStylesheet({{$pkg}}.{{upper .}})
-	{{end}}
-
-	{{range .id}}
-    	seven5.RegisterCSSId("{{.}}",{{$pkg}}.{{.}})
-	{{end}}
-
-	{{range .class}}
-    	seven5.RegisterCSSClass("{{.}}",{{$pkg}}.{{.}})
-	{{end}}
 
 	{{range $key,$val := .model}}
     seven5.BackboneModel("{{$key}}",{{range .}}"{{.}}",{{end}})

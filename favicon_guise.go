@@ -42,10 +42,6 @@ func (self *FaviconGuise) Name() string {
 	return "FaviconGuise" //used to generate the UniqueId so don't change this
 }
 
-func (self *FaviconGuise) IsJson() bool {
-	return false
-}
-
 func (self *FaviconGuise) Pattern() string {
 	return "/(favicon.ico)"
 }

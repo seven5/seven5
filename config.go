@@ -211,14 +211,9 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 
 	// ROUTE TO HANDLER
 	nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
-	pathPrefix := "/"
-	if handler.IsJson() {
-		pathPrefix = "@"
-	}
-	route := pathPrefix + handler.Name()
-	g, ok := handler.(Guise)
-	if ok {
-		route = g.Pattern()
+	route := "/api/"+handler.Name();
+	if (handler.Pattern()!="") {
+		route=handler.Pattern();
 	}
 	sqlText = fmt.Sprintf(ROUTE_INSERT, route, nestedHost, nestedHandler, "handler")
 	r, err = config.Db.Exec(sqlText)
@@ -230,43 +225,6 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 		return err
 	}
 	config.Logger.Printf("[MONGREL2 SQL] inserted handler %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
-	return nil
-}
-
-//GenerateGuiseAddressAndRouteConfig creates the necessary mongrel2 database entries to bind
-//a guise to a pattern (supplied) part of the URL space.  It also registers the guise to receive
-//notification when the application starts.
-func GenerateGuiseAddressAndRouteConfig(config *ProjectConfig, host string, guise Guise) error {
-	addr, err := mongrel2.GetHandlerSpec(guise.Name())
-	if err != nil {
-		return err
-	}
-	sqlText := fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
-	r, err := config.Db.Exec(sqlText)
-	if err != nil {
-		return err
-	}
-	res, err := r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted guise %s configuration:%s (%d row)\n", addr.Name, sqlText, res)
-
-	//this is the query used to find the host that routes point at
-	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, host)
-
-	// ROUTE TO guise
-	nestedHandler := fmt.Sprintf(`(select id from handler where send_spec="%s")`, addr.PullSpec)
-	sqlText = fmt.Sprintf(ROUTE_INSERT, guise.Pattern(), nestedHost, nestedHandler, "handler")
-	r, err = config.Db.Exec(sqlText)
-	if err != nil {
-		return err
-	}
-	res, err = r.RowsAffected()
-	if err != nil {
-		return err
-	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted guise %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
 	return nil
 }
 

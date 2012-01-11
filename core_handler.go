@@ -24,8 +24,8 @@ const (
 //knowlege of the concrete type in some places.
 type Named interface {
 	Name() string
-	IsJson() bool
 	Shutdown()
+	Pattern() string
 }
 
 //AppStarter means that the object in question would like to receive a message at application 
@@ -34,13 +34,8 @@ type AppStarter interface {
 	AppStarting(*ProjectConfig) error
 }
 
-//For guises, they don't need names but they do need app startup info
-type Guise interface {
-	Named
-	Pattern() string
-}
 
-var SystemGuise = []Guise{NewCssGuise(),NewFaviconGuise(), NewHtmlGuise(), NewModelGuise(), NewUserGuise()}
+var SystemGuise = []Named{NewFaviconGuise(),NewUserGuise()}
 
 //StartUp starts handlers running. It starts all the system guises plus the Named
 //handlers (user-level) that are provided as a parameter.
@@ -76,8 +71,6 @@ func StartUp(ctx gozmq.Context, conf *ProjectConfig, named []Named) bool {
 		switch x:=h.(type) {
 		case Httpified:
 			go x.(HttpRunner).RunHttp(conf,x)
-		case Jsonified:
-			go x.(JsonRunner).RunJson(conf,x)
 		default:
 			panic(fmt.Sprintf("unknown handler type! %T is not Httpified or Jsonified!",h))
 		}

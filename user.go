@@ -93,12 +93,8 @@ func (self *UserGuise) Name() string {
 	return "UserGuise" //used to generate the UniqueId so don't change this
 }
 
-func (self *UserGuise) IsJson() bool {
-	return false
-}
-
 func (self *UserGuise) Pattern() string {
-	return "/user"
+	return "/api/user"
 }
 
 func (self *UserGuise) AppStarting(config *ProjectConfig) error {
@@ -116,7 +112,7 @@ func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpR
 	//path:=req.Path
 	_ = req.Header["METHOD"]
 	uri := req.Header["URI"]
-
+	
 	resp := new(mongrel2.HttpResponse)
 	resp.ServerId = req.ServerId
 	resp.ClientId = []int{req.ClientId}
@@ -141,6 +137,9 @@ func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpR
 			continue
 		}
 	}
+	
+	fmt.Printf("got u and p:'%s' and '%s'\n",user,pwd);
+	
 	badCred := `{ "err": "Username or password is incorrect"}`
 	if user == "" || pwd == "" {
 		return fillBody(badCred, resp)
@@ -161,7 +160,7 @@ func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpR
 		resp.StatusMsg = fmt.Sprintf("%v", err)
 		return resp
 	}
-	if len(hits) == 0 || err == bcrypt.MismatchedHashAndPasswordError {
+	if err == bcrypt.MismatchedHashAndPasswordError {
 		return fillBody(badCred, resp)
 	}
 

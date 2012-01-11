@@ -22,7 +22,7 @@ func toUpperFirst(x string) string {
 }
 
 func importIfNeeded(x string,exported *seven5.ExportedSeven5Objects) string {
-	if len(exported.Handler)==0 && len(exported.StyleSheet)==0 && len(exported.Document)==0 && len(exported.CSSId)==0 && len(exported.CSSClass)==0 {
+	if len(exported.Model)==0 {
 		return ""
 	}
 	return "\""+x+"\""
@@ -41,11 +41,6 @@ func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven
 
 	data["import"] = importPath
 	data["package"] = base
-	data["handler"] = exported.Handler
-	data["css"] = exported.StyleSheet
-	data["html"] = exported.Document
-	data["id"] = exported.CSSId
-	data["class"] = exported.CSSClass
 	data["model"] = exported.Model
 
 	buff := bytes.NewBufferString("")
