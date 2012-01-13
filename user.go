@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/bcrypt"
 	"fmt"
-	"github.com/bradfitz/gomemcache"
 	"log"
 	"math/rand"
 	"mongrel2"
@@ -119,8 +118,8 @@ func (self *UserGuise) Pattern() string {
 	return "/api/user"
 }
 
-func (self *UserGuise) AppStarting(log *log.Logger) error {
-	self.T = &store.MemcacheGobStore{memcache.New(store.LOCALHOST)}
+func (self *UserGuise) AppStarting(log *log.Logger, store store.T) error {
+	self.T = store
 	return nil
 }
 
