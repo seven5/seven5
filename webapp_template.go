@@ -1,6 +1,8 @@
 package seven5
 
 
+//WEBAPP_TEMPLATE is the go code necessary to create a main.main() that glues the user-level package
+//that has the webapp to the seven5 package.  It is used by the tune tool, so must be public.
 const WEBAPP_TEMPLATE = `//target:{{.package}}
 package main
 
@@ -27,7 +29,7 @@ func main() {
 	{{.}} := {{$pkg}}.New{{upper .}}()
 	{{end}}
 
-	var config *seven5.ProjectConfig
+	var config *seven5.projectConfig
 	var err error
 
 	// accept all defaults for project layout, etc... note parameters are from filenames
