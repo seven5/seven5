@@ -275,14 +275,14 @@ func generateMimeTypeConfig(config *projectConfig) error {
 	config.Logger.Printf("[mongrel2dir SQL] currenty %d items in mimetype table\n", result)
 
 	if result == 0 {
-		for _, pair := range MIME_TYPE {
+		for _, pair := range mime_type {
 			mimeText := fmt.Sprintf(mime_insert_sql, pair[0], pair[1])
 			_, err = config.Db.Exec(mimeText)
 			if err != nil {
 				return err
 			}
 		}
-		config.Logger.Printf("[mongrel2dir SQL] inserted %d mime types in mongrel2 configuration\n", len(MIME_TYPE))
+		config.Logger.Printf("[mongrel2dir SQL] inserted %d mime types in mongrel2 configuration\n", len(mime_type))
 	}
 	return nil
 }

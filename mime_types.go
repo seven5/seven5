@@ -1,6 +1,6 @@
 package seven5
 
-var MIME_TYPE = [][2]string {
+var mime_type = [][2]string {
 {"application/x-msbinder",".obd"},
 {"application/octet-stream",".obj"},
 {"model/mesh",".silo"},
