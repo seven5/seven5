@@ -18,7 +18,7 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 		c.Fatalf("unable to start up, can't find absolute path to cwd!")
 	}
 	path = filepath.Clean(path)
-	config := BootstrapFromDir(path)
+	config := bootstrapFromDir(path)
 
 	if config == nil {
 		c.Fatalf("unable to bootstrap project from path %s", path)
@@ -30,7 +30,7 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 
 	var ctx gozmq.Context
 
-	if ctx, err = CreateNetworkResources(config); err != nil {
+	if ctx, err = createNetworkResources(config); err != nil {
 		c.Fatalf("unable to create mongrel2 or 0MQ resources:", err)
 	}
 
@@ -42,27 +42,27 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 
 //WriteTestConfig does the necessary steps to write a mongrel 2 configuration suitable for
 //testing.
-func WriteTestConfig(config *ProjectConfig, n Named) error {
+func WriteTestConfig(config *projectConfig, n Named) error {
 	var err error
 	//this accepts all the defaults for log placement, pid files, etc.
-	if err = GenerateServerHostConfig(config, LOCALHOST, TEST_PORT); err != nil {
+	if err = generateServerHostConfig(config, localhost, test_port); err != nil {
 		return err
 	}
 	//only can do HTTP testing right now
-	if err = GenerateHandlerAddressAndRouteConfig(config, LOCALHOST, n); err != nil {
+	if err = generateHandlerAddressAndRouteConfig(config, localhost, n); err != nil {
 		return err
 	}
 	//static content at /static
-	if err = GenerateStaticContentConfig(config, LOCALHOST, STATIC); err != nil {
+	if err = generateStaticContentConfig(config, localhost, static_dir); err != nil {
 		return err
 	}
 
 	//normally this does nothing unless the DB is completely empty
-	if err = GenerateMimeTypeConfig(config); err != nil {
+	if err = generateMimeTypeConfig(config); err != nil {
 		return err
 	}
 
-	if err = FinishConfig(config); err != nil {
+	if err = finishConfig(config); err != nil {
 		return err
 	}
 
@@ -78,7 +78,7 @@ func MappingTest(url string, h Httpified, c *gocheck.C) {
 		c.Fatalf("failed to create request for test!")
 	}
 
-	req.Header.Add(ROUTE_TEST_HEADER, h.Name())
+	req.Header.Add(route_test_header, h.Name())
 
 	client := new(http.Client)
 	resp, err := client.Do(req)
@@ -87,9 +87,9 @@ func MappingTest(url string, h Httpified, c *gocheck.C) {
 		c.Fatalf("failed trying to use http to localhost:6767: %s", err)
 	}
 
-	if len(resp.Header[ROUTE_TEST_HEADER]) == 0 {
+	if len(resp.Header[route_test_header]) == 0 {
 		c.Fatalf("failed trying to find response header: %s", url)
 	}
-	c.Check(resp.StatusCode, gocheck.Equals, ROUTE_TEST_RESPONSE_CODE)
-	c.Check(resp.Header[ROUTE_TEST_HEADER][0], gocheck.Equals, h.Name())
+	c.Check(resp.StatusCode, gocheck.Equals, route_test_response_code)
+	c.Check(resp.Header[route_test_header][0], gocheck.Equals, h.Name())
 }

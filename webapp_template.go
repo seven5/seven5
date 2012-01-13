@@ -15,6 +15,8 @@ import (
 //bit of boilerplate. 
 func main() {
 
+	seven5.BackboneModel(&seven5.User{})
+
 	{{range $key,$val := .model}}
     seven5.BackboneModel("{{$key}}",{{range .}}"{{.}}",{{end}})
 	{{end}}

@@ -1,14 +1,18 @@
 package seven5
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"log"
 	"mongrel2"
 	"strings"
-	"encoding/base64"
-	"io"
-	"fmt"
-//	"os"
-	"bytes"
 )
+
+//This is a small little guise for dumping out an icon when the client askss for /favicon.ico.  If you
+//want to change the icon, create a base64 encoded icon with DumpIconAsBase64 and send that text
+//to SetFavicon in this object.
 type FaviconGuise struct {
 	//we need the implementation of the default HTTP machinery 
 	*HttpRunnerDefault
@@ -16,64 +20,70 @@ type FaviconGuise struct {
 
 var ico []byte
 
+//init function sets the icon to the "puking at the seine" image.
 func init() {
 	SetFavicon(defaultIcon)
 }
 
+//SetFavicon can be used to set the icon used for this application.  The data should be base64 
+//encoded--DumpIconAsBase64 can be used to create this data.
 func SetFavicon(b64encodedicon string) {
-	ico=decode(b64encodedicon)
+	ico = decode(b64encodedicon)
 }
 
+//decode reads the base64 encoded data (once) and then stores it for future dumps to the client.
 func decode(encoded string) []byte {
-	nows:=strings.Replace(encoded,"\n","",-1/*NO LIMIT*/)
-	nows=strings.Replace(nows,"\t","",-1/*NO LIMIT*/)
-	r:=strings.NewReader(nows)
-	b:=base64.NewDecoder(base64.StdEncoding,r)
-	result:=make([]byte,base64.StdEncoding.DecodedLen(len(nows)))
-	n,err:=io.ReadFull(b, result)
-	if err!=nil && err!=io.ErrUnexpectedEOF{
-		panic(fmt.Sprintf("unable to decode the base64 for favico:%s",err.Error()))
+	nows := strings.Replace(encoded, "\n", "", -1 /*NO LIMIT*/ )
+	nows = strings.Replace(nows, "\t", "", -1 /*NO LIMIT*/ )
+	r := strings.NewReader(nows)
+	b := base64.NewDecoder(base64.StdEncoding, r)
+	result := make([]byte, base64.StdEncoding.DecodedLen(len(nows)))
+	n, err := io.ReadFull(b, result)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		panic(fmt.Sprintf("unable to decode the base64 for favico:%s", err.Error()))
 	}
 	return result[0:n]
 }
 
-
+//Name returns "FaviconGuise"
 func (self *FaviconGuise) Name() string {
 	return "FaviconGuise" //used to generate the UniqueId so don't change this
 }
 
+//Pattern returns /(favicon.ico)  which is the only URL this Guise will touch.
 func (self *FaviconGuise) Pattern() string {
 	return "/(favicon.ico)"
 }
 
-func (self *FaviconGuise) AppStarting(config *ProjectConfig) error {
+//AppStarting is called at startup.  Currently not used.
+func (self *FaviconGuise) AppStarting(log *log.Logger) error {
 	return nil
 }
 
-//create a new one... but only one should be needed in any program
+//NewFaviconGuise creates a new instance of this guise.  This is called by the infrastructure and
+//client code should never need to call it.
 func NewFaviconGuise() *FaviconGuise {
-	return &FaviconGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new (mongrel2.RawHandlerDefault)}}}
+	return &FaviconGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}}
 }
 
-//Handle a single request of the HTTP level of mongrel.  This responds with the ico
-//
+//ProcessRequest handles a single request of the HTTP level of mongrel.  This responds with the ico
+//data provided by the default or by the parameter to SetFavicon.
 func (self *FaviconGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
-	path:=req.Header["PATH"]
-	path=path[len("/css/"):]
-	
-	resp:=new (mongrel2.HttpResponse)
-	resp.ServerId= req.ServerId
+	path := req.Header["PATH"]
+	path = path[len("/css/"):]
+
+	resp := new(mongrel2.HttpResponse)
+	resp.ServerId = req.ServerId
 	resp.ClientId = []int{req.ClientId}
-	
-	resp.ContentLength=len(ico)
+
+	resp.ContentLength = len(ico)
 	resp.Body = bytes.NewBuffer(ico)
 	return resp
 }
 
-
 /* http://nerdycats.wordpress.com/2011/02/28/the-night-i-almost-died-in-paris/*/
 //puking by the seine...ahh...
-const defaultIcon =`
+const defaultIcon = `
 	AAABAAEAMDAAAAEAIABoJgAAFgAAACgAAAAwAAAAYAAAAAEAIAAAAAAAAAAAAMQO
 	AADEDgAAAAAAAAAAAAB8s93/frnf/4rM6f+Kzun/frrg/4C84P+Dw+T/is7p/4TE
 	5P9/vOD/iMnn/5DW7/+N0ez/icvo/4nL6P+HyOb/i8/q/47T7f+M0Or/gsHj/4rN

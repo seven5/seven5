@@ -10,13 +10,17 @@ import (
 	"strings"
 )
 
-
+//ExportedSeven5Objects is the information that we have "discovered" by analyzing the AST of the
+//a user project. This is passed to the "tune" program so it is public.
 type ExportedSeven5Objects struct {
 	Model map[string][]string
 }
 
-const BACKBONE = ".bbone.go"
+const backbone = ".bbone.go"
 
+//CheapASTAnalysis is a function that does some very weak analysis to try to find models that are
+//being exported by a user-level package.  If it finds them, it puts them in the exported parameter.
+//This is called by the "tune" program so it is public.
 func CheapASTAnalysis(dirname string, exported *ExportedSeven5Objects) {
 	var err error
 	var dir *os.File
@@ -33,7 +37,7 @@ func CheapASTAnalysis(dirname string, exported *ExportedSeven5Objects) {
 	}
 
 	for _, n := range names {
-		if strings.HasSuffix(n,BACKBONE) {
+		if strings.HasSuffix(n,backbone) {
 			analyzeBackbone(filepath.Join(dirname,n),exported)
 			continue
 		}
@@ -42,7 +46,7 @@ func CheapASTAnalysis(dirname string, exported *ExportedSeven5Objects) {
 }
 
 //analyzeBackbone looks for declarations that smell like a backbone model.  if it finds them,
-//it addes them to the exported object
+//it addes them to the exported object.  Currently it just looks for structs with exported names.
 func analyzeBackbone(path string, exported *ExportedSeven5Objects) {
 	var fset token.FileSet
 	var file *ast.File
@@ -72,11 +76,16 @@ func analyzeBackbone(path string, exported *ExportedSeven5Objects) {
 	}
 }
 
+//modelVisitor is used to visit each of the nodes of the structure to see if it has any names
+//that are going to be a problem in Javascript.
 type modelVisitor struct {
 	exported *ExportedSeven5Objects
 	name string
 }
 
+//Visit does the work for modelVisitor of examining all the fields of a struct looking for names that
+//are not ok for Javascript.  If it finds a name that is not ok in javascript it prints an error
+//and the wanna-be model is ignored entirely.
 func (self *modelVisitor) Visit(node ast.Node) ast.Visitor {
 	t := node.(*ast.StructType)
 	result := []string{}

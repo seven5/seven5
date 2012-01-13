@@ -17,10 +17,8 @@ import (
 	"syscall"
 )
 
-//ProjectConfig represents the configuration of a Seven5 web app.  This 
-//structure's fields are discovered by the infrastructure, it is not specified
-//explicitly.
-type ProjectConfig struct {
+//projectConfig represents the configuration of a Seven5 web app.  
+type projectConfig struct {
 	Path     string
 	Name     string
 	Logger   *log.Logger
@@ -31,48 +29,49 @@ type ProjectConfig struct {
 }
 
 const (
-	TEST_SERVER_ID = "f548a1be-3c3c-4f0d-91bd-44edf672af31"
+	test_server_id = "f548a1be-3c3c-4f0d-91bd-44edf672af31"
 
-	LOGDIR   = "log"
-	MONGREL2 = "mongrel2"
-	OUR_LOG  = "seven5.log"
+	logdir   = "log"
+	mongrel2dir = "mongrel2"
+	our_log  = "seven5.log"
 
+	//WEBAPP_START_DIR is _seven5 and must be exported so the "tune" program knows where to put the
+	//code it generates.
 	WEBAPP_START_DIR = "_seven5"
 
-	LOCALHOST  = "localhost"
-	ACCESS_LOG = "/" + LOGDIR + "/access.log"
-	ERROR_LOG  = "/" + LOGDIR + "/error.log"
-	PID_FILE   = RUN + "/mongrel2.pid"
-	TEST_PORT  = 6767
-	RUN        = "/run"
-	CONTROL    = "control"
+	localhost  = "localhost"
+	access_log = "/" + logdir + "/access.log"
+	error_log  = "/" + logdir + "/error.log"
+	pid_file   = run_dir + "/mongrel2.pid"
+	test_port  = 6767
+	run_dir        = "/run"
+	control    = "control"
 
-	TIME_CMD                = "10:4:time,0:}]"
-	RELOAD_CMD              = "12:6:reload,0:}]"
-	TWO_SECS_IN_MICROS      = 2000000
-	HUNDRED_MSECS_IN_MICROS = 100000
+	time_cmd                = "10:4:time,0:}]"
+	reload_cmd              = "12:6:reload,0:}]"
+	two_secs_in_micros      = 2000000
+	hundred_msecs_in_micros = 100000
 
-	STATIC = "static/" //must have trailing slash
+	static_dir = "static/" //must have trailing slash
 
-	NO_SUCH_TABLE = "no such table"
+	no_such_table = "no such table"
 
-	HANDLER_SUFFIX = "_rawhttp.go"
-	SERVICE_SUFFIX = "_jsonservice.go"
+	handler_suffix = "_rawhttp.go"
 
-	HANDLER_OR_SERVICE_INSERT = `insert into handler(send_spec,send_ident,recv_spec,recv_ident) values("%s","%s","%s","");`
-	HOST_INSERT               = `insert into host(server_id,name,matching) values(last_insert_rowid(),"%s","%s");`
-	SERVER_INSERT             = `insert into server(uuid,access_log,error_log,pid_file,chroot,default_host,name,port) values("%s","%s","%s","%s","%s","%s","%s","%d");`
-	MIME_INSERT               = `insert into mimetype(mimetype,extension) values("%s","%s");`
-	DIRECTORY_INSERT          = `insert into directory(base,index_file,default_ctype) values("%s","index.html","text/plain");`
-	ROUTE_INSERT              = `insert into route(path,host_id,target_id,target_type) values("%s",%s, %s, "%s");`
-	LOG_INSERT                = `insert into log(who,what,location,how,why) values("user","load", "localhost", "%s","webapp_start");`
+	handler_insert_sql = `insert into handler(send_spec,send_ident,recv_spec,recv_ident) values("%s","%s","%s","");`
+	host_insert_sql               = `insert into host(server_id,name,matching) values(last_insert_rowid(),"%s","%s");`
+	server_insert_sql             = `insert into server(uuid,access_log,error_log,pid_file,chroot,default_host,name,port) values("%s","%s","%s","%s","%s","%s","%s","%d");`
+	mime_insert_sql               = `insert into mimetype(mimetype,extension) values("%s","%s");`
+	directory_insert_sql          = `insert into directory(base,index_file,default_ctype) values("%s","index.html","text/plain");`
+	route_insert_sql              = `insert into route(path,host_id,target_id,target_type) values("%s",%s, %s, "%s");`
+	log_insert_sql                = `insert into log(who,what,location,how,why) values("user","load", "localhost", "%s","webapp_start");`
 )
 
-//VerifyProjectLayout checks that the directory structure that is expected for
+//verifyProjectLayout checks that the directory structure that is expected for
 //a correct Seven5 application is present.  
-func VerifyProjectLayout(projectPath string) string {
-	for _, dir := range []string{LOGDIR, RUN, STATIC} {
-		candidate := filepath.Join(projectPath, MONGREL2, dir)
+func verifyProjectLayout(projectPath string) string {
+	for _, dir := range []string{logdir, run_dir, static_dir} {
+		candidate := filepath.Join(projectPath, mongrel2dir, dir)
 		clean := filepath.Clean(candidate)
 		if s, _ := os.Stat(clean); s == nil || !s.IsDir() {
 			return fmt.Sprintf("Unable to find directory %s (%v)", clean, s == nil)
@@ -81,11 +80,11 @@ func VerifyProjectLayout(projectPath string) string {
 	return ""
 }
 
-//CreateLogger builds a logger that is connected to the "standard" place in 
+//createLogger builds a logger that is connected to the "standard" place in 
 //a Seven5 application (mongrel2/log/seven5.log)
-func CreateLogger(projectPath string) (*log.Logger, string, error) {
+func createLogger(projectPath string) (*log.Logger, string, error) {
 
-	path := filepath.Join(projectPath, MONGREL2, LOGDIR, OUR_LOG)
+	path := filepath.Join(projectPath, mongrel2dir, logdir, our_log)
 	file, err := os.Create(path)
 	if err != nil {
 		return nil, "", err
@@ -95,11 +94,11 @@ func CreateLogger(projectPath string) (*log.Logger, string, error) {
 	return result, path, nil
 }
 
-//Create a new ProjectConfig object and return a pointer to it.  This method
+//newPorjectConfig creates a projectConfig object and return a pointer to it.  This method
 //fills in some fields that are already known such as the path, name, and 
 //logger.
-func NewProjectConfig(path string, l *log.Logger) (*ProjectConfig, error) {
-	result := new(ProjectConfig)
+func newprojectConfig(path string, l *log.Logger) (*projectConfig, error) {
+	result := new(projectConfig)
 	p, err := filepath.Abs(path)
 	result.Path = p
 
@@ -112,10 +111,10 @@ func NewProjectConfig(path string, l *log.Logger) (*ProjectConfig, error) {
 	return result, nil
 }
 
-//ClearTestDB opens the sqlite3 database for mongrel3 configuration and insures
+//clearTestDB opens the sqlite3 database for mongrel3 configuration and insures
 //that the tables are present and empty.  If the tables are not present, this
 //function creates them.
-func ClearTestDB(config *ProjectConfig) error {
+func clearTestDB(config *projectConfig) error {
 
 	db, err := sql.Open("sqlite3", db_path(config))
 	if err != nil {
@@ -125,7 +124,7 @@ func ClearTestDB(config *ProjectConfig) error {
 	config.Logger.Printf("[CONFIG] created/found mongrel2 configuration db at path: %s", db_path(config))
 
 	//destroy all tables, create from scratch
-	for _, create := range TABLEDEFS_SQL {
+	for _, create := range tabledefs_sql {
 		_, err = db.Exec(create)
 		if err != nil {
 			config.Logger.Printf("[ERROR!] unable to create tables in mongrel2 config:%s", err.Error())
@@ -133,34 +132,34 @@ func ClearTestDB(config *ProjectConfig) error {
 		}
 	}
 
-	config.ServerId = TEST_SERVER_ID
+	config.ServerId = test_server_id
 
 	return nil
 }
 
-//GenerateServerConfig writes information about the server (in mongrel2 terms) name and what host it is
+//generateServerConfig writes information about the server (in mongrel2 terms) name and what host it is
 //working on behalf of.  It also configures information about the log file placement
 //and other such variables.  The optional arguments are
 //accessLog string, errorLog string, pidFile string, chroot string. The "host" portion of the
 //mongrel2 configuration is made to be exactly one host whose name is default host.
-func GenerateServerHostConfig(config *ProjectConfig, defaultHost string, port int, opt ...string) error {
+func generateServerHostConfig(config *projectConfig, defaultHost string, port int, opt ...string) error {
 
 	if len(opt) != 4 && len(opt) != 0 {
 		return errors.New("GenerateServerConfig: wrong number of arguments!")
 	}
 	var chroot, accessLog, errorLog, pidFile string
 	if len(opt) == 0 {
-		chroot = filepath.Join(config.Path, MONGREL2)
-		accessLog = ACCESS_LOG
-		errorLog = ERROR_LOG
-		pidFile = PID_FILE
+		chroot = filepath.Join(config.Path, mongrel2dir)
+		accessLog = access_log
+		errorLog = error_log
+		pidFile = pid_file
 	} else {
 		accessLog = opt[0]
 		errorLog = opt[1]
 		pidFile = opt[2]
 		chroot = opt[3]
 	}
-	sqlText := fmt.Sprintf(SERVER_INSERT, config.ServerId, accessLog, errorLog, pidFile, chroot, defaultHost, config.Name, port)
+	sqlText := fmt.Sprintf(server_insert_sql, config.ServerId, accessLog, errorLog, pidFile, chroot, defaultHost, config.Name, port)
 	r, err := config.Db.Exec(sqlText)
 	if err != nil {
 		return err
@@ -169,10 +168,10 @@ func GenerateServerHostConfig(config *ProjectConfig, defaultHost string, port in
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted server into config:%s (%d row)\n", sqlText, res)
+	config.Logger.Printf("[mongrel2dir SQL] inserted server into config:%s (%d row)\n", sqlText, res)
 
 	//HOST: must run IMMEDIATELY after the server is inserted because sql is dependent on order
-	sqlText = fmt.Sprintf(HOST_INSERT, defaultHost, defaultHost)
+	sqlText = fmt.Sprintf(host_insert_sql, defaultHost, defaultHost)
 	r, err = config.Db.Exec(sqlText)
 	if err != nil {
 		return err
@@ -181,21 +180,21 @@ func GenerateServerHostConfig(config *ProjectConfig, defaultHost string, port in
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted host into config:%s (%d row)\n", sqlText, res)
+	config.Logger.Printf("[mongrel2dir SQL] inserted host into config:%s (%d row)\n", sqlText, res)
 	return nil
 }
 
-//GenerateHandlerAddressAndRouteConfig creates the necessary mongrel2 configuration for a handler
+//generateHandlerAddressAndRouteConfig creates the necessary mongrel2 configuration for a handler
 //with a given name. It creates an address for the handler, an ID for it and writes those
 //into the mongrel2 configuration.  Then it creates a mongrel2 route for the handler to 
 //be contacted on.  The route is @[name] if the handler is a JSON service, otherwise it is
 //bound into the HTTP space at /[name]
-func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, handler Named) error {
+func generateHandlerAddressAndRouteConfig(config *projectConfig, host string, handler Named) error {
 	addr, err := mongrel2.GetHandlerSpec(handler.Name())
 	if err != nil {
 		return err
 	}
-	sqlText := fmt.Sprintf(HANDLER_OR_SERVICE_INSERT, addr.PullSpec, addr.Identity, addr.PubSpec)
+	sqlText := fmt.Sprintf(handler_insert_sql, addr.PullSpec, addr.Identity, addr.PubSpec)
 	r, err := config.Db.Exec(sqlText)
 	if err != nil {
 		return err
@@ -204,7 +203,7 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted %s handler configuration:%s (%d row)\n", addr.Name, sqlText, res)
+	config.Logger.Printf("[mongrel2dir SQL] inserted %s handler configuration:%s (%d row)\n", addr.Name, sqlText, res)
 
 	//this is the query used to find the host that routes point at
 	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, host)
@@ -215,7 +214,7 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 	if (handler.Pattern()!="") {
 		route=handler.Pattern();
 	}
-	sqlText = fmt.Sprintf(ROUTE_INSERT, route, nestedHost, nestedHandler, "handler")
+	sqlText = fmt.Sprintf(route_insert_sql, route, nestedHost, nestedHandler, "handler")
 	r, err = config.Db.Exec(sqlText)
 	if err != nil {
 		return err
@@ -224,17 +223,17 @@ func GenerateHandlerAddressAndRouteConfig(config *ProjectConfig, host string, ha
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted handler %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
+	config.Logger.Printf("[mongrel2dir SQL] inserted handler %s into routes:%s (%d rows affected)\n", addr.Name, sqlText, res)
 	return nil
 }
 
-//GenerateStaticContentConfigcreates the necessary mongrel2 configuration for a directory
+//generateStaticContentConfigcreates the necessary mongrel2 configuration for a directory
 //a 'directory' and a 'route' to that directory.
-func GenerateStaticContentConfig(config *ProjectConfig, host string, path string) error {
+func generateStaticContentConfig(config *projectConfig, host string, path string) error {
 	//this is the query used to find the host that routes point at
 	nestedHost := fmt.Sprintf(`(select id from host where name="%s")`, host)
 
-	dirText := fmt.Sprintf(DIRECTORY_INSERT, path)
+	dirText := fmt.Sprintf(directory_insert_sql, path)
 	r, err := config.Db.Exec(dirText)
 	if err != nil {
 		return err
@@ -243,11 +242,11 @@ func GenerateStaticContentConfig(config *ProjectConfig, host string, path string
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted directory into config:%s (%d row)\n", dirText, res)
+	config.Logger.Printf("[mongrel2dir SQL] inserted directory into config:%s (%d row)\n", dirText, res)
 
-	// ROUTE TO STATIC CONTENT
-	staticDirectory := fmt.Sprintf(`(select id from directory where base="%s")`, STATIC)
-	routeText := fmt.Sprintf(ROUTE_INSERT, "/static/", nestedHost, staticDirectory, "dir")
+	// ROUTE TO static_dir CONTENT
+	staticDirectory := fmt.Sprintf(`(select id from directory where base="%s")`, static_dir)
+	routeText := fmt.Sprintf(route_insert_sql, "/static/", nestedHost, staticDirectory, "dir")
 
 	r, err = config.Db.Exec(routeText)
 	if err != nil {
@@ -257,12 +256,12 @@ func GenerateStaticContentConfig(config *ProjectConfig, host string, path string
 	if err != nil {
 		return err
 	}
-	config.Logger.Printf("[MONGREL2 SQL] inserted static content route into config:%s (%d row)\n", routeText, res)
+	config.Logger.Printf("[mongrel2dir SQL] inserted static content route into config:%s (%d row)\n", routeText, res)
 	return nil
 }
 
-//GenerateMimeTypeConfig puts the mime-type table.
-func GenerateMimeTypeConfig(config *ProjectConfig) error {
+//generateMimeTypeConfig puts the mime-type table in place if it is needed.
+func generateMimeTypeConfig(config *projectConfig) error {
 	rows, err := config.Db.Query("select count(*) from mimetype;")
 	if err != nil {
 		return err
@@ -273,26 +272,26 @@ func GenerateMimeTypeConfig(config *ProjectConfig) error {
 	rows.Scan(&result)
 	rows.Close()
 
-	config.Logger.Printf("[MONGREL2 SQL] currenty %d items in mimetype table\n", result)
+	config.Logger.Printf("[mongrel2dir SQL] currenty %d items in mimetype table\n", result)
 
 	if result == 0 {
 		for _, pair := range MIME_TYPE {
-			mimeText := fmt.Sprintf(MIME_INSERT, pair[0], pair[1])
+			mimeText := fmt.Sprintf(mime_insert_sql, pair[0], pair[1])
 			_, err = config.Db.Exec(mimeText)
 			if err != nil {
 				return err
 			}
 		}
-		config.Logger.Printf("[MONGREL2 SQL] inserted %d mime types in mongrel2 configuration\n", len(MIME_TYPE))
+		config.Logger.Printf("[mongrel2dir SQL] inserted %d mime types in mongrel2 configuration\n", len(MIME_TYPE))
 	}
 	return nil
 }
 
-//Bootstrap should be called by projects that use the Seven5 infrastructure to
+//bootstrap should be called by projects that use the Seven5 infrastructure to
 //parse the command line arguments and to discover the project's structure.
 //This function returns null if the project config is not standard.  This is a 
-//wrapper on BootstrapFromDir that gets the project directory from the command line args. 
-func Bootstrap() *ProjectConfig {
+//wrapper on bootstrapFromDir that gets the project directory from the command line args. 
+func bootstrap() *projectConfig {
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -310,18 +309,18 @@ func Bootstrap() *ProjectConfig {
 	} else {
 		projectDir = flagSet.Arg(1)
 	}
-	return BootstrapFromDir(projectDir)
+	return bootstrapFromDir(projectDir)
 }
 
-//BootstrapFromDir does the heavy lifting to set up a project, given a directory to work
+//bootstrapFromDir does the heavy lifting to set up a project, given a directory to work
 //with.  It returns a configuration (or nil on error).
-func BootstrapFromDir(projectDir string) *ProjectConfig {
-	if err := VerifyProjectLayout(projectDir); err != "" {
+func bootstrapFromDir(projectDir string) *projectConfig {
+	if err := verifyProjectLayout(projectDir); err != "" {
 		dumpBadProjectLayout(projectDir, err)
 		return nil
 	}
 
-	logger, path, err := CreateLogger(projectDir)
+	logger, path, err := createLogger(projectDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to create logger:%s\n", err)
 		return nil
@@ -329,7 +328,7 @@ func BootstrapFromDir(projectDir string) *ProjectConfig {
 
 	fmt.Printf("Seven5 is logging to %s\n", path)
 
-	config, err := NewProjectConfig(projectDir, logger)
+	config, err := newprojectConfig(projectDir, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to compute project configuration (problem with path to configuration db?):%s\n", err.Error())
 		return nil
@@ -344,7 +343,7 @@ func BootstrapFromDir(projectDir string) *ProjectConfig {
 	}
 	config.Db = db
 
-	err = ClearTestDB(config)
+	err = clearTestDB(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error clearing the test db configuration:%s\n", err.Error())
 		return nil
@@ -353,10 +352,10 @@ func BootstrapFromDir(projectDir string) *ProjectConfig {
 	return config
 }
 
-//CreateNetworkResources creates the necessary 0MQ context and starts or re-initializes
+//createNetworkResources creates the necessary 0MQ context and starts or re-initializes
 //the mongrel2 server.  It returns the context if everything is ok and this should be
 //used by the whole program.
-func CreateNetworkResources(config *ProjectConfig) (gozmq.Context, error) {
+func createNetworkResources(config *projectConfig) (gozmq.Context, error) {
 	ctx, err := gozmq.NewContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to create zmq context :%s\n", err.Error())
@@ -373,7 +372,10 @@ func CreateNetworkResources(config *ProjectConfig) (gozmq.Context, error) {
 	return ctx, nil
 
 }
-func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {
+
+//startMongrel is a support routine that knows how to start a mongrel2 instance from the path and
+//set the error log and output log to the standard seven5 places.
+func startMongrel(config *projectConfig, ctx gozmq.Context) error {
 
 	mongrelPath, err := exec.LookPath("mongrel2")
 	if err != nil {
@@ -383,12 +385,12 @@ func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 
 	config.Logger.Printf("[PROCESS] using mongrel2 binary at %s", mongrelPath)
 
-	stdout, err := os.Create(filepath.Join(config.Path, MONGREL2, LOGDIR, "mongrel2.out.log"))
+	stdout, err := os.Create(filepath.Join(config.Path, mongrel2dir, logdir, "mongrel2.out.log"))
 	if err != nil {
 		return err
 	}
 
-	stderr, err := os.Create(filepath.Join(config.Path, MONGREL2, LOGDIR, "mongrel2.err.log"))
+	stderr, err := os.Create(filepath.Join(config.Path, mongrel2dir, logdir, "mongrel2.err.log"))
 	if err != nil {
 		return err
 	}
@@ -409,10 +411,10 @@ func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 
 	config.Logger.Printf("[PROCESS] changed working directory to %s and started mongrel2 (pid=%d)\n", cmd.Dir, cmd.Process.Pid)
 
-	socketPath := filepath.Join(config.Path, MONGREL2, RUN, CONTROL)
+	socketPath := filepath.Join(config.Path, mongrel2dir, run_dir, control)
 	path := fmt.Sprintf("ipc://%s", socketPath)
 	config.Logger.Printf("[ZMQ] using zmq connection to mongrel2 for sync with startup '%s'", path)
-	response, err := SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, config, ctx)
+	response, err := sendMongrelControl(time_cmd, two_secs_in_micros, path, config, ctx)
 	if err != nil {
 		return err
 	}
@@ -421,13 +423,16 @@ func startMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	return nil
 }
 
-func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
+//runMongrel is a support routine that can detect if a mongrel2 is running in the standard place
+//and verify that it is running correctly.  If it succeeds at doing this job, there is nothing
+//else to do.  If it fails, it calls startMongrel to try to bring up a new copy of mongrel2.
+func runMongrel(config *projectConfig, ctx gozmq.Context) error {
 
-	socketPath := filepath.Join(config.Path, MONGREL2, RUN, CONTROL)
+	socketPath := filepath.Join(config.Path, mongrel2dir, run_dir, control)
 	path := fmt.Sprintf("ipc://%s", socketPath)
 	config.Logger.Printf("[ZMQ] zmq connection to mongrel2 is '%s'", path)
 
-	result, err := SendMongrelControl(RELOAD_CMD, HUNDRED_MSECS_IN_MICROS, path, config, ctx)
+	result, err := sendMongrelControl(reload_cmd, hundred_msecs_in_micros, path, config, ctx)
 	if err != nil {
 		return err
 	}
@@ -437,7 +442,7 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	}
 	config.Logger.Printf("[ZMQ] reload successful: '%s'... will try to sync with 'time' command", result)
 	//just to make sure the server is ok
-	result, err = SendMongrelControl(TIME_CMD, TWO_SECS_IN_MICROS, path, config, ctx)
+	result, err = sendMongrelControl(time_cmd, two_secs_in_micros, path, config, ctx)
 	if err != nil {
 		return err
 	}
@@ -449,7 +454,9 @@ func runMongrel(config *ProjectConfig, ctx gozmq.Context) error {
 	return nil
 }
 
-func SendMongrelControl(cmd string, wait int64, path string, config *ProjectConfig, ctx gozmq.Context) (string, error) {
+//sendMongrelControl is the routine for talking to the control port of mongrel2.  It knows how to send
+//a command and get the response (these use netstrings).
+func sendMongrelControl(cmd string, wait int64, path string, config *projectConfig, ctx gozmq.Context) (string, error) {
 
 	//create ZMQ socket
 	s, err := ctx.NewSocket(gozmq.REQ)
@@ -527,19 +534,20 @@ func dumpBadProjectLayout(projectDir, err string) {
 	fmt.Fprintf(os.Stderr, "\nfor project structure details, see http://seven5.github.com/seven5/project_layout.html\n\n")
 }
 
-//Create a path to the SQLite db, given a project structure
-func db_path(config *ProjectConfig) string {
+//db_path is a support routine to return the path to the SQLite db, given a project structure
+func db_path(config *projectConfig) string {
 	return filepath.Join(config.Path, fmt.Sprintf("%s_test.sqlite", config.Name))
 
 }
 
-//FinishConfig completes the process of writing the data into the mongrel2 configuration
+//finishConfig completes the process of writing the data into the mongrel2 configuration
 //database and releases any resources used.
-func FinishConfig(config *ProjectConfig) error {
+func finishConfig(config *projectConfig) error {
 	return config.Db.Close()
 }
 
-var TABLEDEFS_SQL = []string{
+//tabledefs_sql is the SQL to create the mongrel2 tables.
+var tabledefs_sql = []string{
 	`DROP TABLE IF EXISTS server;`,
 	`DROP TABLE IF EXISTS host;`,
 	`DROP TABLE IF EXISTS handler;`,
