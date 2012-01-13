@@ -2,14 +2,7 @@
 
 ## An opinionated, stiff web framework written in go.
 
-The Dev Loop
-------------
+For general information about the project see [seven5's documentation on github](http://seven5.github.com/seven5).
 
-* Run `rock_on` in your project directory with [web app name] as a parameter.  Leave it running.
-* Edit your program's static/content files. 
-* Hit "reload" in the browser. Watch mongrel serve up your fresh content.
-* Enjoy.
-* Edit your program's .go files.  
-* Watch `rock_on` rebuild and restart your web application in less than a second.
-* Hit "reload" in the browser.
-* Enjoy more.
+For information about the API, see the [seven5 package doc](http://gopkgdoc.appspot.com/pkg/github.com/seven5/seven5) and the [store package doc](http://gopkgdoc.appspot.com/pkg/github.com/seven5/seven5/store), thoughtfully
+provided by godoc.

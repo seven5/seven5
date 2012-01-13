@@ -23,8 +23,8 @@ const (
 	route_test_header = "X-Seven5-Route-Test"
 )
 
-//Named is use to indicate that your object has a name method.  This is used to avoid specific
-//knowlege of the concrete type in some places.
+//Named is use to indicate that your object has a name method and should be placed into the
+//URL space.  This is used to avoid specific knowlege of the concrete type in some places.
 type Named interface {
 	//Name should return the name of the handler.
 	Name() string
@@ -38,7 +38,8 @@ type Named interface {
 }
 
 //AppStarter means that the object in question would like to receive a message at application 
-//startup time.
+//startup time.  The passed objects are a logger that is connected to seven5.log and the storage
+//in use for the application, if you need to do some initalization.
 type AppStarter interface {
 	AppStarting(*log.Logger, store.T) error
 }
