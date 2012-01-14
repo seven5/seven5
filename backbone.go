@@ -12,65 +12,17 @@ import (
 	"text/template"
 )
 
-const (
-	//CREATE signals to the validation method that a create operation is in progress.
-	OP_CREATE = iota
-	//READ signals to the validation method that a read operation is in progress.
-	OP_READ
-	//UPDATE signals to the validation method that a update operation is in progress.
-	OP_UPDATE
-	//DELETE signals to the validation method that a delete operation is in progress.
-	OP_DELETE
-)
-
-//RestfulOp is a type that indications the operation to be performed. It is passed to the Validate
-//function of Restful before the operation actually occurs.
-type RestfulOp int
-
-//Restful is the key interface for a restful service implementor.  This should be used to make the semantic
-//decisions necessary for the particular type implementor such as what user can read a particular
-//record or what parameters are required to create a new record.
-type Restful interface {
-	//Create is called when /api/PLURALNAME is posted to.  The values POSTed are passed to this function
-	//in the second parameter.  The currently logged in user (who supplied the params) is the last 
-	//parameter and this can be nil if there is no logged in user.
-	Create(store store.T, ptrToValues interface{}, session *Session) error
-	//Read is called when a url like /api/PLURALNAME/72 is accessed (GET) for the object with id=72.
-	//Implementations should implement the correct read semantics, such as security.
-	Read(store store.T, ptrToObject interface{}, id uint64, session *Session) error
-	//Update is called when a url like /api/PLURALNAME/72 is accessed (PUT) for the object with id=72.
-	//Implementations should implement the correct write semantics, such as security.  Note that this
-	//call is supposed to be idempotent, unlike Create.
-	Update(store store.T, ptrToNewValues interface{}, id uint64, session *Session) error
-	//Update is called when a url like /api/PLURALNAME/72 is accessed (DELETE) for the object with id=72.
-	//Implementations should implement the correct delete semantics, such as security. 
-	Delete(store store.T, id uint64, session *Session) error
-	//FindByKey is called when a url like /api/PLURALNAME is accessed (GET) with query parameters
-	//that indicate the key to be searched for and the value sought.  The session can be used in
-	//cases where there is a need to differentiate based on ownership of the object.  The max
-	//number of objects to return is supplied in the last parameter.
-	FindByKey(store store.T, key string, value string, session *Session, max int) (interface{}, error)
-	//Validate is called BEFORE any other method in this set (except Make).  It can be used to
-	//centralize repeated validation checks.  If the validation passes, the receiver should return
-	//nil, otherwise a map indicating the field name (key) where the problem was detected and the
-	//error message to display to the user as the value.  This will be sent back to the client and
-	//the intentded method is NOT called.
-	Validate(store store.T, ptrToValues interface{}, id uint64, op RestfulOp, session *Session) map[string]string
-	//Make is called with a given id to create a new instance of the appropriate type for use with
-	//this interface.  The id may be zero.  This function is needed because the seven5 library does
-	//not know the true type of the structures being stored/retrieved.
-	Make(id uint64) interface{}
-}
-
 //models that have been found
 var models = make(map[string][]string)
+//services that have been found
+var services = []Httpified{}
 
-//BackboneModel is called by the "glue" code between a user-level package (application) and the seven5
-//library to indicate that a given type is intended to be used on the client side.  Note that types
+//backboneModel is BackboneService that is part of the seven5 library.  This calls is used 
+//to indicate that a given type is intended to be used on the client side.  Note that types
 //that are to be sent to the client side will be marshalled/unmarshalled by the json library of
 //Go and thus will obey structure tags such as json="-" (which prevents the field from arriving
 //at the client).  The first parameter should be all lowercase.
-func BackboneModel(singularName string, ptrToStruct interface{}) {
+func backboneModel(singularName string, ptrToStruct interface{}) {
 	fields := []string{}
 
 	v := reflect.ValueOf(ptrToStruct)
@@ -99,9 +51,22 @@ func BackboneModel(singularName string, ptrToStruct interface{}) {
 //BackboneServiceis called by the "glue" code between a user-level package (application) and the seven5
 //library to indicate to indicate the service that can implement storage and validation for the
 //particular name.  Note that the actual URL will be /api/plural and the plural is computed via the
-//Plural() function.  The signular name must be english and should be lower case.
-func BackboneService(singularName string, svc Restful) {
+//Pluralize() function.  The signular name must be english and should be lower case.  The last parameter
+//is an example of the type to be manipulated that is analyzed for fields that can be shown to the
+//client side code.
+//
+//Most calls to this function are autogenerated by tune and look like this for struct Foo in a user
+//package named pkg (note capitalization):
+//BackboneService("foo",pkg.NewFooSvc(),&pkg.Foo{})
+func BackboneService(singularName string, svc Httpified, example interface{}) {
+	services=append(services,svc)
+	backboneModel(singularName, example)
+}
 
+//getBackboneServices returns the set of registered backbone services. This should never be needed
+//by user-level and it is called at startup via WebAppRun().
+func backboneServices() []Httpified {
+	return services
 }
 
 //modelGuise is responsible for shipping backbone models to the client.  It takes in models (structures

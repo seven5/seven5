@@ -34,7 +34,7 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 		c.Fatalf("unable to create mongrel2 or 0MQ resources:", err)
 	}
 
-	if !StartUp(ctx, config, []Named{n}) {
+	if !startUp(ctx, config, []Named{n}) {
 		c.Fatalf("unable to start the handlers, no context found: %s, %s", n.Name(), path)
 	}
 	return ctx

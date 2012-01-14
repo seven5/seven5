@@ -1,19 +1,17 @@
 package seven5
 
 import (
-	"bytes"
 	"crypto/bcrypt"
 	"fmt"
-	"log"
-	"math/rand"
-	"mongrel2"
-	"net/http"
-	"net/url"
 	"reflect"
 	"seven5/store"
 	"time"
 )
 
+//User is a structure representing a user.  The fields are largely ripped off from the Django
+//user model.  Note that to allow user creation there are two fields that clients send to the
+//server but which are not stored directly.  Many of the fields of this object are not shared
+//with clients.
 type User struct {
 	Username    string `seven5key:"Username"`
 	FirstName   string
@@ -42,7 +40,9 @@ type User struct {
 }
 
 //Sessions represent a connected user. They contain a copy of the user structure at the time the
-//user logged in.  Per-application storage can be put in the Info map.
+//user logged in.  Per-application storage can be put in the Info map.  There is no REST api to
+//sessions, they are entirely on the server side except for the session id that is sent to a
+//connected client.
 type Session struct {
 	Id        uint64 `seven5All:"false"`
 	User      *User
@@ -101,152 +101,19 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 	return user.Id, err
 }
 
-//UserGuise represents the user api in the URL space.  It mounts itself at /api/user
-type UserGuise struct {
-	//we need the implementation of the default HTTP machinery 
-	*HttpRunnerDefault
-	store.T
-}
-
-//Name returns "UserGuise"
-func (self *UserGuise) Name() string {
-	return "UserGuise" //used to generate the UniqueId so don't change this
-}
-
-//Pattern returns "/api/user" which is where it sits in the URL space of mongrel2
-func (self *UserGuise) Pattern() string {
-	return "/api/user"
-}
-
-func (self *UserGuise) AppStarting(log *log.Logger, store store.T) error {
-	self.T = store
-	return nil
-}
-
-//NewUserGuise creates a new guise... but only one should be needed in any program and this code is 
-//called as the program starts by the infrastructure so user code should never need it.
-func NewUserGuise() *UserGuise {
-	return &UserGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}, nil}
-}
-
-//ProcessRequests handles a single request to the UserGuise. It returns a single response. This is
-//an unusual REST-like service because has an "extra" method called "login" that used to convert
-//a set of credentials into a logged in session.  The login method is /api/user/login, the remainder
-//of the urls are standard CRUD for REST.
-func (self *UserGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
-	var err error
-	//path:=req.Path
-	_ = req.Header["METHOD"]
-	uri := req.Header["URI"]
-
-	resp := new(mongrel2.HttpResponse)
-	resp.ServerId = req.ServerId
-	resp.ClientId = []int{req.ClientId}
-
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		resp.StatusCode = http.StatusBadRequest
-		resp.StatusMsg = "could not understand URI"
-		return resp
-	}
-	values := parsed.Query()
-	user := ""
-	pwd := ""
-
-	for k, v := range values {
-		if k == "username" {
-			user = v[0]
-			continue
-		}
-		if k == "password" {
-			pwd = v[0]
-			continue
-		}
-	}
-
-	fmt.Printf("got u and p:'%s' and '%s'\n", user, pwd)
-
-	badCred := `{ "err": "Username or password is incorrect"}`
-	if user == "" || pwd == "" {
-		return fillBody(badCred, resp)
-	}
-	hits := make([]*User, 0, 1)
-	err = self.T.FindByKey(&hits, "Username", user, uint64(0))
-	if err != nil {
-		resp.StatusCode = http.StatusInternalServerError
-		resp.StatusMsg = fmt.Sprintf("%v", err)
-		return resp
-	}
-	if len(hits) == 0 {
-		return fillBody(badCred, resp)
-	}
-	err = bcrypt.CompareHashAndPassword(hits[0].BcryptHash, []byte(pwd))
-	if err != nil && err != bcrypt.MismatchedHashAndPasswordError {
-		resp.StatusCode = http.StatusInternalServerError
-		resp.StatusMsg = fmt.Sprintf("%v", err)
-		return resp
-	}
-	if err == bcrypt.MismatchedHashAndPasswordError {
-		return fillBody(badCred, resp)
-	}
-
-	//create the new session Id... make sure it's unique
-	for {
-		s := make([]*Session, 0, 1)
-		r := createRandomSessionId()
-		fmt.Printf("checking '%s'\n", r)
-		err = self.T.FindByKey(&s, "SessionId", r, uint64(0))
-		if err != nil {
-			resp.StatusCode = http.StatusInternalServerError
-			resp.StatusMsg = fmt.Sprintf("%v", err)
-			return resp
-		}
-		if len(s) == 0 {
-			break
-		}
-	}
-	session := new(Session)
-	session.User = hits[0]
-	session.SessionId = createRandomSessionId()
-	session.Info = make(map[string]interface{})
-	err = self.T.Write(session)
-	if err != nil {
-		fmt.Printf("error searching for  %s:%v\n", user, err)
-		resp.StatusCode = http.StatusBadRequest
-		resp.StatusMsg = badCred
-		return resp
-	}
-	fmt.Printf("successful login %s and placed in session %s\n", user, session.SessionId)
-
-	return fillBody(fmt.Sprintf(`{"sessionId":"%s"}`, session.SessionId), resp)
-}
-
-//fillBody creates the body of the response for a message back to the client. It expects to be
-//sending the client the json content provided as parameter 1.
-func fillBody(jsonContent string, resp *mongrel2.HttpResponse) *mongrel2.HttpResponse {
-	body := new(bytes.Buffer)
-	body.WriteString(jsonContent)
-	resp.Header = make(map[string]string)
-	resp.Header["Content-Type"] = "text/json"
-	resp.Body = body
-	resp.ContentLength = body.Len()
-	resp.StatusCode = 200
-	resp.StatusMsg = "ok"
-	return resp
-}
-
-var letter = []int{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'}
-
-//createRandomSessionId creates a random session id like xyz-123 that (hopefully) is relatively easy
-//to remember when debugging but hard to guess.
-func createRandomSessionId() string {
-	l := []int{rand.Intn(len(letter)), rand.Intn(len(letter)), rand.Intn(len(letter))}
-	n := rand.Intn(1000)
-	return fmt.Sprintf("%c%c%c-%03d", letter[l[0]], letter[l[1]], letter[l[2]], n)
-}
-
+//This struct has no fields because REST implementations should not hold state.  The implementation of
+//the methods of this service are a fairly simple example service.  
 type UserSvc struct {
 	//no fields! REST calls are stateless!
+}
+
+//NewUserSvc creates a rest service to process requests about users.  The method's name NewXXXSvc()
+//is the conventional way to export a service that deals with the struct XXX. The tune
+//tool expects this to be exported by any module that exports User.  (Note that this particular
+//service is automatically imported by tune, not discovered, but if it were it would be expected
+//to follow this convention.)
+func NewUserSvc() Httpified {
+	return NewRestHandlerDefault(&UserSvc{}, "user")
 }
 
 //Create can only be called if all the needed fields are supplied and the session points to a user
@@ -256,22 +123,22 @@ func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Ses
 }
 
 //Read can be called by any logged in user.  It does not reveal all the fields because of the
-//json marshalling.  This is used by applications to do useful things like display another
+//json marshalling annotations.  This is used by applications to do useful things like display another
 //users image or name.
-func (self *UserSvc) Read(store store.T, ptrToObject interface{}, id uint64, session *Session) error {
-	return store.FindById(ptrToObject, id)
+func (self *UserSvc) Read(store store.T, ptrToObject interface{}, session *Session) error {
+	return store.FindById(ptrToObject, ptrToObject.(User).Id)
 }
 
 //Update can be called only on a user who is also logged into the session or by a user who is
 //logged in as a super user.
-func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, id uint64, session *Session) error {
+func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *Session) error {
 	return store.Write(ptrToNewValues)
 
 }
 
 //Create can only be called if the session points to a user who is a super user.
-func (self *UserSvc) Delete(store store.T, id uint64, session *Session) error {
-	return store.Delete(self.Make(id))
+func (self *UserSvc) Delete(store store.T, ptrToValues interface{}, session *Session) error {
+	return store.Delete(ptrToValues)
 
 }
 
@@ -285,61 +152,66 @@ func (self *UserSvc) FindByKey(store store.T, key string, value string, session 
 
 //Validate is called BEFORE any other method in this set (except Make).  This does various kinds of
 //simple validation that is common to many of the methods.
-func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, id uint64, op RestfulOp, session *Session) map[string]string {
+func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op RestfulOp, session *Session) map[string]string {
 	//all our methods require a login!
 	result := make(map[string]string)
 	if session == nil {
 		result["_"] = "access is restricted to users that are logged in"
 		return result
 	}
-	//make sure the pointer is ok
-	ptrValue := reflect.ValueOf(ptrToValues)
-	if ptrValue.Kind() != reflect.Ptr {
-		result["_"] = fmt.Sprintf("internal error: wrong type passed to validate:%v", ptrValue)
+	user, ok := ptrToValues.(*User)
+	if !ok {
+		result["_"] = fmt.Sprintf("internal error: unexpected type:%v", ptrToValues)
 		return result
 	}
-	structValue := ptrValue.Elem()
+	//
+	//Note: All the code in this switch is to detect failures, not successes.  Success means exiting
+	//the switch.
+	//
 	switch op {
 	case OP_CREATE:
+		if !session.User.IsSuperuser {
+			result["_"] = "creation of new users is not allowed"
+			return result
+		}
+		
 		ok := true
-		ok = self.verifyFieldPresent(structValue, result, "Username", false) && ok
-		ok = self.verifyFieldPresent(structValue, result, "FirstName", false) && ok
-		ok = self.verifyFieldPresent(structValue, result, "LastName", false) && ok
-		ok = self.verifyFieldPresent(structValue, result, "Email", false) && ok
-		ok = self.verifyFieldPresent(structValue, result, "_PlainTextPassword", false) && ok
+		v := reflect.ValueOf(*user)
+		ok = self.verifyFieldPresent(v, result, "Username", true) && ok
+		ok = self.verifyFieldPresent(v, result, "FirstName", true) && ok
+		ok = self.verifyFieldPresent(v, result, "LastName", true) && ok
+		ok = self.verifyFieldPresent(v, result, "Email", true) && ok
+		ok = self.verifyFieldPresent(v, result, "_PlainTextPassword", true) && ok
 		if !ok {
 			return result
 		}
-		//fields are ok, is this person a super user?
-		if !session.User.IsSuperuser {
-			result["_"] = "creation of new users is not allowed"
-		}
 	case OP_READ:
-		if id != uint64(0) {
-			return nil
+		if user.Id == uint64(0) {
+			result["id"] = "no id value supplied!"
+			return result
 		}
 		//only can search by username
-		if self.verifyFieldPresent(structValue, result, "Username", true) == false {
+		if self.verifyFieldPresent(reflect.ValueOf(*user), result, "Username", true) == false {
 			return result
 		}
 	case OP_UPDATE:
-		if session.User.IsSuperuser {
-			return nil
-		}
-		if self.verifyFieldPresent(structValue, result, "Id", true) == false {
+		if user.Id == uint64(0) {
+			result["id"] = "no id value supplied!"
 			return result
 		}
-		target := structValue.FieldByName("Id").Uint()
-		if target != session.User.Id {
+		if user.Id != session.User.Id || session.User.IsSuperuser {
 			result["_"] = "updating of user data is not allowed"
 			return result
 		}
 	case OP_DELETE:
-		if session.User.IsSuperuser {
-			return nil
+		if user.Id == uint64(0) {
+			result["id"] = "no id value supplied!"
+			return result
 		}
-		result["_"] = "deleting users is not allowed"
-		return result
+		if !session.User.IsSuperuser {
+			result["_"] = "deleting users is not allowed"
+			return result
+		}
 	}
 	return nil
 }
@@ -351,8 +223,10 @@ func (self *UserSvc) Make(id uint64) interface{} {
 
 var noValue reflect.Value
 
-//verifyFieldPresent checks a structure type for a given field name.  If you pass true then the value
-//cannot be the zero value for the type.  Returns true if everything is ok.
+//verifyFieldPresent checks a structure type for a given field name.  If you pass true for the
+//last parameter, then the value cannot be the zero value for the type.  Returns true if everything is ok.
+//If there is an error, it returns false and updates the result map with an error message as the value
+//and the field name as the key.
 func (self *UserSvc) verifyFieldPresent(v reflect.Value, result map[string]string, name string, cannotBeZero bool) bool {
 
 	field := v.FieldByName(name)

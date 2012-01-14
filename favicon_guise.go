@@ -62,7 +62,7 @@ func (self *FaviconGuise) AppStarting(log *log.Logger) error {
 
 //NewFaviconGuise creates a new instance of this guise.  This is called by the infrastructure and
 //client code should never need to call it.
-func NewFaviconGuise() *FaviconGuise {
+func newFaviconGuise() *FaviconGuise {
 	return &FaviconGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}}
 }
 
