@@ -3,13 +3,13 @@ package seven5
 import (
 	"crypto/bcrypt"
 	"fmt"
-	"reflect"
 	"seven5/store"
 	"time"
+	"errors"
 )
 
 //User is a structure representing a user.  The fields are largely ripped off from the Django
-//user model.  Note that to allow user creation there are two fields that clients send to the
+//user model.  Note that to allow user creation there are fields that clients send to the
 //server but which are not stored directly.  Many of the fields of this object are not shared
 //with clients.
 type User struct {
@@ -25,10 +25,11 @@ type User struct {
 	IsSuperuser bool      `json:"-"`
 	LastLogin   time.Time //UTC ... can be zero valued for never logged in
 	Created     time.Time //UTC
-	//for input only from the client... leading _ indicates should not be stored by the storage layer
+	//for input only from the client... annotation indicates should not be stored by the storage layer
 	//the json layer will marshal this inbound but will not outbound if it is empty (as expected)
-	_PlainTextPassword string `json:"PlainTextPassword,omitempty"`
-	_Superuser         bool   `json:"Superuser,omitempty"`
+	UserInput_Pwd   string `json:"PlainTextPassword,omitempty, seven5store:"false"`
+	UserInput_Super bool   `json:"Superuser,omitempty", seven5store:"false"`
+	UserInput_Email string   `json:"Email,omitempty", seven5store:"false"`
 
 	//this is for app-specific preferences
 	Preference map[string]interface{}
@@ -38,6 +39,10 @@ type User struct {
 	//TZoneOffset int  
 	//ImageURL string //usually http://www.gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50
 }
+
+var (
+	USER_EXISTS=errors.New("username already exists")
+)
 
 //Sessions represent a connected user. They contain a copy of the user structure at the time the
 //user logged in.  Per-application storage can be put in the Info map.  There is no REST api to
@@ -76,7 +81,7 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 		return uint64(0), err
 	}
 	if len(hit) > 0 {
-		return hit[0].Id, nil //nothing to do, we found that username
+		return hit[0].Id, USER_EXISTS //nothing to do, we found that username, signal error
 	}
 	user := new(User)
 	user.Username = Username
@@ -97,7 +102,7 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 	if err != nil {
 		return uint64(0), err
 	}
-	fmt.Printf("created user %s with id %d\n", Username, user.Id)
+	//fmt.Printf("created user %s with id %d\n", Username, user.Id)
 	return user.Id, err
 }
 
@@ -119,7 +124,24 @@ func NewUserSvc() Httpified {
 //Create can only be called if all the needed fields are supplied and the session points to a user
 //who is a super user.
 func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Session) error {
-	return store.Write(ptrToValues)
+	u:=ptrToValues.(*User)
+	pwd:=u.UserInput_Pwd
+	super:=u.UserInput_Super
+	email:=u.UserInput_Email
+	
+	u.UserInput_Pwd=""//XXX SHOULD BE AUTOMATIC
+	u.UserInput_Email=""//XXX SHOULD BE AUTOMATIC
+	u.UserInput_Super=false//XXX SHOULD BE AUTOMATIC
+	
+	id, err:=create(store, u.Username, u.FirstName, u.LastName,  email, pwd, super)
+	if err!=nil && err!=USER_EXISTS {
+		return err
+	}
+	
+	if err==USER_EXISTS {
+		return &userExistsError{}
+	}
+	return store.FindById(ptrToValues,id)
 }
 
 //Read can be called by any logged in user.  It does not reveal all the fields because of the
@@ -174,14 +196,28 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			result["_"] = "creation of new users is not allowed"
 			return result
 		}
-		
+
 		ok := true
-		v := reflect.ValueOf(*user)
-		ok = self.verifyFieldPresent(v, result, "Username", true) && ok
-		ok = self.verifyFieldPresent(v, result, "FirstName", true) && ok
-		ok = self.verifyFieldPresent(v, result, "LastName", true) && ok
-		ok = self.verifyFieldPresent(v, result, "Email", true) && ok
-		ok = self.verifyFieldPresent(v, result, "_PlainTextPassword", true) && ok
+		if user.Username=="" {
+			ok=false
+			result["Username"]="Username is required"
+		}
+		if user.FirstName=="" {
+			ok=false
+			result["FirstName"]="FirstName is required"
+		}
+		if user.LastName=="" {
+			ok=false
+			result["LastName"]="LastName is required"
+		}
+		if user.UserInput_Email=="" {
+			ok=false
+			result["Email"]="Email address is required"
+		}
+		if user.UserInput_Pwd=="" {
+			ok=false
+			result["PlainTextPassword"]="Password is required"
+		}
 		if !ok {
 			return result
 		}
@@ -191,7 +227,8 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			return result
 		}
 		//only can search by username
-		if self.verifyFieldPresent(reflect.ValueOf(*user), result, "Username", true) == false {
+		if user.Username=="" {
+			result["Username"]="Only searching by Username is allowed"
 			return result
 		}
 	case OP_UPDATE:
@@ -221,22 +258,17 @@ func (self *UserSvc) Make(id uint64) interface{} {
 	return &User{Id: id}
 }
 
-var noValue reflect.Value
+//Used to to wrap a USER_EXISTS error from the create() function.  This allows us to send a 200 to th
+//client, not a 500 for attempting to create a user with an already existing
+type userExistsError struct {
+}
 
-//verifyFieldPresent checks a structure type for a given field name.  If you pass true for the
-//last parameter, then the value cannot be the zero value for the type.  Returns true if everything is ok.
-//If there is an error, it returns false and updates the result map with an error message as the value
-//and the field name as the key.
-func (self *UserSvc) verifyFieldPresent(v reflect.Value, result map[string]string, name string, cannotBeZero bool) bool {
+//Error makes userExistsError satisfy the error interface also
+func (self *userExistsError) Error() string {
+	return "username already exists"
+}
 
-	field := v.FieldByName(name)
-	if field == noValue {
-		result[name] = fmt.Sprintf("internal error! %s is a required field but it's not in this structure!", name)
-		return false
-	}
-	if cannotBeZero && field == reflect.Zero(field.Type()) {
-		result[name] = fmt.Sprintf("%s not supplied, and it is a required field", name)
-		return false
-	}
-	return true
+//ErrorMap makes userExistsError satisfy the RestError interface
+func (self *userExistsError) ErrorMap() map[string]string {
+	return map[string]string {"Username":"username already exists"}
 }

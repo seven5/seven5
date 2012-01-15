@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"mongrel2"
+	"os"
 	"runtime"
 	"strings"
 )
@@ -96,12 +97,14 @@ func protectedProcessRequest(config *projectConfig, req *mongrel2.HttpRequest, t
 	defer func() {
 		if x := recover(); x != nil {
 			config.Logger.Printf("[%s]: PANIC! sent error page for %s: %v\n", target.Name(), req.Path, x)
+			fmt.Fprintf(os.Stderr, "[%s]: PANIC! sent error page for %s: %v\n", target.Name(), req.Path, x)
 			resp = new(mongrel2.HttpResponse)
 			resp.StatusCode = 500
 			resp.StatusMsg = "Internal Server Error"
 			b := fmt.Sprintf("Panic: %v\n", x)
 			resp.ContentLength = len(b)
 			resp.Body = strings.NewReader(b)
+			fmt.Fprintf(os.Stderr,"%s\n-----------\n",generateStackTrace(fmt.Sprintf("%v",x)))
 		}
 	}()
 	resp = target.ProcessRequest(req)
@@ -109,9 +112,9 @@ func protectedProcessRequest(config *projectConfig, req *mongrel2.HttpRequest, t
 	return
 }
 
-//Generate500Page returns an error page as a mongrel2.Response.  This includes a call stack of the point
+//generate500Page returns an error page as a mongrel2.Response.  This includes a call stack of the point
 //where the caller called this function.
-func Generate500Page(err string, request *mongrel2.HttpRequest) *mongrel2.HttpResponse {
+func generate500Page(err string, request *mongrel2.HttpRequest) *mongrel2.HttpResponse {
 	fiveHundred := new(mongrel2.HttpResponse)
 
 	fiveHundred.ServerId = request.ServerId
@@ -130,12 +133,14 @@ func Generate500Page(err string, request *mongrel2.HttpRequest) *mongrel2.HttpRe
 func generateStackTrace(err string) string {
 	buffer := new(bytes.Buffer)
 	buffer.WriteString(err)
-	buffer.WriteString("\n----Stacktrace----\n")
+	buffer.WriteString("\n----Stacktrace ----\n")
 	for i := 2; ; i++ {
 		_, file, line, ok := runtime.Caller(i)
 		if ok {
-			f := strings.Split(file, "/")
-			s := fmt.Sprintf("%s: line %d\n", f[len(f)-1], line)
+			if last:=isGoRuntime(file); last!="" {
+				file = fmt.Sprintf("[Go Runtime %s]",last)
+			} 
+			s := fmt.Sprintf("%s: line %d\n", file, line)
 			buffer.WriteString(s)
 		} else {
 			break
@@ -143,6 +148,17 @@ func generateStackTrace(err string) string {
 	}
 	return buffer.String()
 }
+
+//isGoRuntime looks for the pattern go/src/pkg/runtime in the path to see if this file is likely
+//to be one we can ignore.  it returns the last part of the path if finds the pattern otherwise ""
+func isGoRuntime(file string) string {
+	if strings.Index(file,"/go/src/pkg/runtime/")!=-1 {
+		split:=strings.Split(file,"/")
+		return split[len(split)-1];
+	}
+	return ""
+}
+
 
 //Shutdown here is a bit trickier than it might look.  This sends the shutdown message
 //to the write loop.  The read loop would never see the read message if you closed it here

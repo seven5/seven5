@@ -7,7 +7,8 @@ import (
 	"mongrel2"
 	"net/http"
 	"net/url"
-	"os"
+	//	"os"
+	"log"
 	"seven5/store"
 	"strconv"
 	"strings"
@@ -25,6 +26,20 @@ const (
 	OP_DELETE
 )
 
+//RestError is used to indicate that an error occurred in a REST method that should NOT be 
+//considered an internal error--e.g. the data presented to the storage method was not suitable.
+//This results in a 200 response to the client, not a 500 response.  Every effort should be
+//made to detect problems in the Validate() method of Restful, rather than using this mechanism as it
+//complicates the REST implementation.
+type RestError interface {
+	error
+	//ErrorMap returns the error message as the value and the key is the field with the problem,
+	//or "_" for the whole thing is really busted.  This is the same format as the
+	//result of Validate() on the Restful type.
+	ErrorMap() map[string]string
+}
+
+
 //RestfulOp is a type that indications the operation to be performed. It is passed to the Validate
 //function of Restful before the operation actually occurs.
 type RestfulOp int
@@ -32,6 +47,12 @@ type RestfulOp int
 //Restful is the key interface for a restful service implementor.  This should be used to make the semantic
 //decisions necessary for the particular type implementor such as what user can read a particular
 //record or what parameters are required to create a new record.
+//
+//It is expected that most of the semantics are expressed in the Validate() method and that errors
+//from the storage methods should passed through to the client as errors (500 class) rather than
+//200 class resposes that *contain* an error message in the payload.  If you want to return an error
+//from a storage method you should return something of type RESTError and not error and the
+//REST infrastructure will call the ErrorMap() function to get the "user level" error information.
 type Restful interface {
 	//Create is called when /api/PLURALNAME is POSTed to.  The values POSTed are passed to this function
 	//in the second parameter.  The currently logged in user (who supplied the params) is the last 
@@ -80,11 +101,11 @@ type RestHandlerDefault struct {
 	//we need the implementation of the default HTTP machinery from Seven5
 	*HttpRunnerDefault
 	//client code should provide this implementation
-	svc   Restful
+	svc Restful
 	//name must be supplied by client code, singular and lower case english
 	plural string
 	//inserted once the application is running
-	store store.T
+	store    store.T
 	singular string
 }
 
@@ -92,17 +113,24 @@ type RestHandlerDefault struct {
 //to be restful to the svc provided as the first object.  The second param should be singular,
 //english, and lowercase noun like "user" or "fart".
 func NewRestHandlerDefault(svc Restful, nounSingular string) *RestHandlerDefault {
-	return &RestHandlerDefault{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}},svc,Pluralize(nounSingular),nil,nounSingular}
+	return &RestHandlerDefault{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}, svc, Pluralize(nounSingular), nil, nounSingular}
 }
 
 //For the HTTPified interface, we have to have a name
 func (self *RestHandlerDefault) Name() string {
-	return self.singular;
+	return self.singular
+}
+
+//AppStarting is called by the infrastructure as the application is booted.  The REST handler
+//saves a copy of the store interface that the application is using so it can do lookups later.
+func (self *RestHandlerDefault) AppStarting(log *log.Logger, store store.T) error {
+	self.store=store
+	return nil
 }
 
 //Pattern returns the URL that we are using for REST, which is not the same as the name (singular)
 func (self *RestHandlerDefault) Pattern() string {
-	return "/api/"+self.plural;
+	return "/api/" + self.plural
 }
 
 //Handle a single request of the HTTP level of mongrel. This code primarily figures out what
@@ -114,7 +142,7 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 	response.ServerId = req.ServerId
 	response.ClientId = []int{req.ClientId}
 
-	fmt.Fprintf(os.Stderr, "method %s called on %s with body '%s'\n", req.Header["METHOD"], req.Path, req.Body)
+	//fmt.Fprintf(os.Stderr, "method %s called on %s with body '%s'\n", req.Header["METHOD"], req.Path, req.Body)
 
 	var ct string
 
@@ -181,6 +209,8 @@ func discoverSession(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,
 	sessionId := req.Header["x-seven5-session"]
 	sessionFailed := "bad session"
 
+	//fmt.Printf("session id found on server side %s, %v\n", sessionId, sessionId == "")
+
 	if sessionId == "" {
 		if okForNoSession {
 			return nil, nil
@@ -191,6 +221,7 @@ func discoverSession(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,
 	}
 
 	hits := make([]*Session, 0, 1)
+
 	err := store.FindByKey(&hits, "SessionId", sessionId, uint64(0))
 	if err != nil || len(hits) == 0 {
 		fmt.Printf("bad session attempt %s [no such session?%v, error?%v]\n", sessionId, len(hits) == 0, err)
@@ -205,17 +236,17 @@ func discoverSession(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,
 //formatValidationError puts the appropriate fields into a HTTP response when the validation at
 //the REST level has failed.
 func formatValidationError(errMap map[string]string, response *mongrel2.HttpResponse) *mongrel2.HttpResponse {
-	jsonContent,err:=json.Marshal(&errMap)
-	if err!=nil {
+	shell:=make(map[string]map[string]string)
+	shell["error"]=errMap
+	jsonContent, err := json.Marshal(&shell)
+	if err != nil {
 		response.StatusCode = http.StatusInternalServerError
-		response.StatusMsg = fmt.Sprintf("unable to marshal error to json error: %v",err)
+		response.StatusMsg = fmt.Sprintf("unable to marshal error to json error: %v", err)
 		return response
 	}
-	response.StatusCode = http.StatusInternalServerError
-	response.StatusMsg = fmt.Sprintf("failed to validate on create: %s", err)
 	fillBody(string(jsonContent), response)
 	return response
-	
+
 }
 
 //dispatchCreate is called to handle a POST message to the /api/plural  url.  It is not
@@ -223,7 +254,8 @@ func formatValidationError(errMap map[string]string, response *mongrel2.HttpResp
 func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, store store.T) *mongrel2.HttpResponse {
 	values := svc.Make(uint64(0))
 
-	session, respErr := discoverSession(req, response, store, false)
+	session, respErr := discoverSession(req, response, store, true)
+
 	if respErr != nil {
 		return respErr
 	}
@@ -235,12 +267,20 @@ func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
 		response.StatusMsg = fmt.Sprintf("json parse error: %s", err)
 		return response
 	}
-	if errMap:=svc.Validate(store, values, OP_CREATE, session); errMap != nil {
+
+	fmt.Printf("values that have been unmarshalled in dispatch: %+v\n",values);
+	
+	if errMap := svc.Validate(store, values, OP_CREATE, session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 	if err = svc.Create(store, values, session); err != nil {
-		response.StatusCode = http.StatusBadRequest
-		response.StatusMsg = fmt.Sprintf("failed to create: %s", err)
+		restError, ok:=err.(RestError)
+		if ok {
+			return formatValidationError(restError.ErrorMap(), response)
+		} else {
+			response.StatusCode = http.StatusInternalServerError
+			response.StatusMsg = fmt.Sprintf("failed to create: %s", err)
+		}
 		return response
 	}
 	return marshalJsonIntoResponse(response, values)
@@ -279,7 +319,7 @@ func dispatchUpdate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
 		response.StatusMsg = fmt.Sprintf("json parse error: %s", err)
 		return response
 	}
-	if errMap:=svc.Validate(store, values, RestfulOp(OP_UPDATE), session); errMap!=nil {
+	if errMap := svc.Validate(store, values, RestfulOp(OP_UPDATE), session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 	if err = svc.Update(store, values, session); err != nil {
@@ -301,8 +341,8 @@ func dispatchRead(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, sv
 	if respErr != nil {
 		return respErr
 	}
-	
-	if errMap:=svc.Validate(store, values, RestfulOp(OP_READ), session); errMap!=nil {
+
+	if errMap := svc.Validate(store, values, RestfulOp(OP_READ), session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 

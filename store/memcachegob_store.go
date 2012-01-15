@@ -347,7 +347,6 @@ func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName 
 //element--and only as many results are returned as available places in the slice.
 func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string, value string, userId uint64) (errReturn error) {
 	var err error
-
 	if reflect.TypeOf(ptrToResult).Kind() != reflect.Ptr {
 		return BAD_SLICE_PTR
 	}
@@ -384,8 +383,9 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	tree:=llrb.New(LessUint64)
 	
 	var ignored *memcache.Item
-	
+
 	for _, v:=range pairs {
+		
 		if v.Value!=value {
 			continue
 		}	
@@ -781,7 +781,7 @@ func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName s
 //by owner.
 func (self *MemcacheGobStore) getKeyNameForRecord(typeName string, keyName string, keyValue string, userId uint64) string {
 	if fmt.Sprintf("%s", keyValue) == "<uint64 Value>" {
-		panic("here")
+		panic("somebody passed a VALUE object to getKeyNameForRecord")
 	}
 	if userId == uint64(0) {
 		return fmt.Sprintf("%s-key-%s-val-%s", typeName, keyName, keyValue)

@@ -79,7 +79,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 		}
 	}
 
-	fmt.Printf("got u and p:'%s' and '%s'\n", user, pwd)
+	//fmt.Printf("got u and p:'%s' and '%s'\n", user, pwd)
 
 	badCred := `{ "err": "Username or password is incorrect"}`
 	if user == "" || pwd == "" {
@@ -109,7 +109,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 	for {
 		s := make([]*Session, 0, 1)
 		r := createRandomSessionId()
-		fmt.Printf("checking '%s'\n", r)
+		//fmt.Printf("checking '%s'\n", r)
 		err = self.T.FindByKey(&s, "SessionId", r, uint64(0))
 		if err != nil {
 			resp.StatusCode = http.StatusInternalServerError
@@ -131,8 +131,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 		resp.StatusMsg = badCred
 		return resp
 	}
-	fmt.Printf("successful login %s and placed in session %s\n", user, session.SessionId)
-
+	//fmt.Printf("successful login %s and placed in session %s\n", user, session.SessionId)
 	return fillBody(fmt.Sprintf(`{"sessionId":"%s"}`, session.SessionId), resp)
 }
 

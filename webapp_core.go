@@ -59,20 +59,16 @@ var systemGuise = []Named{newFaviconGuise(), newLoginGuise(), newModelGuise()}
 func startUp(ctx gozmq.Context, conf *projectConfig, named []Named) bool {
 
 	store := &store.MemcacheGobStore{memcache.New(store.LOCALHOST)}
-	bboneSvc := backboneServices()
 	
-	allNamed := make([]Named, len(systemGuise)+len(named)+len(bboneSvc))
+	allNamed := make([]Named, len(systemGuise)+len(named))
 	for i, n := range systemGuise {
 		allNamed[i] = n
 	}
 	for i, n := range named {
 		allNamed[i+len(systemGuise)] = n
 	}
-	for i, n := range bboneSvc {
-		allNamed[i+len(systemGuise)+len(named)] = n
-	}
+
 	
-	//fmt.Printf("Starting...")
 	for _, h := range allNamed {
 		rh := h.(mongrel2.RawHandler)
 		if err := rh.Bind(h.Name(), ctx); err != nil {
@@ -83,7 +79,6 @@ func startUp(ctx gozmq.Context, conf *projectConfig, named []Named) bool {
 		if ok {
 			starter.AppStarting(conf.Logger, store)
 		}
-		//fmt.Printf("%s...",h.Name())
 		switch x := h.(type) {
 		case Httpified:
 			go x.(HttpRunner).RunHttp(conf, x)
@@ -106,8 +101,18 @@ func WebAppRun(named ...Named) error {
 	fmt.Println("Web app running")
 	var ctx gozmq.Context
 	var err error
-
-	config,err:=webAppDefaultConfig(named)
+	
+	//add backbone-REST services into the set of named
+	bboneSvc:= backboneServices()
+	allNamed:=make([]Named,len(named)+len(bboneSvc))
+	for i, n:=range named {
+		allNamed[i]=n
+	}
+	for i, n:=range bboneSvc {
+		allNamed[i+len(named)]=n
+	}
+	
+	config,err:=webAppDefaultConfig(allNamed)
 	if err!=nil {
 		return err
 	}
@@ -123,7 +128,7 @@ func WebAppRun(named ...Named) error {
 
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
-	if !startUp(ctx, config, named) {
+	if !startUp(ctx, config, allNamed) {
 		return errors.New(fmt.Sprintf("error starting up the handers:%s", err))
 	}
 
