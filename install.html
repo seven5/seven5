@@ -19,7 +19,11 @@
     </ul>
 </nav></p>
 
-<p>Here are the commands which we run to install the <a href="https://github.com/seven5/seven5">Seven5 source</a> and prerequisites on our OS X boxen.</p>
+<blockquote>
+<p>In preparation for <a href="http://blog.golang.org/2011/10/preview-of-go-version-1.html">Go1</a> we are setting up <em>Seven5</em> to build using the <a href="http://weekly.golang.org/cmd/go/">go</a> command line tool.  This tool is not fully ready, but there is a workaround that is sufficient for us to use it.  See the discussion below about GOPATH and goinstall for more on this.</p>
+</blockquote>
+
+<p>Here are the commands which we run to install the <a href="https://github.com/seven5/seven5">Seven5 source</a> and prerequisites on our OS X boxen.  These install instructions expect you to be on <em>at least</em> the go weekly build of Jan 15 2012 (&ldquo;weekly.2012-01-15 11253&rdquo;).</p>
 
 <p>You may need to edit the paths or config options to reflect your environment, but we made notes where that is likely.</p>
 
@@ -55,22 +59,20 @@ cd src
 export GOBIN=$GOROOT/bin
 export GOOS=darwin  #or your os, like 'linux' or 'freebsd'
 export GOARCH=amd64  #or your arch, like 'x86' for 32-bit or 'arm'
-export PATH=$PATH:$GOBIN
+export GOPATH=~/Documents/gothirdparty
+export PATH=$PATH:$GOBIN:$GOPATH/bin
 </code></pre>
 
-<h2>The build tool, gb</h2>
+<h2>GOPATH</h2>
 
-<pre><code>goinstall go-gb.googlecode.com/hg/gb
+<p>The recommended way (&ldquo;the one true way&rdquo;) is to use GOPATH to keep from polluting your Go installation (at GOROOT).  You do this by keeping third party code, such as <em>Seven5</em>, in this directory.  You need to make this directory &ldquo;look like&rdquo; a GOPATH directory by doing this:</p>
+
+<pre><code>mkdir $GOPATH/bin
+mkdir $GOPATH/src
+mkdir $GOPATH/pkg
 </code></pre>
 
-<p>You&rsquo;ll want to make sure you have an up-to-date version of gb&ndash;we use some of the latest features of it below.</p>
-
-<h2>The testing tool, gocheck</h2>
-
-<pre><code>goinstall -u launchpad.net/gocheck
-</code></pre>
-
-<h2>0mq  : Networking library for talking to Mongrel2</h2>
+<h2>0mq  : Networking library for talking to Mongrel2, if not already installed</h2>
 
 <pre><code>git clone https://github.com/zeromq/zeromq2-1.git zeromq
 cd zeromq
@@ -80,40 +82,9 @@ make
 sudo make install
 </code></pre>
 
-<h2>Gozmq  : Go bindings for 0mq</h2>
+<h2>mongrel2 : Web server of choice, if not already installled</h2>
 
-<pre><code>goinstall github.com/alecthomas/gozmq
-</code></pre>
-
-<p>There is a patch that we have been using on darwin/OS X.  It is probably not needed on 64 bit linux systems.</p>
-
-<pre><code>From 6ea494980d21e10f555583519efe8344823dd609 Mon Sep 17 00:00:00 2001
-From: Ian Smith &lt;iansmith@acm.org&gt;
-Date: Tue, 22 Nov 2011 12:08:12 +0100
-Subject: [PATCH] fix another sizeof bug on darwin
-
----
- zmq.go |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/zmq.go b/zmq.go
-index a4225c2..be88f5c 100644
---- a/zmq.go
-+++ b/zmq.go
-@@ -238,7 +238,7 @@ func (s *zmqSocket) destroy() {
- // Set an int option on the socket.
- // int zmq_setsockopt (void *s, int option, const void *optval, size_t optvallen); 
- func (s *zmqSocket) SetSockOptInt(option IntSocketOption, value int) error {
--       if C.zmq_setsockopt(s.s, C.int(option), unsafe.Pointer(&amp;value), C.size_t(unsafe.Sizeof(&amp;value))) != 0 {
-+       if C.zmq_setsockopt(s.s, C.int(option), unsafe.Pointer(&amp;value), C.size_t(unsafe.Sizeof(C.int(value)))) != 0 {
-                return errno()
-        }
-        return nil
--- 
-1.7.7.1
-</code></pre>
-
-<h2>mongrel2 : Web server of choice</h2>
+<p>Mongrel2 is the web server of the gods&ndash;or at least of Zed Shaw.</p>
 
 <pre><code>curl http://mongrel2.org/static/downloads/mongrel2-1.7.5.tar.bz2 &gt; mongrel2-1.7.5.tar.bz2
 bunzip2 mongrel2-1.7.5.tar.bz2
@@ -122,17 +93,7 @@ cd mongrel2-1.7.5
 sudo make all install
 </code></pre>
 
-<h2>libevent  &ndash;not needed yet but will be in the future&ndash;</h2>
-
-<p>Download the libevent source from <a href="http://www.monkey.org/~provos/libevent/">libevent</a>.</p>
-
-<pre><code>tar -xzvf libevent-2.0.16-stable.tar.gz
-cd libevent-2.0.16-stable
-./configure
-sudo make install
-</code></pre>
-
-<h2>memcached &ndash;not needed yet but will be soon&ndash;</h2>
+<h2>memcached, if not already installed</h2>
 
 <p>Download the source from <a href="http://memcached.org/">memcached</a>.</p>
 
@@ -142,7 +103,9 @@ cd memcached-1.4.10
 sudo make install
 </code></pre>
 
-<h3>Black Friday for markdown compilation</h3>
+<h3>Optional: Black Friday for markdown compilation</h3>
+
+<p>You only need this if you want to build the docs on your local machine.  The docs are included in the git wad-of-stuff on the branch &ldquo;gh-pages&rdquo;.</p>
 
 <pre><code>git clone https://github.com/russross/blackfriday.git blackfriday
 cd blackfriday
@@ -151,29 +114,43 @@ gomake install
 
 <p>Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.</p>
 
-<h3>llrb - for balanced trees used for indexing in store</h3>
+<h2>Install needed go libraries</h2>
 
-<pre><code>git clone https://github.com/petar/GoLLRB.git   
-cd GoLLRB
-make install
+<p>When the &ldquo;go&rdquo; tool is fully finished, this step will not be needed.  For now, in a shell that has all the environment variables set as indicated above do this:</p>
+
+<pre><code>cd $GOPATH
+goinstall github.com/seven5/gozmq
+goinstall launchpad.net/gocheck
+goinstall github.com/bradfitz/gomemcache/memcache
+goinstall github.com/mattn/go-sqlite3
+goinstall github.com/seven5/mongrel2
+goinstall github.com/petar/GoLLRB/llrb
 </code></pre>
 
-<h2>Seven5</h2>
+<p>You should be able to see all the source code for these packages in $GOPATH/src and you should be able to see the packages installed in $GOPATH/darwin-amd64/ (or whatever directory gets derived from your GOOS+GOARCH).</p>
 
-<p>Check out some repos and branches containing the mongrel2 connector, the seven5 stack, the docs and the samples.</p>
+<h2>Install Seven5 source</h2>
 
-<pre><code>mkdir seven5dev
-cd seven5dev
-git clone -b master https://github.com/seven5/mongrel2 mongrel2
-git clone -b master https://github.com/seven5/seven5 seven5
-git clone -b gh-pages https://github.com/seven5/seven5 doc
-git clone -b samples https://github.com/seven5/seven5 samples
+<p>We&rsquo;ll install <em>Seven5</em> &ldquo;the right way&rdquo; using the git and the go tool.  First get the source code and put in the right place in your GOPATH:</p>
+
+<pre><code>cd $GOPATH/src
+git clone git@github.com:seven5/seven5.git
+go install seven5 seven5/store seven5/tune seven5/rock_on
 </code></pre>
 
-<h2>Building Everything With gb</h2>
+<h2>Test Seven5</h2>
 
-<pre><code>cd seven5dev
-gb
+<p>When you run tests or a <em>Seven5</em> application, you have to have a &ldquo;store&rdquo; running.  For now, that means memcached, as you installed earlier.  In a different shell, just run &ldquo;memcached&rdquo; and leave it running or, if you want to fancy &ldquo;memcached -vv&rdquo; so you can some feedback that <em>Seven5</em> is actually reading and writing to memcached.</p>
+
+<p>Back in the shell from above where you have built <em>Seven5</em> try this:</p>
+
+<pre><code>go test seven5 seven5/store
+</code></pre>
+
+<p>You should see the test results when this is done, something like this</p>
+
+<pre><code>ok      seven5  1.042s
+ok      seven5/store    0.143s
 </code></pre>
 
 <h2>Optional but handy software</h2>
@@ -184,112 +161,6 @@ gb
 </code></pre>
 
 <p>Edit TextMate&rsquo;s global PATH variable to include $GOBIN.</p>
-
-<h1>Seven5: The Dev Loop</h1>
-
-<p>The following assumes that you are going to be developing in <code>samples</code> which is actually part of the <em>seven5</em> system itself.  Since <em>seven5</em> is pretty raw right now, we are assuming you don&rsquo;t want to do a &ldquo;install and forget&rdquo;, since you are likely to hack at <em>seven5</em> as well as your application.</p>
-
-<p>Verify that in the step above &ldquo;Building Everything With gb&rdquo; created two subdirectories of your <code>seven5dev</code> directory (created above in the &ldquo;Seven5&rdquo; step).   These two directories are <code>_obj</code> for packages and <code>bin</code> for commands.  In <code>_obj</code> for example should be <code>seven5.a</code> and others.  In bin are the seven5 tools, critically <code>rock_on</code> and <code>tune</code>.</p>
-
-<p>You need to set your SEVEN5BIN to point to this directory of commands, like this:</p>
-
-<pre><code>export SEVEN5BIN=/Users/foo/seven5dev/bin
-</code></pre>
-
-<p>This environment variable is <em>only</em> needed because we are not installing seven5 in <code>$GOBIN</code> as we are assuming it is a bit premature for that.  This environment variable tells <code>rock_on</code> to override your <code>$PATH</code> when looking for <code>tune</code>.  When seven5 is more mature, we&rsquo;ll install all the tools to <code>$GOBIN</code>.</p>
-
-<h2>Building A Seven5 Application</h2>
-
-<p>Go to the application directory for <code>better_chat</code></p>
-
-<pre><code>cd seven5dev/samples/better_chat
-</code></pre>
-
-<p>and try to build with <code>gb</code>.  You should get an error like this:</p>
-
-<pre><code>(in .) building pkg &quot;better_chat&quot;
-index.html.go:3: can't find import: &quot;seven5/dsl&quot;
-1 broken target
-(in .) could not build &quot;better_chat&quot;
-</code></pre>
-
-<p>again, this is product of not installing the <em>seven5</em> packages in the standard place, <code>$GOROOT/pkg</code>.</p>
-
-<p>To remedy this problem, you need to tell <code>gb</code> where to find the &ldquo;root&rdquo; of your build tree, in this case your <code>seven5dev</code> directory.  Create the file <code>gb.cfg</code> in the <code>better_chat</code> directory.  It needs only this line:</p>
-
-<pre><code>workspace=../..
-</code></pre>
-
-<p>This will allow it to find all your seven5 libraries in <code>seven5dev/_obj</code>.</p>
-
-<h3>Back to normal</h3>
-
-<p>The normal way to do <em>seven5</em> development is to run <code>rock_on</code> in your application directory with the full name of the project&rsquo;s package as a parameter:</p>
-
-<pre><code>cd seven5dev/samples/better_chat
-$SEVEN5BIN/rock_on samples/better_chat
-</code></pre>
-
-<p>The parameter is needed because <code>rock_on</code> cannot determine if the project&rsquo;s name should be &ldquo;better_chat&rdquo; or &ldquo;samples/better_chat&rdquo;  or &ldquo;seven5/samples/better_chat&rdquo;, etc.  You should see output like this:</p>
-
-<pre><code>Generated _seven5/better_chat.go
-Running gb in workspace /Volumes/External/seven5dev
-Cleaning seven5/dsl
-Cleaning samples/better_chat
-Cleaning mongrel2
-Cleaning seven5
-Cleaning samples/better_chat/_seven5
-(in seven5/dsl) building pkg &quot;seven5/dsl&quot;
-(in samples/better_chat) building pkg &quot;samples/better_chat&quot;
-(in mongrel2) building pkg &quot;mongrel2&quot;
-(in seven5) building pkg &quot;seven5&quot;
-(in samples/better_chat/_seven5) building cmd &quot;better_chat&quot;
-Built 10 targets
-Seven5 is logging to mongrel2/log/seven5.log
-Web app running
-</code></pre>
-
-<p>This means that your web application&rsquo;s &ldquo;main&rdquo; has been generated to <code>_seven5/better_chat.go</code> and the application compiled and linked with the necessary <em>seven5</em> libraries.  Plus, the web server mongrel2 has been run with your application connected to it.  Try this URL:</p>
-
-<pre><code>http://localhost:6767/css/site.css
-</code></pre>
-
-<p>That is the CSS file that is generated as a result of the go-language DSL code in <code>site.css.go</code>.  Similarly:</p>
-
-<pre><code>http://localhost:6767/index.html
-</code></pre>
-
-<p>is a result of <code>index.html.go</code></p>
-
-<p><code>rock_on</code> should be left running in a shell window.  Go to another shell window and try this:</p>
-
-<pre><code>cd seven5dev/samples/better_chat
-touch index.html.go
-</code></pre>
-
-<p>You should see output like this in the window running <code>rock_on</code></p>
-
-<pre><code>--------------------------------------
-Project samples/better_chat changed
---------------------------------------
-Generated _seven5/better_chat.go
-Running gb in workspace /Volumes/External/seven5dev
-Cleaning seven5/dsl
-Cleaning samples/better_chat
-Cleaning mongrel2
-Cleaning seven5
-Cleaning samples/better_chat/_seven5
-(in seven5/dsl) building pkg &quot;seven5/dsl&quot;
-(in samples/better_chat) building pkg &quot;samples/better_chat&quot;
-(in mongrel2) building pkg &quot;mongrel2&quot;
-(in seven5) building pkg &quot;seven5&quot;
-(in samples/better_chat/_seven5) building cmd &quot;better_chat&quot;
-Built 10 targets
-Seven5 is logging to mongrel2/log/seven5.log
-Web app running
-</code></pre>
-
-<p>This happens automatically as you change <code>.go</code> files in your project.  This does all the work to &ldquo;bring back up&rdquo; all your changes to the web server as well, so you can hit <code>Command-R</code> in your web browser to reload the pages with the changes.</p>
 
 </body>
 </html>
