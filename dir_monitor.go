@@ -26,6 +26,7 @@ func (dirMon *DirectoryMonitor) isIn(file os.FileInfo, poll []os.FileInfo) bool 
 			return true
 		}
 	}
+	//fmt.Printf("comparing is In: fail on %v\n",file.Name())
 	return false
 }
 
@@ -50,6 +51,7 @@ func (dirMon *DirectoryMonitor) Poll() (changed bool, err error) {
 	if err != nil {
 		return
 	}
+	
 	if dirMon.previousPoll == nil {
 		dirMon.previousPoll = currentPoll
 		return
@@ -72,6 +74,10 @@ func (dirMon *DirectoryMonitor) Poll() (changed bool, err error) {
 		}
 	}
 	for _, info = range dirMon.previousPoll {
+		if !strings.HasSuffix(info.Name(), dirMon.Extension) {
+			continue
+		}
+		
 		if !dirMon.isIn(info, currentPoll) {
 			changed = true
 			for _, listener := range dirMon.listeners {

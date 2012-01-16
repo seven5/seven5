@@ -262,6 +262,7 @@ func generateStaticContentConfig(config *projectConfig, host string, path string
 
 //generateMimeTypeConfig puts the mime-type table in place if it is needed.
 func generateMimeTypeConfig(config *projectConfig) error {
+	/*
 	rows, err := config.Db.Query("select count(*) from mimetype;")
 	if err != nil {
 		return err
@@ -271,7 +272,22 @@ func generateMimeTypeConfig(config *projectConfig) error {
 	rows.Next()
 	rows.Scan(&result)
 	//XXX mattn needs to fix something in the sqlite3 support for Close() to work XXX
-	//rows.Close()
+	rows.Close()
+	*/
+	
+	/*temporary workaround just create the table every time*/
+	
+	result:=0
+	_, err := config.Db.Exec("DROP TABLE IF EXISTS mimetype;")
+	if err != nil {
+		return err
+	}
+	_, err = config.Db.Exec("CREATE TABLE IF NOT EXISTS mimetype (id INTEGER PRIMARY KEY, mimetype TEXT, extension TEXT);")
+	if err != nil {
+		return err
+	}
+
+	/*end of temporary workaround*/
 
 	config.Logger.Printf("[mongrel2dir SQL] currenty %d items in mimetype table\n", result)
 
@@ -532,7 +548,7 @@ func sendMongrelControl(cmd string, wait int64, path string, config *projectConf
 func dumpBadProjectLayout(projectDir, err string) {
 	fmt.Fprintf(os.Stderr, "%s does not have the standard seven5 project structure!\n", projectDir)
 	fmt.Fprintf(os.Stderr, "\t(%s)\n", err)
-	fmt.Fprintf(os.Stderr, "\nfor project structure details, see http://seven5.github.com/seven5/project_layout.html\n\n")
+	fmt.Fprintf(os.Stderr, "\nfor project structure details, see http://seven5.github.com/seven5/develop.html\n\n")
 }
 
 //db_path is a support routine to return the path to the SQLite db, given a project structure

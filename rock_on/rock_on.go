@@ -16,6 +16,19 @@ type Rock struct {
 	webCmd *exec.Cmd
 }
 
+type RockListener struct {
+}
+
+func (self *RockListener) FileChanged(fileInfo os.FileInfo) {
+	fmt.Printf("[ROCK ON] %s changed\n",fileInfo.Name())
+}
+func (self *RockListener) FileAdded(fileInfo os.FileInfo) {
+	fmt.Printf("[ROCK ON] %s added\n",fileInfo.Name())
+}
+func (self *RockListener) FileRemoved(fileInfo os.FileInfo) {
+	fmt.Printf("[ROCK ON] %s removed\n",fileInfo.Name())
+}
+
 // This is the main loop in which Rock controls the build and server process and watches for source changes
 func (rock *Rock) Run(projectName string) {
 	if rock.Build(projectName){
@@ -23,7 +36,7 @@ func (rock *Rock) Run(projectName string) {
 	}
 	for {
 		if rock.NeedsRebuild(projectName){
-			rock.StopServer()
+			rock.StopServer(projectName)
 			if rock.Build(projectName) {
 				rock.StartServer(projectName)
 			}
@@ -80,7 +93,7 @@ func (rock *Rock) NeedsRebuild(projectName string) bool {
 }
  
 func (rock *Rock) StartServer(projectName string) (success bool) {
-	rock.StopServer()
+	rock.StopServer(projectName)
 	
 	cmdName:=filepath.Clean(filepath.Base(projectName))
 	rock.webCmd  = exec.Command(filepath.Join(rock.projectDir, seven5.WEBAPP_START_DIR, cmdName), projectName)
@@ -99,8 +112,9 @@ func (rock *Rock) StartServer(projectName string) (success bool) {
 	return true
 }
 
-func (rock *Rock) StopServer() (success bool) {
+func (rock *Rock) StopServer(projectName string) (success bool) {
 	if rock.webCmd == nil { return true }
+	fmt.Printf("[ROCK ON] Killing old version of %s\n", projectName)
 	rock.webCmd.Process.Kill()
 	rock.webCmd = nil
 	return true
@@ -111,6 +125,7 @@ func NewRock(projectDirPath string) (rock *Rock, err error) {
 	if err != nil { return }
 	dirMon, err := seven5.NewDirectoryMonitor(projectDirPath, ".go")
 	if err != nil { return }
+	dirMon.Listen(&RockListener{})
 	return &Rock{projectDirPath, dirMon, nil, nil}, nil
 }
 

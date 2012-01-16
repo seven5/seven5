@@ -98,7 +98,6 @@ func startUp(ctx gozmq.Context, conf *projectConfig, named []Named) bool {
 //so you only need to pass Named objects to this method if you have non-restful things
 //to start.
 func WebAppRun(named ...Named) error {
-	fmt.Println("Web app running")
 	var ctx gozmq.Context
 	var err error
 	
@@ -114,14 +113,19 @@ func WebAppRun(named ...Named) error {
 	
 	config,err:=webAppDefaultConfig(allNamed)
 	if err!=nil {
+		fmt.Fprintf(os.Stderr,"error generating configuration:%v\n",err)
 		return err
 	}
 
 	//setup the network
 	if ctx, err = createNetworkResources(config); err != nil {
+		fmt.Fprintf(os.Stderr,"error creating network resources:%v\n",err)
+		
 		return errors.New(fmt.Sprintf("error starting 0MQ or mongrel:%s", err.Error()))
 	}
 	if ctx == nil {
+		fmt.Fprintf(os.Stderr,"unable to create 0MQ context!")
+		
 		return errors.New("No ctx was created.\n")
 	}
 	defer ctx.Close()
@@ -129,9 +133,11 @@ func WebAppRun(named ...Named) error {
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
 	if !startUp(ctx, config, allNamed) {
+		fmt.Fprintf(os.Stderr,"error starting up handlers:%v",err)
+		
 		return errors.New(fmt.Sprintf("error starting up the handers:%s", err))
 	}
-
+	
 	//wait forever in 10 sec increments... need to keep this function alive because when
 	//it exits (such as control-c) the context gets closed
 	for {
