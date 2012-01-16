@@ -270,7 +270,8 @@ func generateMimeTypeConfig(config *projectConfig) error {
 	var result int
 	rows.Next()
 	rows.Scan(&result)
-	rows.Close()
+	//XXX mattn needs to fix something in the sqlite3 support for Close() to work XXX
+	//rows.Close()
 
 	config.Logger.Printf("[mongrel2dir SQL] currenty %d items in mimetype table\n", result)
 

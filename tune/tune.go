@@ -86,13 +86,13 @@ func WriteMain(main_go string, projectName string) (err error) {
 	wr := bufio.NewWriter(main_file)
 	wr.WriteString(main_go)
 	wr.Flush()
-	fmt.Println("Generated " + mainPath)
+	fmt.Println("[TUNE] Generated " + mainPath)
 	return
 }
 
 func main() {
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "Usage: tune <project-package-name>")
+		fmt.Fprintln(os.Stderr, "[TUNE] Usage: tune <project-package-name>")
 		os.Exit(1)
 	}
 
@@ -101,7 +101,7 @@ func main() {
 	
 	cwd,err :=os.Getwd()
 	if err!=nil {
-		fmt.Fprintf(os.Stderr,"cannot get working directory!\n")
+		fmt.Fprintf(os.Stderr,"[TUNE] cannot get working directory!\n")
 		return
 	}
 	
@@ -111,13 +111,13 @@ func main() {
 	main_go, err := GenerateMain(imp, base, &exported)
 
 	if err != nil {
-		fmt.Printf("Error processing template: %s\n", err.Error())
+		fmt.Printf("[TUNE] Error processing template: %s\n", err.Error())
 		os.Exit(1)
 	}
 
 	err = WriteMain(main_go, base)
 	if err != nil {
-		fmt.Printf("Error writing main.go: %s\n", err.Error())
+		fmt.Printf("[TUNE] Error writing main.go: %s\n", err.Error())
 		os.Exit(1)
 	}
 

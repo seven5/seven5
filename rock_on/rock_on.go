@@ -41,7 +41,7 @@ func (rock *Rock) Build(packageName string) (success bool) {
 		fmt.Print(string(output))
 	}
 	if err != nil{
-		fmt.Println("Error tuning: ", err)
+		fmt.Println("[ROCK ON] Error tuning: ", err)
 		return false
 	}
 
@@ -54,7 +54,7 @@ func (rock *Rock) Build(packageName string) (success bool) {
 		fmt.Print(string(output))
 	}
 	if err != nil{
-		fmt.Println("Error building "+packageName+": ", err)
+		fmt.Println("[ROCK ON] Error building "+packageName+": ", err)
 		return false
 	}
 
@@ -71,7 +71,7 @@ func (rock *Rock) NeedsRebuild(projectName string) bool {
 	// TODO: Poll the directory monitor
 	changed, err := rock.dirMonitor.Poll()
 	if err != nil {
-		fmt.Println("Error monitoring the directory", err)
+		fmt.Println("[ROCK ON] Error monitoring the directory", err)
 		os.Exit(1)
 	} else if changed {
 		fmt.Printf("\n--------------------------------------\nProject %s changed\n--------------------------------------\n", projectName)
@@ -83,17 +83,17 @@ func (rock *Rock) StartServer(projectName string) (success bool) {
 	rock.StopServer()
 	
 	cmdName:=filepath.Clean(filepath.Base(projectName))
-	rock.webCmd  = exec.Command(filepath.Join(rock.projectDir, seven5.WEBAPP_START_DIR, cmdName), "dungheap")
-	rock.webCmd.Dir = rock.projectDir
+	rock.webCmd  = exec.Command(filepath.Join(rock.projectDir, seven5.WEBAPP_START_DIR, cmdName), projectName)
+	rock.webCmd.Dir = filepath.Clean(filepath.Join(rock.projectDir,".."))
 	
 
-	fmt.Printf("---- '%s'  '%s'\n",rock.webCmd.Dir, rock.projectDir)
+	fmt.Printf("[ROCK ON] running '%s' from '%s'\n",cmdName,rock.webCmd.Dir)
 	
 	rock.webCmd.Stdout = os.Stdout
 	rock.webCmd.Stderr = os.Stderr
 	err := rock.webCmd.Start()
 	if err != nil{
-		fmt.Println("Error starting the project application: ", err)
+		fmt.Println("[ROCK ON] Error starting the project application: ", err)
 		return false
 	}
 	return true
@@ -127,12 +127,12 @@ func main() {
 	}
 	projName:=filepath.Clean(filepath.Base(dir))
 	if len(os.Args) == 1 {	
-		fmt.Fprintf(os.Stdout,"no directory given, hope project name '%s' is ok\n", projName)
+		fmt.Fprintf(os.Stdout,"[ROCK ON] no directory given, hope project name '%s' is ok\n", projName)
 	} else {
 		projName = os.Args[1]
 	}
 	
-	fmt.Printf("monitoring directory '%s' for project '%s'\n",dir,projName)
+	fmt.Printf("[ROCK ON] monitoring directory '%s' for project '%s'\n",dir,projName)
 	rock, err := NewRock(dir)
 	if err != nil {
 		fmt.Println(err)
