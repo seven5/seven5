@@ -3,7 +3,7 @@ package seven5
 import (
 	"errors"
 	"fmt"
-	"github.com/alecthomas/gozmq"
+	"github.com/seven5/gozmq"
 	"github.com/bradfitz/gomemcache/memcache"
 	"log"
 	"github.com/seven5/mongrel2"

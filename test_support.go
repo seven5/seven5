@@ -1,7 +1,7 @@
 package seven5
 
 import (
-	"github.com/alecthomas/gozmq"
+	"github.com/seven5/gozmq"
 	"launchpad.net/gocheck"
 	"net/http"
 	"path/filepath"

@@ -6,7 +6,7 @@ import (
 	"exp/sql"
 	"flag"
 	"fmt"
-	"github.com/alecthomas/gozmq"
+	"github.com/seven5/gozmq"
 	_ "github.com/mattn/go-sqlite3" //force linkage,without naming the library
 	"log"
 	"github.com/seven5/mongrel2"
