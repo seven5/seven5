@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/bradfitz/gomemcache"
+	"github.com/bradfitz/gomemcache/memcache"
 	"net"
 	//"os"
 	"github.com/petar/GoLLRB/llrb"

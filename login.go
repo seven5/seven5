@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"mongrel2"
+	"github.com/seven5/mongrel2"
 	"net/http"
 	"net/url"
 	"seven5/store"

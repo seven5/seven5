@@ -3,7 +3,7 @@ package seven5
 import (
 	"bytes"
 	"fmt"
-	"mongrel2"
+	"github.com/seven5/mongrel2"
 	"os"
 	"runtime"
 	"strings"

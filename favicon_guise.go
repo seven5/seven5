@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mongrel2"
+	"github.com/seven5/mongrel2"
 	"strings"
 )
 

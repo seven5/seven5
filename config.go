@@ -9,7 +9,7 @@ import (
 	"github.com/alecthomas/gozmq"
 	_ "github.com/mattn/go-sqlite3" //force linkage,without naming the library
 	"log"
-	"mongrel2"
+	"github.com/seven5/mongrel2"
 	"os"
 	"os/exec"
 	"path/filepath"

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"mongrel2"
+	"github.com/seven5/mongrel2"
 	"net/http"
 	"net/url"
 	//	"os"

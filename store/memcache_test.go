@@ -2,7 +2,7 @@ package store
 
 import (
 	"fmt"
-	"github.com/bradfitz/gomemcache"
+	"github.com/bradfitz/gomemcache/memcache"
 	"launchpad.net/gocheck"
 	"math/rand"
 	//"os"

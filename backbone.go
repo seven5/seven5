@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"mongrel2"
+	"github.com/seven5/mongrel2"
 	"os"
 	"reflect"
 	"seven5/store"
