@@ -12,6 +12,7 @@ import (
 	"seven5/store"
 	"strconv"
 	"strings"
+	"reflect"
 )
 
 const (
@@ -79,7 +80,7 @@ type Restful interface {
 	//number of objects to return is supplied in the last parameter.  In backbone terms, this is
 	//is a "fetch."  The returned value should be a slice of up to max ptrs to objects of the
 	//apprioprate type for this interface.
-	FindByKey(store store.T, key string, value string, session *Session, max int) (interface{}, error)
+	FindByKey(store store.T, key string, value string, session *Session, max uint16) (interface{}, error)
 	//Validate is called BEFORE any other method in this set (except Make).  It can be used to
 	//centralize repeated validation checks.  If the validation passes, the receiver should return
 	//nil, otherwise a map indicating the field name (key) where the problem was detected and the
@@ -268,7 +269,7 @@ func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
 		return response
 	}
 
-	fmt.Printf("values that have been unmarshalled in dispatch: %+v\n",values);
+	//fmt.Printf("values that have been unmarshalled in dispatch: %+v\n",values);
 	
 	if errMap := svc.Validate(store, values, OP_CREATE, session); errMap != nil {
 		return formatValidationError(errMap, response)
@@ -386,6 +387,8 @@ func dispatchFetch(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, s
 
 	keyToSearchOn := ""
 	valueToFind := ""
+	var max = uint16(10)
+	
 	uri := req.Header["URI"]
 	fmt.Printf("uri to parse: '%s'\n", uri)
 
@@ -396,21 +399,46 @@ func dispatchFetch(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, s
 		return response
 	}
 	values := parsed.Query()
-
-	for k, v := range values {
-		if k == "keyName" {
-			keyToSearchOn = v[0]
-			continue
-		}
-		if k == "targetValue" {
-			valueToFind = v[0]
-			continue
-		}
+	jsonText:=values.Get("query")
+	
+	searchData:= make(map[string]interface{})
+	err = json.Unmarshal([]byte(jsonText), &searchData)
+	if err != nil {
+		response.StatusCode = http.StatusBadRequest
+		response.StatusMsg = fmt.Sprintf("json parse error: %s", err)
+		return response
 	}
-
-	fmt.Printf("key '%s' and value to fetch '%s'\n", keyToSearchOn, valueToFind)
-
-	if hits, err = svc.FindByKey(store, keyToSearchOn, valueToFind, session, 10); err != nil {
+	fmt.Printf("object parsed out is %+v\n", searchData)
+	for k,v :=range searchData {
+		if k=="max" {
+			val:=reflect.ValueOf(v);
+			if val.Kind()!=reflect.Uint {
+				response.StatusCode = http.StatusBadRequest
+				response.StatusMsg = fmt.Sprintf("expected max number of results to be unsigned int [%v]",val.Kind())
+				return response
+			}
+			max=uint16(val.Uint())
+			continue
+		}
+		//normal case of key and value being search terms
+		keyToSearchOn=k
+		val:=reflect.ValueOf(v);
+		if val.Kind()!=reflect.String {
+			response.StatusCode = http.StatusBadRequest
+			response.StatusMsg = fmt.Sprintf("expected value to search for to be a string[%v]",val.Kind())
+			return response
+		}
+		valueToFind=v.(string)
+	}
+	if keyToSearchOn=="" || valueToFind=="" {
+		response.StatusCode = http.StatusBadRequest
+		response.StatusMsg = fmt.Sprintf("must supply a key and a value to fetch! [%v][%v]",keyToSearchOn,valueToFind)
+		return response
+	}
+	
+	fmt.Printf("key '%s' and value '%s'\n",keyToSearchOn,valueToFind)
+	
+	if hits, err = svc.FindByKey(store, keyToSearchOn, valueToFind, session, max); err != nil {
 		response.StatusCode = http.StatusInternalServerError
 		response.StatusMsg = fmt.Sprintf("unable to find the key in fetch: %s", err)
 		return response

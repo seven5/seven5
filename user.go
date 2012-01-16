@@ -166,7 +166,7 @@ func (self *UserSvc) Delete(store store.T, ptrToValues interface{}, session *Ses
 
 //Find by Key can be called by any logged in user, although the set of key fields are restricted to
 //just by username.  Only superuser may search by email.
-func (self *UserSvc) FindByKey(store store.T, key string, value string, session *Session, max int) (interface{}, error) {
+func (self *UserSvc) FindByKey(store store.T, key string, value string, session *Session, max uint16) (interface{}, error) {
 	hits := make([]*User, 0, max)
 	return hits, store.FindByKey(&hits, "Username", value, uint64(0))
 
