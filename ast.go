@@ -13,7 +13,8 @@ import (
 //ExportedSeven5Objects is the information that we have "discovered" by analyzing the AST of the
 //a user project. This is passed to the "tune" program so it is public.
 type ExportedSeven5Objects struct {
-	Model map[string][]string
+	//Model is the names of the exported structs
+	Model []string
 }
 
 const backbone = ".bbone.go"
@@ -109,9 +110,9 @@ func (self *modelVisitor) Visit(node ast.Node) ast.Visitor {
 		}
 	}
 	if self.exported.Model==nil {
-		self.exported.Model=make(map[string][]string)
-	}
-	self.exported.Model[self.name]=result
+		self.exported.Model=[]string{}
+	} 
+	self.exported.Model=append(self.exported.Model,self.name)
 	return nil
 }
 

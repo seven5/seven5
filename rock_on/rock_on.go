@@ -10,7 +10,7 @@ import (
 )
 
 type Rock struct {
-	projectDir *os.File
+	projectDir string
 	dirMonitor *seven5.DirectoryMonitor
 	buildCmd *exec.Cmd
 	webCmd *exec.Cmd
@@ -34,10 +34,6 @@ func (rock *Rock) Run(projectName string) {
 
 func (rock *Rock) Build(packageName string) (success bool) {
 	cmd:="tune"
-	if s5bin:=os.Getenv("SEVEN5BIN"); s5bin!="" {
-		cmd=filepath.Join(s5bin,"tune")
-	}
-	
 	// Tune
 	rock.buildCmd  = exec.Command(cmd, packageName)
 	output, err := rock.buildCmd.CombinedOutput()
@@ -49,17 +45,25 @@ func (rock *Rock) Build(packageName string) (success bool) {
 		return false
 	}
 
-	// Build
-	rock.buildCmd  = exec.Command("gb", "-c", "-t", ".")
+	// Build library
+	rock.buildCmd  = exec.Command("go", "install", ".")
+	rock.buildCmd.Dir = rock.projectDir
 	output, err = rock.buildCmd.CombinedOutput()
-	rock.buildCmd = nil
+	
 	if output != nil {
 		fmt.Print(string(output))
 	}
 	if err != nil{
-		fmt.Println("Error building: ", err)
+		fmt.Println("Error building "+packageName+": ", err)
 		return false
 	}
+
+	//Build executable
+	rock.buildCmd  = exec.Command("go", "build", "-o", packageName, ".")
+	rock.buildCmd.Dir = filepath.Join(rock.projectDir,seven5.WEBAPP_START_DIR)
+	output, err = rock.buildCmd.CombinedOutput()
+	
+
 	return true
 }
 
@@ -79,8 +83,12 @@ func (rock *Rock) StartServer(projectName string) (success bool) {
 	rock.StopServer()
 	
 	cmdName:=filepath.Clean(filepath.Base(projectName))
+	rock.webCmd  = exec.Command(filepath.Join(rock.projectDir, seven5.WEBAPP_START_DIR, cmdName), "dungheap")
+	rock.webCmd.Dir = rock.projectDir
 	
-	rock.webCmd  = exec.Command(filepath.Join(".", seven5.WEBAPP_START_DIR, cmdName), ".")
+
+	fmt.Printf("---- '%s'  '%s'\n",rock.webCmd.Dir, rock.projectDir)
+	
 	rock.webCmd.Stdout = os.Stdout
 	rock.webCmd.Stderr = os.Stderr
 	err := rock.webCmd.Start()
@@ -99,11 +107,11 @@ func (rock *Rock) StopServer() (success bool) {
 }
 
 func NewRock(projectDirPath string) (rock *Rock, err error) {
-	dir, err := os.Open(projectDirPath)
+	_, err = os.Open(projectDirPath)
 	if err != nil { return }
 	dirMon, err := seven5.NewDirectoryMonitor(projectDirPath, ".go")
 	if err != nil { return }
-	return &Rock{dir, dirMon, nil, nil}, nil
+	return &Rock{projectDirPath, dirMon, nil, nil}, nil
 }
 
 func CurrentDirName() string{
@@ -119,13 +127,13 @@ func main() {
 	}
 	projName:=filepath.Clean(filepath.Base(dir))
 	if len(os.Args) == 1 {	
-		fmt.Fprintf(os.Stdout,"no directory given, hope project name '%s' is ok\n", dir)
+		fmt.Fprintf(os.Stdout,"no directory given, hope project name '%s' is ok\n", projName)
 	} else {
 		projName = os.Args[1]
 	}
 	
 	fmt.Printf("monitoring directory '%s' for project '%s'\n",dir,projName)
-	rock, err := NewRock(".")
+	rock, err := NewRock(dir)
 	if err != nil {
 		fmt.Println(err)
 		return

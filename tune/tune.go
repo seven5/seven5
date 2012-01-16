@@ -21,6 +21,10 @@ func toUpperFirst(x string) string {
 	return strings.ToUpper(x[0:1]) + x[1:]
 }
 
+func toLowerFirst(x string) string {
+	return strings.ToLower(x[0:1]) + x[1:]
+}
+
 func importIfNeeded(x string,exported *seven5.ExportedSeven5Objects) string {
 	if len(exported.Model)==0 {
 		return ""
@@ -31,6 +35,7 @@ func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven
 
 	myFuncs := make(map[string]interface{})
 	myFuncs["upper"] = toUpperFirst
+	myFuncs["lower"] = toLowerFirst
 	//WEIRD that this must take interface{} when the toUpperFirst is ok with string
 	myFuncs["importIfNeeded"] = func (x interface{}) string {
 		return importIfNeeded(fmt.Sprintf("%s",x),exported)
