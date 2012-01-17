@@ -83,9 +83,11 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 
 	//fmt.Printf("got u and p:'%s' and '%s'\n", user, pwd)
 
-	badCred := `{ "err": "Username or password is incorrect"}`
+	badCred := make(map[string]string)
+	badCred["_"]="invalid username or password"
+	
 	if user == "" || pwd == "" {
-		return fillBody(badCred, resp)
+		return formatValidationError(badCred, resp)
 	}
 	hits := make([]*User, 0, 1)
 	err = self.T.FindByKey(&hits, "Username", user, uint64(0))
@@ -95,7 +97,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 		return resp
 	}
 	if len(hits) == 0 {
-		return fillBody(badCred, resp)
+		return formatValidationError(badCred, resp)
 	}
 	err = bcrypt.CompareHashAndPassword(hits[0].BcryptHash, []byte(pwd))
 	if err != nil && err != bcrypt.MismatchedHashAndPasswordError {
@@ -104,7 +106,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 		return resp
 	}
 	if err == bcrypt.MismatchedHashAndPasswordError {
-		return fillBody(badCred, resp)
+		return formatValidationError(badCred, resp)
 	}
 
 	//create the new session Id... make sure it's unique
@@ -129,8 +131,8 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 	err = self.T.Write(session)
 	if err != nil {
 		fmt.Printf("error searching for  %s:%v\n", user, err)
-		resp.StatusCode = http.StatusBadRequest
-		resp.StatusMsg = badCred
+		resp.StatusCode = http.StatusInternalServerError
+		resp.StatusMsg = fmt.Sprintf("%v", err)
 		return resp
 	}
 	//fmt.Printf("successful login %s and placed in session %s\n", user, session.SessionId)
