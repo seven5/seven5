@@ -1,4 +1,3 @@
-//Utilities for monitoring a directory for changes
 package seven5
 
 import (

@@ -36,9 +36,19 @@ func (rock *Rock) Run(projectName string) {
 	}
 	for {
 		if rock.NeedsRebuild(projectName){
+			start:=time.Now()
 			rock.StopServer(projectName)
+			stop:=time.Now()
 			if rock.Build(projectName) {
+				build:=time.Now()
 				rock.StartServer(projectName)
+				end:=time.Now()
+				duration:=end.Sub(start)
+				stopDuration:=stop.Sub(start)
+				buildDuration:=build.Sub(stop)
+				startDuration:=end.Sub(build)
+				fmt.Printf("[ROCK ON] restart took %4.4f seconds (%4.4f to stop, %4.4f to build, %4.4f to start)\n",
+				duration.Seconds(), stopDuration.Seconds(), buildDuration.Seconds(), startDuration.Seconds())
 			}
 		}
 		time.Sleep(1e9)
@@ -48,6 +58,7 @@ func (rock *Rock) Run(projectName string) {
 func (rock *Rock) Build(packageName string) (success bool) {
 	cmd:="tune"
 	// Tune
+	start:=time.Now()
 	rock.buildCmd  = exec.Command(cmd, packageName)
 	output, err := rock.buildCmd.CombinedOutput()
 	if output != nil {
@@ -57,7 +68,8 @@ func (rock *Rock) Build(packageName string) (success bool) {
 		fmt.Println("[ROCK ON] Error tuning: ", err)
 		return false
 	}
-
+	codeGen:=time.Now()
+	
 	// Build library
 	rock.buildCmd  = exec.Command("go", "install", ".")
 	rock.buildCmd.Dir = rock.projectDir
@@ -70,12 +82,21 @@ func (rock *Rock) Build(packageName string) (success bool) {
 		fmt.Println("[ROCK ON] Error building "+packageName+": ", err)
 		return false
 	}
+	library:=time.Now()
 
 	//Build executable
 	rock.buildCmd  = exec.Command("go", "build", "-o", packageName, ".")
 	rock.buildCmd.Dir = filepath.Join(rock.projectDir,seven5.WEBAPP_START_DIR)
 	output, err = rock.buildCmd.CombinedOutput()
 	
+	executable:=time.Now()
+	
+	genDuration:=codeGen.Sub(start)
+	libraryDuration:=library.Sub(codeGen)
+	executableDuration:=executable.Sub(library)
+	
+	fmt.Printf("[ROCK ON] Build stats: %4.4f secs for code generation, %4.4f secs %s library, %4.4f secs executable\n",
+		genDuration.Seconds(), libraryDuration.Seconds(), packageName, executableDuration.Seconds())
 
 	return true
 }

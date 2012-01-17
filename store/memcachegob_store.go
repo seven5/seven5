@@ -265,6 +265,7 @@ func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, i
 		item.Value = buffer.Bytes()
 		return self.Client.CompareAndSwap(item)
 	}
+	
 	//this is a brand new index, write it out to disk
 	memcacheKey := self.getKeyNameForRecord(typeName, keyName, keyValue, userId)
 	newItem := &memcache.Item{Key: memcacheKey, Value: buffer.Bytes()}
@@ -302,6 +303,7 @@ func (self *MemcacheGobStore) readIndex(keyValue string, result *[]uint64, item 
 		//some other error, give up
 		return err
 	}
+	
 	//if we reach here we have the result and item updated properly
 	return nil
 }
@@ -331,7 +333,7 @@ func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName 
 			ok = true
 			break
 		}
-	}
+	}	
 	if !ok {
 		return INDEX_MISS
 	}
@@ -516,6 +518,7 @@ func (self *MemcacheGobStore) readMulti(s interface{}, ids []uint64, result refl
 	var item map[string]*memcache.Item
 	var typeName string
 
+
 	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
 		return err
 	}
@@ -652,6 +655,9 @@ func (self *MemcacheGobStore) FindAll(s interface{}, userId uint64) error {
 //Less() and the types of the pointers are the same between the first parameter and the
 //slice of pointers that is the second one.
 func (self *MemcacheGobStore) sort(x interface{}, sliceValue reflect.Value) error {
+	if sliceValue.Len()==0 {
+		return nil //no sorting to do!
+	}
 	if reflect.TypeOf(x) != sliceValue.Index(0).Type() {
 		panic(fmt.Sprintf("types are not the same between %v and %v", reflect.TypeOf(x), sliceValue.Index(0).Type()))
 	}

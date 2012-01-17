@@ -28,11 +28,13 @@ func (self *LoginGuise) Name() string {
 	return "LoginGuise" //used to generate the UniqueId so don't change this
 }
 
-//Pattern returns "/api/user" which is where it sits in the URL space of mongrel2
+//Pattern returns "/api/seven5/login" which is where it sits in the URL space of mongrel2
 func (self *LoginGuise) Pattern() string {
 	return "/api/seven5/login"
 }
 
+//AppStarting indicates that this object wants to be notified at startup of the application. It
+//uses this "hook" to save a copy of the store.T used by the application.
 func (self *LoginGuise) AppStarting(log *log.Logger, store store.T) error {
 	self.T = store
 	return nil
@@ -44,10 +46,10 @@ func newLoginGuise() *LoginGuise {
 	return &LoginGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}, nil}
 }
 
-//ProcessRequests handles a single request to the LoginGuise. It returns a single response. This is
-//an unusual REST-like service because has an "extra" method called "login" that used to convert
-//a set of credentials into a logged in session.  The login method is /api/user/login, the remainder
-//of the urls are standard CRUD for REST.
+//ProcessRequests handles a single request to the LoginGuise. It returns a single response. This 
+//handles only one message, a POST, to the url this LoginGuise is associated with.  If 
+//the login is successful (username and password are query parameters) the response includes
+//the session id.  Otherwise, the response gives an error message.
 func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
 	var err error
 	//path:=req.Path

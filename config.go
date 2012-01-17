@@ -1,4 +1,3 @@
-//Web microframework for go.  See http://seven5.github.com/seven5
 package seven5
 
 import (

@@ -2,10 +2,11 @@ package seven5
 
 import (
 	"crypto/bcrypt"
+	"errors"
 	"fmt"
+	"reflect"
 	"seven5/store"
 	"time"
-	"errors"
 )
 
 //User is a structure representing a user.  The fields are largely ripped off from the Django
@@ -14,12 +15,12 @@ import (
 //with clients.
 type User struct {
 	Username    string `seven5key:"Username"`
-	FirstName   string
-	LastName    string
-	Email       string    `json:"-",seven5key:"Email"`
+	FirstName   string `seven5key:"FirstName"`
+	LastName    string `seven5key:"LastName"`
+	Email       string    `json:"-" seven5key:"Email"`
 	BcryptHash  []byte    `json:"-"`
 	Groups      []string  `json:"-"`
-	Id          uint64    `seven5All:"false",json:"id"`
+	Id          uint64    `seven5All:"false" json:"id"`
 	IsStaff     bool      `json:"-"`
 	IsActive    bool      `json:"-"`
 	IsSuperuser bool      `json:"-"`
@@ -27,9 +28,9 @@ type User struct {
 	Created     time.Time //UTC
 	//for input only from the client... annotation indicates should not be stored by the storage layer
 	//the json layer will marshal this inbound but will not outbound if it is empty (as expected)
-	UserInput_Pwd   string `json:"PlainTextPassword,omitempty, seven5store:"false"`
-	UserInput_Super bool   `json:"Superuser,omitempty", seven5store:"false"`
-	UserInput_Email string   `json:"Email,omitempty", seven5store:"false"`
+	UserInput_Pwd   string `json:"PlainTextPassword,omitempty" seven5store:"false"`
+	UserInput_Super bool   `json:"Superuser,omitempty" seven5store:"false"`
+	UserInput_Email string `json:"Email,omitempty" seven5store:"false"`
 
 	//this is for app-specific preferences
 	Preference map[string]interface{}
@@ -41,7 +42,7 @@ type User struct {
 }
 
 var (
-	USER_EXISTS=errors.New("username already exists")
+	USER_EXISTS = errors.New("username already exists")
 )
 
 //Sessions represent a connected user. They contain a copy of the user structure at the time the
@@ -124,24 +125,24 @@ func NewUserSvc() Httpified {
 //Create can only be called if all the needed fields are supplied and the session points to a user
 //who is a super user.
 func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Session) error {
-	u:=ptrToValues.(*User)
-	pwd:=u.UserInput_Pwd
-	super:=u.UserInput_Super
-	email:=u.UserInput_Email
-	
-	u.UserInput_Pwd=""//XXX SHOULD BE AUTOMATIC
-	u.UserInput_Email=""//XXX SHOULD BE AUTOMATIC
-	u.UserInput_Super=false//XXX SHOULD BE AUTOMATIC
-	
-	id, err:=create(store, u.Username, u.FirstName, u.LastName,  email, pwd, super)
-	if err!=nil && err!=USER_EXISTS {
+	u := ptrToValues.(*User)
+	pwd := u.UserInput_Pwd
+	super := u.UserInput_Super
+	email := u.UserInput_Email
+
+	u.UserInput_Pwd = ""      //XXX SHOULD BE AUTOMATIC
+	u.UserInput_Email = ""    //XXX SHOULD BE AUTOMATIC
+	u.UserInput_Super = false //XXX SHOULD BE AUTOMATIC
+
+	id, err := create(store, u.Username, u.FirstName, u.LastName, email, pwd, super)
+	if err != nil && err != USER_EXISTS {
 		return err
 	}
-	
-	if err==USER_EXISTS {
+
+	if err == USER_EXISTS {
 		return &userExistsError{}
 	}
-	return store.FindById(ptrToValues,id)
+	return store.FindById(ptrToValues, id)
 }
 
 //Read can be called by any logged in user.  It does not reveal all the fields because of the
@@ -160,21 +161,31 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 
 //Create can only be called if the session points to a user who is a super user.
 func (self *UserSvc) Delete(store store.T, ptrToValues interface{}, session *Session) error {
-	return store.Delete(ptrToValues)
-
+	u:=ptrToValues.(*User)
+	other:=&User{Id:u.Id}
+	if err:=store.FindById(other,u.Id); err!=nil {
+		return err;
+	}
+	if err:=store.Delete(other);err!=nil {
+		return err
+	}
+	v:=reflect.ValueOf(ptrToValues).Elem()
+	o:=reflect.ValueOf(other).Elem()
+	v.Set(o)
+	return nil
 }
 
 //Find by Key can be called by any logged in user, although the set of key fields are restricted to
 //just by username.  Only superuser may search by email.
 func (self *UserSvc) FindByKey(store store.T, key string, value string, session *Session, max uint16) (interface{}, error) {
 	hits := make([]*User, 0, max)
-	return hits, store.FindByKey(&hits, "Username", value, uint64(0))
-
+	err := store.FindByKey(&hits, key, value, uint64(0))
+	return hits,err
 }
 
 //Validate is called BEFORE any other method in this set (except Make).  This does various kinds of
 //simple validation that is common to many of the methods.
-func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op RestfulOp, session *Session) map[string]string {
+func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op RestfulOp, key string, value string, session *Session) map[string]string {
 	//all our methods require a login!
 	result := make(map[string]string)
 	if session == nil {
@@ -198,25 +209,25 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 		}
 
 		ok := true
-		if user.Username=="" {
-			ok=false
-			result["Username"]="Username is required"
+		if user.Username == "" {
+			ok = false
+			result["Username"] = "Username is required"
 		}
-		if user.FirstName=="" {
-			ok=false
-			result["FirstName"]="FirstName is required"
+		if user.FirstName == "" {
+			ok = false
+			result["FirstName"] = "FirstName is required"
 		}
-		if user.LastName=="" {
-			ok=false
-			result["LastName"]="LastName is required"
+		if user.LastName == "" {
+			ok = false
+			result["LastName"] = "LastName is required"
 		}
-		if user.UserInput_Email=="" {
-			ok=false
-			result["Email"]="Email address is required"
+		if user.UserInput_Email == "" {
+			ok = false
+			result["Email"] = "Email address is required"
 		}
-		if user.UserInput_Pwd=="" {
-			ok=false
-			result["PlainTextPassword"]="Password is required"
+		if user.UserInput_Pwd == "" {
+			ok = false
+			result["PlainTextPassword"] = "Password is required"
 		}
 		if !ok {
 			return result
@@ -224,11 +235,6 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 	case OP_READ:
 		if user.Id == uint64(0) {
 			result["id"] = "no id value supplied!"
-			return result
-		}
-		//only can search by username
-		if user.Username=="" {
-			result["Username"]="Only searching by Username is allowed"
 			return result
 		}
 	case OP_UPDATE:
@@ -248,6 +254,19 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 		if !session.User.IsSuperuser {
 			result["_"] = "deleting users is not allowed"
 			return result
+		}
+	case OP_SEARCH:
+		if session == nil {
+			result["_"] = "only logged in users may search for other users"
+			return result
+		}
+		if key != "Username" && key!="LastName" && key!="FirstName"{
+			result["_"] = "Only searching by Username, FirstName, or LastName is allowed"
+			return result;
+		}
+		if value == "" {
+			result[key] = "Must provide a value to search for (can't search for all values yet)"
+			return result;
 		}
 	}
 	return nil
@@ -270,5 +289,5 @@ func (self *userExistsError) Error() string {
 
 //ErrorMap makes userExistsError satisfy the RestError interface
 func (self *userExistsError) ErrorMap() map[string]string {
-	return map[string]string {"Username":"username already exists"}
+	return map[string]string{"Username": "username already exists"}
 }

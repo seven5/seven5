@@ -9,10 +9,10 @@ import (
 	"net/url"
 	//	"os"
 	"log"
+	"reflect"
 	"seven5/store"
 	"strconv"
 	"strings"
-	"reflect"
 )
 
 const (
@@ -25,6 +25,8 @@ const (
 	OP_UPDATE
 	//DELETE signals to the validation method that a delete operation is in progress.
 	OP_DELETE
+	//SEARCH signals to the validation method that a fetch (search) operation is in progress
+	OP_SEARCH
 )
 
 //RestError is used to indicate that an error occurred in a REST method that should NOT be 
@@ -39,7 +41,6 @@ type RestError interface {
 	//result of Validate() on the Restful type.
 	ErrorMap() map[string]string
 }
-
 
 //RestfulOp is a type that indications the operation to be performed. It is passed to the Validate
 //function of Restful before the operation actually occurs.
@@ -86,8 +87,10 @@ type Restful interface {
 	//nil, otherwise a map indicating the field name (key) where the problem was detected and the
 	//error message to display to the user as the value.  This will be sent back to the client and
 	//the intentded method is NOT called.  For errors that are of a global nature, the error
-	//map returned should contain a key of _ with the error message as the value.
-	Validate(store store.T, ptrToValues interface{}, op RestfulOp, session *Session) map[string]string
+	//map returned should contain a key of _ with the error message as the value.  The
+	//fields of key and value are only used on OP_SEARCH.  OP_SEARCH does not use the ptrToValues
+	//parameter but supplies a zero-valued object for that parameter.
+	Validate(store store.T, ptrToValues interface{}, op RestfulOp, key string, value string, session *Session) map[string]string
 	//Make is called with a given id to create a new instance of the appropriate type for use with
 	//this interface.  The id may be zero.  This function is needed because the seven5 library does
 	//not know the true type of the structures being stored/retrieved.
@@ -110,6 +113,11 @@ type RestHandlerDefault struct {
 	singular string
 }
 
+//numberedRestFunc is a type that indicates you are going to perform some action at the rest
+//layer that just needs an id
+type numberedRestFunc func(st store.T, s *Session, service Restful, values interface{}) error;
+
+
 //NewRestHandlerDefault creates the necessary defaults to route HTTP messages that are intended
 //to be restful to the svc provided as the first object.  The second param should be singular,
 //english, and lowercase noun like "user" or "fart".
@@ -125,7 +133,7 @@ func (self *RestHandlerDefault) Name() string {
 //AppStarting is called by the infrastructure as the application is booted.  The REST handler
 //saves a copy of the store interface that the application is using so it can do lookups later.
 func (self *RestHandlerDefault) AppStarting(log *log.Logger, store store.T) error {
-	self.store=store
+	self.store = store
 	return nil
 }
 
@@ -166,16 +174,22 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 
 	path := req.Path
 	method := req.Header["METHOD"]
+	//fmt.Printf("PATH: '%s'  --- Method %s\n",path,method)
+	
+	session, respErr := discoverSession(req, response, self.store)
+	if respErr != nil {
+		return respErr
+	}
 
 	//CREATE
 	if path == self.Pattern() {
 		if method == "POST" {
-			return dispatchCreate(req, response, self.svc, self.store)
+			return dispatchCreate(req, response, self.svc, self.store, session)
 		} else if method == "GET" {
-			return dispatchFetch(req, response, self.svc, self.store)
+			return dispatchFetch(req, response, self.svc, self.store, session)
 		}
 		response.StatusCode = http.StatusMethodNotAllowed
-		response.StatusMsg = "must be POST for save() method from client!"
+		response.StatusMsg = "must be POST for create() method from client or GET for fetch()!"
 		return response
 	}
 
@@ -185,18 +199,27 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 		if id == uint64(0) {
 			return response //error in the ID
 		}
-		return dispatchUpdate(req, response, self.svc, id, self.store)
+		return dispatchUpdate(req, response, self.svc, id, self.store, session)
 	}
 
 	//READ
-	if method == "GET" && strings.HasPrefix(path, "/"+self.Pattern()+"/") {
+	if method == "GET" && strings.HasPrefix(path, self.Pattern()+"/") {
 		id := pathToId(path, self.Pattern(), response)
 		if id == uint64(0) {
 			return response //error in the ID
 		}
-		return dispatchRead(req, response, self.svc, id, self.store)
+		return dispatchRead(req, response, self.svc, id, self.store, session)
 	}
 
+	//DELETE
+	if method == "DELETE" && strings.HasPrefix(path, self.Pattern()+"/") {
+		id := pathToId(path, self.Pattern()+"/", response)
+		if id == uint64(0) {
+			return response //error in the ID
+		}
+		return dispatchDelete(req, response, self.svc, id, self.store, session)
+	}
+	
 	response.StatusCode = http.StatusInternalServerError
 	response.StatusMsg = "not implemented yet"
 
@@ -206,26 +229,18 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 //discoverSession is responsible for looking at the http request headers and deciding if a
 //session is present and if a session is present, if it is valid.  Note that no matter
 //the value oKForNoSession, a *bad* session is always an error (to prevent brute-force attacks)
-func discoverSession(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, store store.T, okForNoSession bool) (*Session, *mongrel2.HttpResponse) {
+func discoverSession(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, store store.T) (*Session, *mongrel2.HttpResponse) {
 	sessionId := req.Header["x-seven5-session"]
 	sessionFailed := "bad session"
 
-	//fmt.Printf("session id found on server side %s, %v\n", sessionId, sessionId == "")
-
 	if sessionId == "" {
-		if okForNoSession {
-			return nil, nil
-		}
-		response.StatusCode = http.StatusUnauthorized
-		response.StatusMsg = sessionFailed
-		return nil, response
+		return nil, nil
 	}
 
 	hits := make([]*Session, 0, 1)
 
 	err := store.FindByKey(&hits, "SessionId", sessionId, uint64(0))
 	if err != nil || len(hits) == 0 {
-		fmt.Printf("bad session attempt %s [no such session?%v, error?%v]\n", sessionId, len(hits) == 0, err)
 		response.StatusCode = http.StatusUnauthorized
 		response.StatusMsg = sessionFailed
 		return nil, response
@@ -237,8 +252,8 @@ func discoverSession(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,
 //formatValidationError puts the appropriate fields into a HTTP response when the validation at
 //the REST level has failed.
 func formatValidationError(errMap map[string]string, response *mongrel2.HttpResponse) *mongrel2.HttpResponse {
-	shell:=make(map[string]map[string]string)
-	shell["error"]=errMap
+	shell := make(map[string]map[string]string)
+	shell["error"] = errMap
 	jsonContent, err := json.Marshal(&shell)
 	if err != nil {
 		response.StatusCode = http.StatusInternalServerError
@@ -252,16 +267,10 @@ func formatValidationError(errMap map[string]string, response *mongrel2.HttpResp
 
 //dispatchCreate is called to handle a POST message to the /api/plural  url.  It is not
 //idempotent as it creates a new object.
-func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, store store.T) *mongrel2.HttpResponse {
+func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, store store.T, session *Session) *mongrel2.HttpResponse {
 	values := svc.Make(uint64(0))
-
-	session, respErr := discoverSession(req, response, store, true)
-
-	if respErr != nil {
-		return respErr
-	}
-
 	var err error
+
 	err = json.Unmarshal(req.Body, &values)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
@@ -270,12 +279,11 @@ func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
 	}
 
 	//fmt.Printf("values that have been unmarshalled in dispatch: %+v\n",values);
-	
-	if errMap := svc.Validate(store, values, OP_CREATE, session); errMap != nil {
+	if errMap := svc.Validate(store, values, OP_CREATE, "", "", session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 	if err = svc.Create(store, values, session); err != nil {
-		restError, ok:=err.(RestError)
+		restError, ok := err.(RestError)
 		if ok {
 			return formatValidationError(restError.ErrorMap(), response)
 		} else {
@@ -289,7 +297,9 @@ func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
 
 //pathToId takes a path like /api/plural/129  and returns 129 or 0 for error.
 func pathToId(path string, name string, response *mongrel2.HttpResponse) uint64 {
-	idString := path[len(name)+2:]
+	idString := path[len(name):]
+	//fmt.Printf("path to Id '%s'\n",idString)
+	
 	if len(idString) == 0 {
 		response.StatusCode = http.StatusBadRequest
 		response.StatusMsg = fmt.Sprintf("bad path, no id!(was %s)!", path)
@@ -306,21 +316,16 @@ func pathToId(path string, name string, response *mongrel2.HttpResponse) uint64 
 }
 
 //dispatchUpdate is called in response to a call to PUT on /api/plural/192.  It is idempotent.
-func dispatchUpdate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, id uint64, store store.T) *mongrel2.HttpResponse {
+func dispatchUpdate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, id uint64, store store.T, session *Session) *mongrel2.HttpResponse {
 	values := svc.Make(uint64(id))
 	var err error
-
-	session, respErr := discoverSession(req, response, store, false)
-	if respErr != nil {
-		return respErr
-	}
 
 	if err = json.Unmarshal(req.Body, &values); err != nil {
 		response.StatusCode = http.StatusBadRequest
 		response.StatusMsg = fmt.Sprintf("json parse error: %s", err)
 		return response
 	}
-	if errMap := svc.Validate(store, values, RestfulOp(OP_UPDATE), session); errMap != nil {
+	if errMap := svc.Validate(store, values, RestfulOp(OP_UPDATE), "", "", session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 	if err = svc.Update(store, values, session); err != nil {
@@ -334,22 +339,43 @@ func dispatchUpdate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
 }
 
 //dispatchRead is called in response to a call to GET on /api/plural/192.  It is idempotent.
-func dispatchRead(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, id uint64, store store.T) *mongrel2.HttpResponse {
+func dispatchRead(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, id uint64, store store.T, session *Session) *mongrel2.HttpResponse {
 	values := svc.Make(uint64(id))
 	var err error
 
-	session, respErr := discoverSession(req, response, store, true)
-	if respErr != nil {
-		return respErr
-	}
-
-	if errMap := svc.Validate(store, values, RestfulOp(OP_READ), session); errMap != nil {
+	if errMap := svc.Validate(store, values, RestfulOp(OP_READ), "", "", session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 
 	if err = svc.Read(store, values, session); err != nil {
 		response.StatusCode = http.StatusInternalServerError
 		response.StatusMsg = fmt.Sprintf("unable to load the item: %s", err)
+		return response
+	}
+
+	return marshalJsonIntoResponse(response, &values)
+}
+//dispatchDelete is called in response to a call to DELETE on /api/plural/192. 
+func dispatchDelete(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
+	svc Restful, id uint64, ugh store.T, session *Session) *mongrel2.HttpResponse {
+	return dispatchNumbered(req,response,id,session,RestfulOp(OP_DELETE),svc, ugh, "delete",
+	func(st store.T, s *Session, service Restful, values interface{}) error{
+		return service.Delete(st, values, s)});
+}
+
+
+//centralize all the code that handles the simple flavor of rest requests like /api/plural/192
+func dispatchNumbered(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,id uint64,session *Session, op RestfulOp, svc Restful, store store.T, errorName string, fn numberedRestFunc)  *mongrel2.HttpResponse {
+	values := svc.Make(uint64(id))
+	var err error
+
+	if errMap := svc.Validate(store, values, op, "", "", session); errMap != nil {
+		return formatValidationError(errMap, response)
+	}
+
+	if err = fn(store,session,svc, values); err != nil {
+		response.StatusCode = http.StatusInternalServerError
+		response.StatusMsg = fmt.Sprintf("unable to %s the item: %s", errorName, err)
 		return response
 	}
 
@@ -377,20 +403,11 @@ func marshalJsonIntoResponse(response *mongrel2.HttpResponse, values interface{}
 
 //dispatch is called when a GET request is made to /api/plural?foo=bar.  This is called by a client who
 //is really searching for a collection of objects and so the response is json array of objects.
-func dispatchFetch(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, store store.T) *mongrel2.HttpResponse {
-	session, respErr := discoverSession(req, response, store, true)
-	if respErr != nil {
-		return respErr
-	}
-	var hits interface{}
-	var err error
+func dispatchFetch(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, store store.T, session *Session) *mongrel2.HttpResponse {
 
-	keyToSearchOn := ""
-	valueToFind := ""
-	var max = uint16(10)
-	
+	//1:check the request for errors
 	uri := req.Header["URI"]
-	fmt.Printf("uri to parse: '%s'\n", uri)
+	//fmt.Printf("uri to parse: '%s'\n", uri)
 
 	parsed, err := url.Parse(uri)
 	if err != nil {
@@ -399,50 +416,65 @@ func dispatchFetch(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, s
 		return response
 	}
 	values := parsed.Query()
-	jsonText:=values.Get("query")
-	
-	searchData:= make(map[string]interface{})
+	jsonText := values.Get("query")
+
+	searchData := make(map[string]interface{})
 	err = json.Unmarshal([]byte(jsonText), &searchData)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		response.StatusMsg = fmt.Sprintf("json parse error: %s", err)
 		return response
 	}
-	fmt.Printf("object parsed out is %+v\n", searchData)
-	for k,v :=range searchData {
-		if k=="max" {
-			val:=reflect.ValueOf(v);
-			if val.Kind()!=reflect.Uint {
+	//fmt.Printf("object parsed out is %+v\n", searchData)
+
+	//set these to be the "defaults" if the client doesn't specify them
+	keyToSearchOn := ""
+	valueToFind := ""
+	var max = uint16(10)
+
+	//2:decode search params
+	for k, v := range searchData {
+		if k == "max" {
+			val := reflect.ValueOf(v)
+			if val.Kind() != reflect.Float64 {
 				response.StatusCode = http.StatusBadRequest
-				response.StatusMsg = fmt.Sprintf("expected max number of results to be unsigned int [%v]",val.Kind())
+				response.StatusMsg = fmt.Sprintf("expected max number of results to be float64 [%v]", val.Kind())
 				return response
 			}
-			max=uint16(val.Uint())
+			max = uint16(val.Float())
+			fmt.Printf("found max in request: %d\n",max)
 			continue
 		}
 		//normal case of key and value being search terms
-		keyToSearchOn=k
-		val:=reflect.ValueOf(v);
-		if val.Kind()!=reflect.String {
+		keyToSearchOn = k
+		val := reflect.ValueOf(v)
+		if val.Kind() != reflect.String {
 			response.StatusCode = http.StatusBadRequest
-			response.StatusMsg = fmt.Sprintf("expected value to search for to be a string[%v]",val.Kind())
+			response.StatusMsg = fmt.Sprintf("expected value to search for to be a string[%v]", val.Kind())
 			return response
 		}
-		valueToFind=v.(string)
+		valueToFind = v.(string)
 	}
-	if keyToSearchOn=="" || valueToFind=="" {
-		response.StatusCode = http.StatusBadRequest
-		response.StatusMsg = fmt.Sprintf("must supply a key and a value to fetch! [%v][%v]",keyToSearchOn,valueToFind)
-		return response
-	}
-	
-	fmt.Printf("key '%s' and value '%s'\n",keyToSearchOn,valueToFind)
-	
-	if hits, err = svc.FindByKey(store, keyToSearchOn, valueToFind, session, max); err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		response.StatusMsg = fmt.Sprintf("unable to find the key in fetch: %s", err)
-		return response
-	}
-	return marshalJsonIntoResponse(response, &hits)
 
+	//3: run validation
+	if errMap := svc.Validate(store, svc.Make(0), OP_SEARCH, keyToSearchOn, valueToFind, session); errMap != nil {
+		return formatValidationError(errMap, response)
+	}
+
+	//4: run the query
+	var hits interface{}
+
+	if hits, err = svc.FindByKey(store, keyToSearchOn, valueToFind, session, max); err != nil {
+		restError, ok := err.(RestError)
+		if ok {
+			return formatValidationError(restError.ErrorMap(), response)
+		} else {
+			response.StatusCode = http.StatusInternalServerError
+			response.StatusMsg = fmt.Sprintf("failed to do findByKey: %s", err)
+		}
+		return response
+	}
+
+	//5:everythings ok, send result to client
+	return marshalJsonIntoResponse(response, hits)
 }
