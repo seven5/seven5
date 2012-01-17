@@ -119,7 +119,7 @@ We'll install *Seven5* "the right way" using the git and the go tool.  First get
 	
 ## Test Seven5
 
-When you run tests or a *Seven5* application, you have to have a "store" running.  For now, that means memcached, as you installed earlier.  In a different shell, just run "memcached" and leave it running or, if you want to fancy "memcached -vv" so you can some feedback that *Seven5* is actually reading and writing to memcached.
+When you run tests or a *Seven5* application, you have to have a "store" running.  For now, that means memcached, as you installed earlier.  In a different shell, just run "memcached" and leave it running or, if you want to get all fancy-pants "memcached -vv", so you can some feedback that *Seven5* is actually reading and writing to memcached.
 
 Back in the shell from above where you have built *Seven5* try this:
 

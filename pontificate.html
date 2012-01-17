@@ -33,11 +33,11 @@
 
 <p>We avoid disk storage for dynamic data because disk is slow, expensive to manage, and generally more trouble than it&rsquo;s worth in the age of server machines with metric tons of RAM.  Also, it&rsquo;s a fricking spinning platter of metal.  WTF?!?</p>
 
-<p>99% of the world doesn&rsquo;t need relational databases and the other 1% fucks it up.  Because of snazzy ORMs that hide SQL, developers end up with relational databases simply because that&rsquo;s the easiest path in the web framework.</p>
+<p>97% of the world doesn&rsquo;t need relational databases and the other 1% screws it up.  Because of snazzy ORMs that hide SQL, developers end up with relational databases simply because that&rsquo;s the easiest path in the web framework.</p>
 
 <p>Seven5 makes a different strategy easy.  Your data model is just, well, your data model.  You use go&rsquo;s data structures and store them, unmodified, in a distributed flock of RAM called <a href="http://memcached.org/">memcached</a> using <a href="http://blog.golang.org/2011/03/gobs-of-data.html">gobs</a> because <a href="http://en.wikipedia.org/wiki/Rob_Pike">Rob Pike</a> is a righteous dude.</p>
 
-<p>If you&rsquo;re paranoid about your entire cluster crashing then rest assured, it&rsquo;s trivial to provision redundant memcacheds in different locales and to take snapshots.</p>
+<p>If you&rsquo;re paranoid about your entire cluster crashing then rest assured, it&rsquo;s trivial to provision redundant memcacheds in different locales.  In the future, we&rsquo;ll get around to <a href="http://code.google.com/p/leveldb-go/">hacking up something</a> that uses the spinning platters of metal as a deep backup.</p>
 
 <h2>Design is for designers. Programming is for programmers.</h2>
 
@@ -53,9 +53,7 @@
 
 <p>The framework is called Seven5 because the originator lives in Paris, France. All the postal codes for Paris, proper, begin with 75.  Besides, names don&rsquo;t matter that much.</p>
 
-<p>The use of the strange pronounciation of guise is because it sounds cooler. Plus, the originator lives very close to the residence (compound?) of the  <a href="http://en.wikipedia.org/wiki/House_of_Guise">House de Guise</a> which is  pronounced in this way.   The English word that is spelled the same way comes from the rumor that a dis<em>guise</em> was used by the Duc an attempt to mask his involvement in the attempted assassination of  <a href="http://en.wikipedia.org/wiki/Gaspard_de_Coligny">Gaspard de Coligny</a> that lead directly to the  <a href="http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre">St. Bartholomew&rsquo;s Day Massacre</a>. Web frameworks  may educate in many ways.</p>
-
-<p>The use of the name  <a href="http://en.wikipedia.org/wiki/Poignard">Poignard</a> is because sharp, narrow tools  are often needed when working with web frameworks.  Such tools, correctly  applied, can be the killing stroke whereas huge, but relatively blunt, tools like Javascript often provide less death.  More death is better.</p>
+<p>The use of the strange pronunciation of guise is because it sounds cooler. Plus, the originator lives very close to the residence (compound?) of the  <a href="http://en.wikipedia.org/wiki/House_of_Guise">House de Guise</a> which is  pronounced in this way.   The English word that is spelled the same way comes from the rumor that a dis<em>guise</em> was used by the Duc an attempt to mask his involvement in the attempted assassination of  <a href="http://en.wikipedia.org/wiki/Gaspard_de_Coligny">Gaspard de Coligny</a> that lead directly to the  <a href="http://en.wikipedia.org/wiki/St._Bartholomew's_Day_massacre">St. Bartholomew&rsquo;s Day Massacre</a>. Web frameworks  may educate in many ways.</p>
 
 <h2>Why Mongrel2</h2>
 
@@ -74,40 +72,6 @@
 
 <li><p>Mongrel is easy to configure and control programmatically.  Seven5  exploits this ability to allow the server to be configured based on its own conventions of how to develop a web application.  During development it  should never be necessary to touch a configuration file.  Seven5 also uses this ability to programmatically start or restart mongrel2 as needed to run the developer&rsquo;s web application.</p></li>
 </ul>
-
-<h1>Abandon all editing all ye who enter here</h1>
-
-<h2>Testing Javascript Code In Go</h2>
-
-<p>I&rsquo;m not really sure how to make this work in practice.  Here&rsquo;s a couple of examples of things I&rsquo;d like to write, written in english rather than as go  code:</p>
-
-<blockquote>
-<p>Set the contents of the username field to &ldquo;&rdquo;.  Verify that the continue button is disabled.</p>
-
-<p>Set the contents of the username field to &ldquo;ian&rdquo;.  Verify that there is
-a drop down present. If there is a dropdown present, verify that it has
-exactly one item in it, with the contents &ldquo;iansmith.&rdquo;</p>
-</blockquote>
-
-<p>My goal would be that unit tests could be written in go, referencing the objects  used in the DSLs for CSS and HTML and somehow have it &ldquo;drive&rdquo; the Poignard  code through its paces.  I have the sense that the right way to do this is to have Poignard abstract the notion of JS events slightly and allow these to be  synthesized by the test harness.  I definitely do not want some crap like Selenium or other &ldquo;browser level&rdquo; test harnesses.  Seven5 went to a lot of trouble for  once and only once, and the tests should benefit as well.</p>
-
-<p>Easy case: changing the go code in the DSL of CSS or HTML should cause immediate problems in the source code of the tests.  This is easy  because the go compiler can check this and your IDE will tell you about it  right away.  Because of the <code>JSGuise</code>, the now changed entities should cause  the JS code to fail horribly&ndash;but not until the first time you run it.</p>
-
-<p>More difficult to see is how changes in the JS code can be reflected back to the go language tests automatically.  I suppose there are two basic options:</p>
-
-<ul>
-<li><p>Go code runs the show.  Since the go code is running the tests, it must be told about what/how to access <code>Poignard</code> functions, etc.  This leads to a once and only once violation since it requires that some entities be duplicated from the Javascript world to the go world.  This is not <em>uberbad</em> because the test code runs and checks that things are ok so if you make a mistake at least it gets caught fast.</p></li>
-
-<li><p>Write some type of Javascript analysis tool and use that to make entites, at least functions, visible to the go level. There are some grammars  <a href="http://www.antlr.org/grammar/1153976512034/ecmascriptA3.g">laying around</a> that could be used to extract some things from Javascript source and make them visible to test code.</p></li>
-</ul>
-
-<p>Along this latter line, but without the analysis, perhaps there could be some  simple rules associated with Poignard code.  Roughly, &ldquo;Poignard can only respond to events&rdquo; and these are handled according to <em>blah</em> convention.  Then the test code could send synthetic events from the server to the  client to drive the JS code.  Similarly, JSGuise could output some &ldquo;testing functions&rdquo; that could be called from test code (via a network message to the  browser from the server).</p>
-
-<h2>AJAX Stuff</h2>
-
-<p>Mongrel2 <a href="https://gist.github.com/920729">already has</a> support for the WebSockets proposal by <a href="http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-07">HyBi working group</a> as well as support for flash-based socket communication with JSON, XML, and blah blah blah.  We should get this for free via our mongrel2 connection.</p>
-
-<p>Seven5 needs to exploit the client/server separation carefully to allow unit tests to drive both client and server.</p>
 
 </body>
 </html>
