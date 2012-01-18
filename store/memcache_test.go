@@ -252,6 +252,11 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	err = self.store.Delete(t2)
 	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
 
+	//check that we cannot write stuff that is not there
+	t2.Id = 429
+	err = self.store.Write(t2)
+	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+
 	//delete trev
 	t2.Id = uint64(2)
 	err = self.store.Delete(t2)

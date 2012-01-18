@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	//	"os"
+	"github.com/bradfitz/gomemcache/memcache"
 	"log"
 	"reflect"
 	"seven5/store"
@@ -115,8 +116,7 @@ type RestHandlerDefault struct {
 
 //numberedRestFunc is a type that indicates you are going to perform some action at the rest
 //layer that just needs an id
-type numberedRestFunc func(st store.T, s *Session, service Restful, values interface{}) error;
-
+type numberedRestFunc func(st store.T, s *Session, service Restful, values interface{}) error
 
 //NewRestHandlerDefault creates the necessary defaults to route HTTP messages that are intended
 //to be restful to the svc provided as the first object.  The second param should be singular,
@@ -151,6 +151,14 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 	response.ServerId = req.ServerId
 	response.ClientId = []int{req.ClientId}
 
+	//we don't want browser caching in a concurrent app
+	if response.Header == nil {
+		response.Header = make(map[string]string)
+	}
+	response.Header["Cache-control"] = "no-cache"
+	response.Header["Pragma"] = "no-cache"
+	response.Header["Expires"] = "0"
+
 	//fmt.Fprintf(os.Stderr, "method %s called on %s with body '%s'\n", req.Header["METHOD"], req.Path, req.Body)
 
 	var ct string
@@ -175,7 +183,7 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 	path := req.Path
 	method := req.Header["METHOD"]
 	//fmt.Printf("PATH: '%s'  --- Method %s\n",path,method)
-	
+
 	session, respErr := discoverSession(req, response, self.store)
 	if respErr != nil {
 		return respErr
@@ -193,9 +201,11 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 		return response
 	}
 
+	patPlus := self.Pattern() + "/"
+
 	//UPDATE/SAVE
-	if method == "PUT" && strings.HasPrefix(path, "/"+self.Pattern()+"/") {
-		id := pathToId(path, self.Pattern(), response)
+	if method == "PUT" && strings.HasPrefix(path, patPlus) {
+		id := pathToId(path, patPlus, response)
 		if id == uint64(0) {
 			return response //error in the ID
 		}
@@ -203,8 +213,8 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 	}
 
 	//READ
-	if method == "GET" && strings.HasPrefix(path, self.Pattern()+"/") {
-		id := pathToId(path, self.Pattern(), response)
+	if method == "GET" && strings.HasPrefix(path, patPlus) {
+		id := pathToId(path, patPlus, response)
 		if id == uint64(0) {
 			return response //error in the ID
 		}
@@ -212,14 +222,14 @@ func (self *RestHandlerDefault) ProcessRequest(req *mongrel2.HttpRequest) *mongr
 	}
 
 	//DELETE
-	if method == "DELETE" && strings.HasPrefix(path, self.Pattern()+"/") {
-		id := pathToId(path, self.Pattern()+"/", response)
+	if method == "DELETE" && strings.HasPrefix(path, patPlus) {
+		id := pathToId(path, patPlus, response)
 		if id == uint64(0) {
 			return response //error in the ID
 		}
 		return dispatchDelete(req, response, self.svc, id, self.store, session)
 	}
-	
+
 	response.StatusCode = http.StatusInternalServerError
 	response.StatusMsg = "not implemented yet"
 
@@ -299,7 +309,7 @@ func dispatchCreate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
 func pathToId(path string, name string, response *mongrel2.HttpResponse) uint64 {
 	idString := path[len(name):]
 	//fmt.Printf("path to Id '%s'\n",idString)
-	
+
 	if len(idString) == 0 {
 		response.StatusCode = http.StatusBadRequest
 		response.StatusMsg = fmt.Sprintf("bad path, no id!(was %s)!", path)
@@ -316,67 +326,70 @@ func pathToId(path string, name string, response *mongrel2.HttpResponse) uint64 
 }
 
 //dispatchUpdate is called in response to a call to PUT on /api/plural/192.  It is idempotent.
-func dispatchUpdate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, id uint64, store store.T, session *Session) *mongrel2.HttpResponse {
-	values := svc.Make(uint64(id))
-	var err error
+func dispatchUpdate(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,
+	svc Restful, id uint64, ugh store.T, session *Session) *mongrel2.HttpResponse {
 
-	if err = json.Unmarshal(req.Body, &values); err != nil {
+	//extra step: we have to unmarshal the content into the object... and ignore the
+	//one provided to us by disp
+	updateValues:=svc.Make(id)
+	err:= json.Unmarshal(req.Body, &updateValues)
+	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		response.StatusMsg = fmt.Sprintf("json parse error: %s", err)
 		return response
 	}
-	if errMap := svc.Validate(store, values, RestfulOp(OP_UPDATE), "", "", session); errMap != nil {
-		return formatValidationError(errMap, response)
-	}
-	if err = svc.Update(store, values, session); err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		response.StatusMsg = fmt.Sprintf("failed to write update: %s", err)
-		return response
-	}
-	response.StatusCode = 200
-	response.StatusMsg = "ok"
-	return response
+
+	return dispatchNumbered(req, response, updateValues, session, RestfulOp(OP_UPDATE), svc, ugh, "update",
+
+		func(st store.T, s *Session, service Restful, IGNORED interface{}) error {
+			return service.Update(st, updateValues, s)
+		})
+}
+
+//dispatchDelete is called in response to a call to DELETE on /api/plural/192. 
+func dispatchDelete(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,
+	svc Restful, id uint64, ugh store.T, session *Session) *mongrel2.HttpResponse {
+
+	return dispatchNumbered(req, response, svc.Make(id), session, RestfulOp(OP_DELETE), svc, ugh, "delete",
+
+		func(st store.T, s *Session, service Restful, values interface{}) error {
+			return service.Delete(st, values, s)
+		})
 }
 
 //dispatchRead is called in response to a call to GET on /api/plural/192.  It is idempotent.
-func dispatchRead(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, svc Restful, id uint64, store store.T, session *Session) *mongrel2.HttpResponse {
-	values := svc.Make(uint64(id))
-	var err error
-
-	if errMap := svc.Validate(store, values, RestfulOp(OP_READ), "", "", session); errMap != nil {
-		return formatValidationError(errMap, response)
-	}
-
-	if err = svc.Read(store, values, session); err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		response.StatusMsg = fmt.Sprintf("unable to load the item: %s", err)
-		return response
-	}
-
-	return marshalJsonIntoResponse(response, &values)
-}
-//dispatchDelete is called in response to a call to DELETE on /api/plural/192. 
-func dispatchDelete(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, 
+func dispatchRead(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,
 	svc Restful, id uint64, ugh store.T, session *Session) *mongrel2.HttpResponse {
-	return dispatchNumbered(req,response,id,session,RestfulOp(OP_DELETE),svc, ugh, "delete",
-	func(st store.T, s *Session, service Restful, values interface{}) error{
-		return service.Delete(st, values, s)});
+
+	return dispatchNumbered(req, response, svc.Make(id), session, RestfulOp(OP_READ), svc, ugh, "read",
+
+		func(st store.T, s *Session, service Restful, values interface{}) error {
+			return service.Read(st, values, s)
+		})
 }
 
+var noSuchResource = map[string]string{"_": "no such resource"}
 
 //centralize all the code that handles the simple flavor of rest requests like /api/plural/192
-func dispatchNumbered(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse,id uint64,session *Session, op RestfulOp, svc Restful, store store.T, errorName string, fn numberedRestFunc)  *mongrel2.HttpResponse {
-	values := svc.Make(uint64(id))
+func dispatchNumbered(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, values interface{}, session *Session, op RestfulOp, svc Restful, store store.T, errorName string, fn numberedRestFunc) *mongrel2.HttpResponse {
 	var err error
 
 	if errMap := svc.Validate(store, values, op, "", "", session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 
-	if err = fn(store,session,svc, values); err != nil {
+	if err = fn(store, session, svc, values); err != nil && err != memcache.ErrCacheMiss {
+		restError, ok := err.(RestError)
+		if ok {
+			return formatValidationError(restError.ErrorMap(), response)
+		}
 		response.StatusCode = http.StatusInternalServerError
 		response.StatusMsg = fmt.Sprintf("unable to %s the item: %s", errorName, err)
 		return response
+	}
+
+	if err == memcache.ErrCacheMiss {
+		return formatValidationError(noSuchResource, response)
 	}
 
 	return marshalJsonIntoResponse(response, &values)
@@ -442,7 +455,6 @@ func dispatchFetch(req *mongrel2.HttpRequest, response *mongrel2.HttpResponse, s
 				return response
 			}
 			max = uint16(val.Float())
-			fmt.Printf("found max in request: %d\n",max)
 			continue
 		}
 		//normal case of key and value being search terms

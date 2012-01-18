@@ -139,8 +139,8 @@ func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Ses
 		return err
 	}
 
-	if err == USER_EXISTS {
-		return &userExistsError{}
+	if err == USER_EXISTS { 
+		return newUserRestError(map[string]string{"Username": "username already exists"})
 	}
 	return store.FindById(ptrToValues, id)
 }
@@ -149,14 +149,100 @@ func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Ses
 //json marshalling annotations.  This is used by applications to do useful things like display another
 //users image or name.
 func (self *UserSvc) Read(store store.T, ptrToObject interface{}, session *Session) error {
-	return store.FindById(ptrToObject, ptrToObject.(User).Id)
+	return store.FindById(ptrToObject, ptrToObject.(*User).Id)
 }
 
 //Update can be called only on a user who is also logged into the session or by a user who is
 //logged in as a super user.
 func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *Session) error {
-	return store.Write(ptrToNewValues)
+	u:=ptrToNewValues.(*User)
 
+	//does it exist?
+	other:=&User{Id:u.Id}
+	if err:=store.FindById(other,u.Id); err!=nil {
+		return err;
+	}
+	
+	errMap:=make(map[string]string)
+
+	if u.FirstName!=""{
+		other.FirstName=u.FirstName
+	}
+	if u.LastName!="" {
+		other.LastName=u.LastName
+	}
+	//you can change some properties of yourself but not these
+	if !session.User.IsSuperuser {
+		if u.IsStaff!=other.IsStaff {
+			errMap["_"]="operation not permitted"
+		}
+		if u.IsSuperuser==other.IsSuperuser {
+			errMap["_"]="operation not permitted"
+		}
+		if u.IsActive==other.IsActive {
+			errMap["_"]="operation not permitted"
+		}
+		if len(errMap)>0 {
+			return newUserRestError(errMap)
+		}
+	} else {
+		//you can ONLY change these as superuser
+		if u.UserInput_Super!=other.IsStaff {
+			other.IsStaff=u.UserInput_Super
+		}
+		if u.UserInput_Super==other.IsSuperuser {
+			other.IsSuperuser=u.UserInput_Super
+		}
+		//XXX NO WAY TO CHANGE THE ACTIVE FIELD!!!
+	}
+	
+	///XXX concurency bug see seven5/seven5/#10
+	if u.UserInput_Email!="" && u.UserInput_Email!=other.Email {
+		if u.Email=="" {
+			return newUserRestError(map[string]string{"Email": "bad email address"})
+			
+		}
+		hits:=make([]*User,0,1)
+		if err:=store.FindByKey(&hits,"Email",u.UserInput_Email,1); err!=nil {
+			return err
+		}
+		if len(hits)>0 {
+			return newUserRestError(map[string]string{"Email": "email address already in use"})
+		}
+		other.Email = u.UserInput_Email
+	}
+	if u.Username!="" && u.Username!=other.Username {
+		hits:=make([]*User,0,1)
+		if err:=store.FindByKey(&hits,"Username",u.Username,1); err!=nil {
+			return err
+		}
+		if len(hits)>0 {
+			e:=newUserRestError(map[string]string{"Username": "username already in use"})
+			return e
+		}
+		other.Username = u.Username
+	}
+	
+	var err error
+	
+	if u.UserInput_Pwd !="" {
+		if u.UserInput_Pwd=="" {
+			return newUserRestError(map[string]string{"UserInput_Pwd": "bad password"})
+		}
+		other.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(u.UserInput_Pwd), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err=store.Write(other); err!=nil {
+		fmt.Printf("error on write in update %v",err)
+		return err
+	}
+	v:=reflect.ValueOf(ptrToNewValues).Elem()
+	o:=reflect.ValueOf(other).Elem()
+	v.Set(o)
+	return nil	
 }
 
 //Create can only be called if the session points to a user who is a super user.
@@ -242,7 +328,7 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			result["id"] = "no id value supplied!"
 			return result
 		}
-		if user.Id != session.User.Id || session.User.IsSuperuser {
+		if user.Id != session.User.Id && !session.User.IsSuperuser {
 			result["_"] = "updating of user data is not allowed"
 			return result
 		}
@@ -277,17 +363,28 @@ func (self *UserSvc) Make(id uint64) interface{} {
 	return &User{Id: id}
 }
 
-//Used to to wrap a USER_EXISTS error from the create() function.  This allows us to send a 200 to th
-//client, not a 500 for attempting to create a user with an already existing
-type userExistsError struct {
+//Used to to wrap errors from our functions that can generate "non fatal" errors such as
+//create and update.  This allows us to send a 200 to the client, not a 500. An exmaple of this 
+//is attempting to create a user with an already existing
+type userRestError struct {
+	m map[string]string //error map
+}
+
+//newUserRestError creates a userRestError object that is both an error an RestError.  
+//The error returned to the client (200 class) has field and error messages in the errorMap.  
+//Use "_" as the key in the error map when the error concerns the entire User struct.
+func newUserRestError(errorMap map[string]string) *userRestError{
+	result:=new(userRestError)
+	result.m = errorMap
+	return result
 }
 
 //Error makes userExistsError satisfy the error interface also
-func (self *userExistsError) Error() string {
-	return "username already exists"
+func (self *userRestError) Error() string {
+	return "non fatal error involving User struct"
 }
 
 //ErrorMap makes userExistsError satisfy the RestError interface
-func (self *userExistsError) ErrorMap() map[string]string {
-	return map[string]string{"Username": "username already exists"}
+func (self *userRestError) ErrorMap() map[string]string {
+	return self.m
 }

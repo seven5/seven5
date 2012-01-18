@@ -756,6 +756,8 @@ func (self *MemcacheGobStore) BulkWrite(sliceOfPtrs interface{}) error {
 func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName string) error {
 	var err error
 
+	mightBeBadId:=(id!=uint64(0))
+
 	if id == uint64(0) {
 		nextId, err := self.GetNextId(typeName)
 		if err != nil {
@@ -773,6 +775,17 @@ func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName s
 	if err := enc.Encode(s); err != nil {
 		return err
 	}
+	
+	if mightBeBadId {
+		key := fmt.Sprintf(RECKEY, typeName, id)
+		item,err:=self.Client.Get(key);
+		if err!=nil {
+			return err
+		}
+		item.Value=buffer.Bytes()
+		return self.CompareAndSwap(item)
+	}
+	
 	//stuff the bytes into the store
 	item := &memcache.Item{Key: key, Value: buffer.Bytes()}
 	err = self.Client.Set(item)
