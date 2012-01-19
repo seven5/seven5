@@ -15,12 +15,17 @@ import (
 type ExportedSeven5Objects struct {
 	//Model is the names of the exported structs
 	Model []string
+	//PrivateInit is true if a function called PrivateInit is located in the pwd.go
+	//file.  At the moment, it doesn't try to check the types of params or return values,
+	//just counts them!
+	PrivateInit bool
 }
 
 const backbone = ".bbone.go"
 
-//CheapASTAnalysis is a function that does some very weak analysis to try to find models that are
-//being exported by a user-level package.  If it finds them, it puts them in the exported parameter.
+//CheapASTAnalysis is a function that does some very weak analysis to 
+//fill in the ExportedSeven5Objects object that has been passed in. 
+//At the moment this analysis is primitive.
 //This is called by the "tune" program so it is public.
 func CheapASTAnalysis(dirname string, exported *ExportedSeven5Objects) {
 	var err error
@@ -42,8 +47,48 @@ func CheapASTAnalysis(dirname string, exported *ExportedSeven5Objects) {
 			analyzeBackbone(filepath.Join(dirname,n),exported)
 			continue
 		}
+		if n=="pwd.go" {
+			analyzePwd(filepath.Join(dirname,n),exported)
+		}
 	}
 
+}
+
+//analyzePwd looks for the PrivateInit method in pwd.go files. It checks only that the function
+//exits and has the right number of parameters and number of return values (2 and 1).
+func analyzePwd(path string, exported *ExportedSeven5Objects) {
+	var fset token.FileSet
+	var file *ast.File
+	var err error
+	
+	if file, err = parser.ParseFile(&fset, path, nil, parser.ParseComments); err != nil {
+		fmt.Fprintf(os.Stderr, "bad parse of %s:%s\n", path, err)
+		return
+	}
+	
+	
+	for _, exp := range file.Scope.Objects {
+		if exp.Kind != ast.Fun{
+			continue
+		}
+		if exp.Name!="PrivateInit" {
+			continue
+		}		
+		fun, ok := exp.Decl.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		params:=fun.Type.Params;
+		results:=fun.Type.Results
+
+		if len(params.List)==2 && len(results.List)==1 {
+			exported.PrivateInit=true;
+			return
+		}
+		
+		fmt.Fprintf(os.Stderr,"Warning: you have a PrivateInit method but it does not have the correct signature (%d,%d)! Ignored.\n", len(params.List),len(results.List));
+	}
+	return
 }
 
 //analyzeBackbone looks for declarations that smell like a backbone model.  if it finds them,

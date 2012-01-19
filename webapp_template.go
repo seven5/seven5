@@ -21,12 +21,19 @@ func main() {
 	{{range .model}}
     seven5.BackboneService("{{lower .}}",{{$pkg}}.New{{.}}Svc(), &{{$pkg}}.{{.}}{})
 	{{end}}
-	
+
+
+	{{/* this section is for handling http and json level handlers... needs to be "recovered" */}}
 	{{$pkg = .package}}
-	//derive from filenames
 	{{range .handler}}
 	{{.}} := {{$pkg}}.New{{upper .}}()
 	{{end}}
+	{{/* ************************************************************************************* */}}
 
-	seven5.WebAppRun()
+	{{if .privateInit}}
+		{{$init = printf "%s%s" $pkg ".PrivateInit"}}
+		seven5.WebAppRun({{$init}})
+	{{else}}
+		seven5.WebAppRun(nil)
+	{{end}}
 }`

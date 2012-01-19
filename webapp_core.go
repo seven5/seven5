@@ -56,7 +56,7 @@ var systemGuise = []Named{newFaviconGuise(), newLoginGuise(), newModelGuise()}
 //apps will just want to exit since the error has already been printed to stderr.  If you are
 //calling this from test code, you will want to set the second parameter to the proposed
 //project directory; otherwise pass "" .
-func startUp(ctx gozmq.Context, conf *projectConfig, named []Named) bool {
+func startUp(ctx gozmq.Context, privateInit func(*log.Logger,store.T) error, conf *projectConfig, named []Named) bool {
 
 	store := &store.MemcacheGobStore{memcache.New(store.LOCALHOST)}
 	
@@ -68,7 +68,13 @@ func startUp(ctx gozmq.Context, conf *projectConfig, named []Named) bool {
 		allNamed[i+len(systemGuise)] = n
 	}
 
-	
+	if privateInit!=nil {
+		if err:=privateInit(conf.Logger, store); err!=nil {
+			fmt.Fprintf(os.Stderr,"private init failed:%v\n",err)
+			return false
+		}
+	}
+
 	for _, h := range allNamed {
 		rh := h.(mongrel2.RawHandler)
 		if err := rh.Bind(h.Name(), ctx); err != nil {
@@ -96,8 +102,10 @@ func startUp(ctx gozmq.Context, conf *projectConfig, named []Named) bool {
 //Any return is probably an error or a shutdown request.  This interrogates the backbone
 //support code to look for restful services that were registered with BackboneService()
 //so you only need to pass Named objects to this method if you have non-restful things
-//to start.
-func WebAppRun(named ...Named) error {
+//to start.  The first parameter should be nil or a function with the signature appropriate
+//to be a pwd.PrivateInit() function--normally this is discovered by the "tune" command
+//and selected automatically.
+func WebAppRun(privateInit func(*log.Logger,store.T) error, named ...Named) error {
 	var ctx gozmq.Context
 	var err error
 	
@@ -132,7 +140,7 @@ func WebAppRun(named ...Named) error {
 
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
-	if !startUp(ctx, config, allNamed) {
+	if !startUp(ctx, privateInit, config, allNamed) {
 		fmt.Fprintf(os.Stderr,"error starting up handlers:%v",err)
 		
 		return errors.New(fmt.Sprintf("error starting up the handers:%s", err))

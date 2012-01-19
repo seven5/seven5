@@ -26,7 +26,7 @@ func toLowerFirst(x string) string {
 }
 
 func importIfNeeded(x string,exported *seven5.ExportedSeven5Objects) string {
-	if len(exported.Model)==0 {
+	if len(exported.Model)==0 && !exported.PrivateInit {
 		return ""
 	}
 	return "\""+x+"\""
@@ -47,6 +47,7 @@ func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven
 	data["import"] = importPath
 	data["package"] = base
 	data["model"] = exported.Model
+	data["privateInit"] = exported.PrivateInit
 
 	buff := bytes.NewBufferString("")
 	if err := t.Execute(buff, data); err != nil {
