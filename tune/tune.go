@@ -47,6 +47,10 @@ func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven
 	data["import"] = importPath
 	data["package"] = base
 	data["model"] = exported.Model
+	for _,m:=range exported.Model {
+		fmt.Printf("[TUNE] found model %s and assuming New%sSvc\n",m,m)
+	}
+	
 	data["privateInit"] = exported.PrivateInit
 
 	buff := bytes.NewBufferString("")

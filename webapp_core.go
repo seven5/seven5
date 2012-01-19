@@ -141,7 +141,7 @@ func WebAppRun(privateInit func(*log.Logger,store.T) error, named ...Named) erro
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
 	if !startUp(ctx, privateInit, config, allNamed) {
-		fmt.Fprintf(os.Stderr,"error starting up handlers:%v",err)
+		fmt.Fprintf(os.Stderr,"error starting up handlers! Exiting!")
 		
 		return errors.New(fmt.Sprintf("error starting up the handers:%s", err))
 	}

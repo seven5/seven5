@@ -88,6 +88,14 @@ func (rock *Rock) Build(packageName string) (success bool) {
 	rock.buildCmd  = exec.Command("go", "build", "-o", packageName, ".")
 	rock.buildCmd.Dir = filepath.Join(rock.projectDir,seven5.WEBAPP_START_DIR)
 	output, err = rock.buildCmd.CombinedOutput()
+	if output != nil {
+		fmt.Print(string(output))
+	}
+	if err != nil{
+		fmt.Println("[ROCK ON] Error building executable (_seven5/"+packageName+"): ", err)
+		return false
+	}
+	
 	
 	executable:=time.Now()
 	

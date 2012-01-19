@@ -203,7 +203,7 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 			
 		}
 		hits:=make([]*User,0,1)
-		if err:=store.FindByKey(&hits,"Email",u.UserInput_Email,1); err!=nil {
+		if err:=store.FindByKey(&hits,"Email",u.UserInput_Email,uint64(0)); err!=nil {
 			return err
 		}
 		if len(hits)>0 {
@@ -213,7 +213,7 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 	}
 	if u.Username!="" && u.Username!=other.Username {
 		hits:=make([]*User,0,1)
-		if err:=store.FindByKey(&hits,"Username",u.Username,1); err!=nil {
+		if err:=store.FindByKey(&hits,"Username",u.Username,uint64(0)); err!=nil {
 			return err
 		}
 		if len(hits)>0 {
