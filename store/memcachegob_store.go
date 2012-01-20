@@ -11,11 +11,12 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"time"
 )
 
 func init() {
 	//so we can use gobs with the llrb tree nodes
-	var y ValueOwnerPair
+	var y ValueInfo
 	gob.Register(y)
 }
 
@@ -131,7 +132,7 @@ func (self *MemcacheGobStore) Write(s interface{}) error {
 		if e := self.writeKey(s, n, typeName, v, hacked, nil, isFifo, userId); e != nil {
 			return e
 		}
-		return self.addUniqueKey(typeName, n, v, userId)
+		return self.addUniqueKey(typeName, n, v, userId, isFifo)
 	})
 
 	return nil
@@ -242,6 +243,7 @@ func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName s
 		}
 		err = self.writeIndex(mapKey, index, item, typeName, keyName, userId)
 	} else {
+		//this is the case of a bulk write, order is handled elsewhere
 		err = self.writeIndex(mapKey, fullIndex, item, typeName, keyName, userId)
 	}
 
@@ -310,7 +312,7 @@ func (self *MemcacheGobStore) readIndex(keyValue string, result *[]uint64, item 
 
 //deleteKey does the work to update an index when an item is deleted and preserve the
 //lifo or fifo ordering (by not changing it)
-func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, userId uint64) error {
+func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, userId uint64, isFifo keyOrder) error {
 	var slice []uint64
 	var item *memcache.Item
 
@@ -326,7 +328,7 @@ func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName 
 				slice = append(slice[0:i], slice[i+1:]...)
 			}
 			if len(slice)==0 {
-				if e:=self.deleteUniqueKey(typeName, keyName, mapKey, userId); e!=nil {
+				if e:=self.deleteUniqueKey(typeName, keyName, mapKey, userId, isFifo); e!=nil {
 					return e
 				}
 			}
@@ -376,7 +378,7 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	}
 	
 	//load up to 256 key values
-	pairs:=make([]ValueOwnerPair,0,256)
+	pairs:=make([]ValueInfo,0,256)
 	if err=self.UniqueKeyValues(example,keyName, &pairs, uint64(0)); err!=nil {
 		return err
 	}
@@ -570,9 +572,9 @@ func (self *MemcacheGobStore) Delete(s interface{}) error {
 		}
 	}
 
-	//update all the extra keys using writeKey
-	err = self.walkAllExtraKeys(s, func(n string, v string, IGNORED keyOrder) error {
-		return self.deleteKey(s, n, typeName, v, id, userId)
+	//update all the extra keys using deleteKey
+	err = self.walkAllExtraKeys(s, func(n string, v string, isFifo keyOrder) error {
+		return self.deleteKey(s, n, typeName, v, id, userId, isFifo)
 	})
 
 	if err != nil && err != INDEX_MISS {
@@ -735,13 +737,13 @@ func (self *MemcacheGobStore) BulkWrite(sliceOfPtrs interface{}) error {
 	}
 
 	for keyName, maps := range master {
-		unique:=[]ValueOwnerPair{}
+		unique:=[]ValueInfo{}
 		for mapKey, index := range maps {
 			order := keyOrder(UNSPECIFIED_ORDER) /*already dealt with this issue in the loops above*/
 			if err := self.writeKey(s, keyName, typeName, mapKey, 0, index, order, userId); err != nil {
 				return err
 			}
-			q:=ValueOwnerPair{mapKey,userId}
+			q:=ValueInfo{mapKey,userId,time.Time{}}
 			unique=append(unique,q)
 		}
 		if err:=self.writeTreeBatch(typeName,keyName,unique); err!=nil {
@@ -810,7 +812,7 @@ func (self *MemcacheGobStore) getKeyNameForRecord(typeName string, keyName strin
 
 //UniqueKeyValues should return all the unique keys (plus the owners) for a given key and type.
 //This should filter for the owner==last parameter if the vaule is non-zero.
-func (self *MemcacheGobStore) UniqueKeyValues(example interface{}, keyName string, result *[]ValueOwnerPair, ownerFilter uint64) error {
+func (self *MemcacheGobStore) UniqueKeyValues(example interface{}, keyName string, result *[]ValueInfo, ownerFilter uint64) error {
 	_, typeName, err := GetIdValueAndStructureName(example)
 	if err!=nil {
 		return err
@@ -827,7 +829,7 @@ func (self *MemcacheGobStore) UniqueKeyValues(example interface{}, keyName strin
 		if item==nil {
 			 break
 		}
-		v:=item.(ValueOwnerPair)
+		v:=item.(ValueInfo)
 		if ownerFilter!=uint64(0) && v.Owner!=ownerFilter {
 			continue
 		}
@@ -853,7 +855,7 @@ func (self *MemcacheGobStore) loadTree(typeName string, keyName string) (*memcac
 	var root *llrb.Node
 	
 	if err==memcache.ErrCacheMiss {
-		tree:=llrb.New(LessValueOwner)
+		tree:=llrb.New(LessValueInfoForValue)
 		return nil, tree, nil
 	} 
 	buffer := bytes.NewBuffer(item.Value)
@@ -862,7 +864,7 @@ func (self *MemcacheGobStore) loadTree(typeName string, keyName string) (*memcac
 	if err!=nil {
 		return nil,nil, err
 	}
-	tree:=llrb.New(LessValueOwner)
+	tree:=llrb.New(LessValueInfoForValue)
 	tree.SetRoot(root)
 	
 	return item,tree,nil
@@ -892,13 +894,15 @@ func (self *MemcacheGobStore) saveTree(typeName string, keyName string, item *me
 
 //addUniqueKey does the work to check and see if the key's value has been written before and
 //if not to update it.
-func (self *MemcacheGobStore) addUniqueKey(typeName string, n string, v string, userId uint64) error {
+func (self *MemcacheGobStore) addUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
+
+	//fmt.Printf("addUniqueKey: %s [%s] '%s'\n",typeName,n,v)
 
 	item, tree, err:=self.loadTree(typeName, n)
 	if err!=nil {
 		return err
 	}
-	pair:=ValueOwnerPair{v,userId}
+	pair:=ValueInfo{v,userId,time.Time{}}
 	before:=tree.Len()
 	tree.ReplaceOrInsert(pair)
 	
@@ -912,12 +916,16 @@ func (self *MemcacheGobStore) addUniqueKey(typeName string, n string, v string, 
 }
 
 //deleteUnique key updates our tree that maintains what keys we have seen before
-func (self *MemcacheGobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64) error {
+func (self *MemcacheGobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
+
+	//fmt.Printf("deleteUniqueKey: %s [%s] '%s'\n",typeName,n,v)
+
+
 	item, tree, err:=self.loadTree(typeName, n)
 	if err!=nil {
 		return err
 	}
-	pair:=ValueOwnerPair{v,userId}
+	pair:=ValueInfo{v,userId,time.Time{}}
 
 	if tree.Delete(pair)==nil {
 		panic(fmt.Sprintf("deleted an item from the tree but could not find it! %+v\n",pair))
@@ -933,7 +941,7 @@ func (self *MemcacheGobStore) writeEmptyTree(typeName string, n string) error {
 	return nil
 }
 //writeTreeBatch is used when you have many writes to do all at once.
-func (self *MemcacheGobStore) writeTreeBatch(typeName string, keyName string, possiblyUnique []ValueOwnerPair) error {
+func (self *MemcacheGobStore) writeTreeBatch(typeName string, keyName string, possiblyUnique []ValueInfo) error {
 	item, tree, err:=self.loadTree(typeName, keyName)
 	if err!=nil {
 		return err

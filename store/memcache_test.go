@@ -197,7 +197,7 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 
 	//look for all the values
 	
-	uniqueValues:=make([]ValueOwnerPair,0,10)
+	uniqueValues:=make([]ValueInfo,0,10)
 	example:=new(BlarghParst)
 	err = self.store.UniqueKeyValues(example,"AggMonth",&uniqueValues,uint64(0))
 	c.Assert(err, gocheck.Equals, nil)
@@ -464,7 +464,7 @@ func (self *MemcachedSuite) TestOwner(c *gocheck.C) {
 	c.Assert(self.store.Write(req3), gocheck.Equals, nil)
 	
 	//check that it is present
-	targets:=make([]ValueOwnerPair,0,5)
+	targets:=make([]ValueInfo,0,5)
 	c.Assert(self.store.UniqueKeyValues(req1, "To",  &targets, duffman.Id),gocheck.Equals,nil)
 	c.Check(len(targets),gocheck.Equals,3)
 	c.Check(targets[0].Value,gocheck.Not(gocheck.Equals),targets[1].Value)

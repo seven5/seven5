@@ -28,7 +28,7 @@
 //On a given field, the order of the keys stored can be unspecified, fifo, or lifo.  Unspecified
 //is the default.  If you specify a key order of lifo or fifo, it is more expensive to
 //do reads.  Most users of this feature will want this to allow an "effective sort" of
-//the results of a find that is based on the write order.  Again, the seven5order:"lifo"
+//the results of a find that is based on the write order.  Again, the seven5order:""
 //is the way to specify the order on a field--and it applies to all keys on that field.
 package store
 
@@ -37,6 +37,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
@@ -101,24 +102,26 @@ type T interface {
 	//no more spots remain or all the values have been elucidated.  This function will
 	//allocate new objects to hold the newly returned values.  If the final parameter is
 	//not zero, then only values owned by that id will be returned in the result.
-	UniqueKeyValues(example interface{}, keyName string, result *[]ValueOwnerPair, ownerFilter uint64) error
+	UniqueKeyValues(example interface{}, keyName string, result *[]ValueInfo, ownerFilter uint64) error
 }
 
-//ValueOwnerPair is a structure that is used when returning the set of unique keys. Note that
+//ValueInfo is a structure that is used when returning the set of unique keys. Note that
 //key values have to flatten nicely, so the value portion here is always a string.
-type ValueOwnerPair struct {
+type ValueInfo struct {
 	Value string
 	Owner uint64
+	Stored time.Time
 }
 
-//LessValueOwner is needed because we keep a LLRB tree underneath and need a comparison function
-//for that to work.
-func LessValueOwner(a,b interface{}) bool {
-	x := a.(ValueOwnerPair)
-	y := b.(ValueOwnerPair)
+//LessValueInfoValue is needed because we keep a LLRB tree underneath and need a comparison function
+//for that to work.  This compares the values so we can keep a tree that allows fast decision
+//to see if a given value has been used before.
+func LessValueInfoForValue(a,b interface{}) bool {
+	x := a.(ValueInfo)
+	y := b.(ValueInfo)
 	
 	if x.Value==y.Value {
-		return x.Owner < y.Owner
+		return x.Stored.Before(y.Stored)
 	}
 	return x.Value < y.Value
 }
