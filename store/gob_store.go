@@ -97,7 +97,7 @@ func (self *GobStore) Write(s interface{}) error {
 	var typeName string
 	var err error
 
-	if id, typeName, err = GetIdValueAndStructureName(s); err != nil {
+	if id, typeName, err = getIdValueAndStructureName(s); err != nil {
 		return err
 	}
 
@@ -139,7 +139,7 @@ type fieldFunc func(fieldOrMethodName string, flattenedValue string, isFifo keyO
 //formed.
 func (self *GobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error {
 	//write the extra indexes
-	fields, methods := GetStructKeys(s)
+	fields, methods := getStructKeys(s)
 	var mapKey string
 	var err error
 
@@ -193,7 +193,7 @@ func (self *GobStore) FindById(s interface{}, id uint64) error {
 	var typeName string
 	var err error
 
-	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
+	if _, typeName, err = getIdValueAndStructureName(s); err != nil {
 		return err
 	}
 	key := fmt.Sprintf(RECKEY, typeName, id)
@@ -355,7 +355,7 @@ func (self *GobStore) FindByKey(ptrToResult interface{}, keyName string, value s
 	}
 
 	s := result.Type().Elem()
-	if err = VerifyStructPointerFieldTypes(s); err != nil {
+	if err = verifyStructPointerFieldTypes(s); err != nil {
 		return err
 	}
 	typeName := s.Elem().String()
@@ -425,7 +425,7 @@ func (self *GobStore) findByKeyInternal(ptrToResult interface{}, resultItemType 
 	ok := false
 	example:=reflect.New(resultItemType).Interface()
 	//we need to see if they specified any order for this key
-	f, m := GetStructKeys(example)
+	f, m := getStructKeys(example)
 	order := keyOrder(UNSPECIFIED_ORDER)
 	for _, fld := range f {
 		if fld.Name == keyName {
@@ -515,7 +515,7 @@ func (self *GobStore) readMulti(s interface{}, ids []uint64, result reflect.Valu
 	var typeName string
 
 
-	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
+	if _, typeName, err = getIdValueAndStructureName(s); err != nil {
 		return err
 	}
 	for i, v := range ids {
@@ -556,7 +556,7 @@ func (self *GobStore) Delete(s interface{}) error {
 	var err, memcache_err error
 	var id, userId uint64
 
-	if id, typeName, err = GetIdValueAndStructureName(s); err != nil {
+	if id, typeName, err = getIdValueAndStructureName(s); err != nil {
 		return err
 	}
 
@@ -612,7 +612,7 @@ func (self *GobStore) Init(s interface{}) error {
 	var typeName string
 	var err error
 
-	if _, typeName, err = GetIdValueAndStructureName(s); err != nil {
+	if _, typeName, err = getIdValueAndStructureName(s); err != nil {
 		return err
 	}
 
@@ -693,7 +693,7 @@ func (self *GobStore) BulkWrite(sliceOfPtrs interface{}) error {
 	for i := 0; i < v.Len(); i++ {
 		valueOfItem := v.Index(i)
 		s = valueOfItem.Interface()
-		if id, typeName, err = GetIdValueAndStructureNameFromValue(valueOfItem); err != nil {
+		if id, typeName, err = getIdValueAndStructureNameFromValue(valueOfItem); err != nil {
 			return err
 		}
 		o := uint64(0)
@@ -811,7 +811,7 @@ func (self *GobStore) getKeyNameForRecord(typeName string, keyName string, keyVa
 //UniqueKeyValues should return all the unique keys (plus the owners) for a given key and type.
 //This should filter for the owner==last parameter if the vaule is non-zero.
 func (self *GobStore) UniqueKeyValues(example interface{}, keyName string, result *[]ValueInfo, ownerFilter uint64) error {
-	_, typeName, err := GetIdValueAndStructureName(example)
+	_, typeName, err := getIdValueAndStructureName(example)
 	if err!=nil {
 		return err
 	}
@@ -853,7 +853,7 @@ func (self *GobStore) loadTree(typeName string, keyName string) (StoredItem,*llr
 	var root *llrb.Node
 	
 	if err==ErrorNotFoundInStore{
-		tree:=llrb.New(LessValueInfoForValue)
+		tree:=llrb.New(lessValueInfoForValue)
 		return nil, tree, nil
 	} 
 	buffer := bytes.NewBuffer(item.Value())
@@ -862,7 +862,7 @@ func (self *GobStore) loadTree(typeName string, keyName string) (StoredItem,*llr
 	if err!=nil {
 		return nil,nil, err
 	}
-	tree:=llrb.New(LessValueInfoForValue)
+	tree:=llrb.New(lessValueInfoForValue)
 	tree.SetRoot(root)
 	
 	return item,tree,nil

@@ -106,17 +106,17 @@ type T interface {
 }
 
 //ValueInfo is a structure that is used when returning the set of unique keys. Note that
-//key values have to flatten nicely, so the value portion here is always a string.
+//values have to flatten nicely, so the value portion here is always a string.
 type ValueInfo struct {
 	Value string
 	Owner uint64
 	Stored time.Time
 }
 
-//LessValueInfoValue is needed because we keep a LLRB tree underneath and need a comparison function
+//lessValueInfoValue is needed because we keep a LLRB tree underneath and need a comparison function
 //for that to work.  This compares the values so we can keep a tree that allows fast decision
 //to see if a given value has been used before.
-func LessValueInfoForValue(a,b interface{}) bool {
+func lessValueInfoForValue(a,b interface{}) bool {
 	x := a.(ValueInfo)
 	y := b.(ValueInfo)
 	
@@ -152,18 +152,18 @@ const (
 	MAGIC_VALUE = "--"
 )
 
-//GetIdValueAndStructureName makes sure that the object passed is a pointer to a structure and
+//getIdValueAndStructureName makes sure that the object passed is a pointer to a structure and
 //that it has a field named Id that is of type uint64.  If the check fails, it return non-nil
 //error value, otherwise the current value of the Id field and the name of the structure type
-//is return (not the name of the type passed as a parameter, as this is a POINTER to a structure)
-func GetIdValueAndStructureName(s interface{}) (uint64, string, error) {
-	return GetIdValueAndStructureNameFromValue(reflect.ValueOf(s))
+//is return (not the name of the type passed as a parameter, as this is a POINTER to a structure).
+func getIdValueAndStructureName(s interface{}) (uint64, string, error) {
+	return getIdValueAndStructureNameFromValue(reflect.ValueOf(s))
 }
 
-//VerifyStructPointerFieldsFromValue is identical to GetIdValueAndStructureName except it operates
+//getIdValueAndStructureNameFromValue is identical to getIdValueAndStructureName except it operates
 //on a reflect.Value not an interface{}.
-func GetIdValueAndStructureNameFromValue(v reflect.Value) (uint64, string, error) {
-	if err := VerifyStructPointerFieldTypes(v.Type()); err != nil {
+func getIdValueAndStructureNameFromValue(v reflect.Value) (uint64, string, error) {
+	if err := verifyStructPointerFieldTypes(v.Type()); err != nil {
 		return uint64(0), "", err
 	}
 	str := v.Elem()
@@ -172,9 +172,9 @@ func GetIdValueAndStructureNameFromValue(v reflect.Value) (uint64, string, error
 	return id.Uint(), typeName, nil
 }
 
-//VerifyStructPointerFieldType is used to check that the object described by v is a pointer to
+//verifyStructPointerFieldType is used to check that the object described by v is a pointer to
 //structure that has an appropriate Id field.
-func VerifyStructPointerFieldTypes(v reflect.Type) error {
+func verifyStructPointerFieldTypes(v reflect.Type) error {
 	if v.Kind() != reflect.Ptr {
 		return BAD_STRUCT
 	}
@@ -197,7 +197,7 @@ type keyOrder int
 //MethodPlusName is used to allow us to return the string of the methods name along with an
 //object that points to that method plus the value of the receiver.  Without this pair,
 //the method name cannot be determined from the reflect.Value.
-type MethodPlusName struct {
+type methodPlusName struct {
 	Name   string
 	Meth   reflect.Value
 	IsFifo keyOrder
@@ -205,7 +205,7 @@ type MethodPlusName struct {
 
 //FieldPlusName is used to allow us to return name of a field
 //plus a value object that is the value of the field named.
-type FieldPlusName struct {
+type fieldPlusName struct {
 	Name   string
 	Value  reflect.Value
 	IsFifo keyOrder
@@ -214,11 +214,11 @@ type FieldPlusName struct {
 //GetStructKeys returns two slices that are the names of the fields that are keys
 // (first slice) or methods that generate keys for this structure type in memcached.  
 //It assumes that one has already validated the struct with verifyStructPointerFields.
-func GetStructKeys(s interface{}) ([]FieldPlusName, []MethodPlusName) {
+func getStructKeys(s interface{}) ([]fieldPlusName, []methodPlusName) {
 	str := reflect.ValueOf(s).Elem()
 	t:=str.Type()
-	resultFields := []FieldPlusName{}
-	resultMethods := []MethodPlusName{}
+	resultFields := []fieldPlusName{}
+	resultMethods := []methodPlusName{}
 	numFields := t.NumField()
 
 	for i := 0; i < numFields; i++ {
@@ -245,7 +245,7 @@ func GetStructKeys(s interface{}) ([]FieldPlusName, []MethodPlusName) {
 		//Id is a special case, because you can turn off the findAll()
 		if f.Name == "Id" {
 			if !none {
-				resultFields = append(resultFields, FieldPlusName{MAGIC_KEY, ZeroValue, keyOrder(isFifo)})
+				resultFields = append(resultFields, fieldPlusName{MAGIC_KEY, ZeroValue, keyOrder(isFifo)})
 			}
 			continue
 		}
@@ -259,14 +259,14 @@ func GetStructKeys(s interface{}) ([]FieldPlusName, []MethodPlusName) {
 		tagList := strings.Split(f.Tag.Get("seven5key"), ",")
 		for _, tag := range tagList {
 			if tag == f.Name {
-				resultFields = append(resultFields, FieldPlusName{f.Name, str.Field(i), keyOrder(isFifo)})
+				resultFields = append(resultFields, fieldPlusName{f.Name, str.Field(i), keyOrder(isFifo)})
 				continue
 			}
 			m:=str.MethodByName(tag)
 			if m==ZeroValue{
 				panic(fmt.Sprintf("method %s does not exist on struct! (did you define it on the POINTER to the struct?)", tag))
 			}
-			resultMethods = append(resultMethods, MethodPlusName{tag, m, keyOrder(isFifo)})
+			resultMethods = append(resultMethods, methodPlusName{tag, m, keyOrder(isFifo)})
 		}
 	}
 
