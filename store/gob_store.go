@@ -38,7 +38,6 @@ type pointerToObjSlice struct {
 }
 
 const (
-	LOCALHOST = "localhost:11211"
 	IDKEY     = "%s-idcounter"
 	RECKEY    = "%s-%d"
 	VALUEKEY  = "%s-value-%s"

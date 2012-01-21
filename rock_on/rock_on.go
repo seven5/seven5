@@ -7,6 +7,7 @@ import (
 	"seven5"
 	"os/exec"
 	"path/filepath"
+	"seven5/store"
 )
 
 type Rock struct {
@@ -32,7 +33,7 @@ func (self *RockListener) FileRemoved(fileInfo os.FileInfo) {
 //destroyStore is a utility routine that is useful for clearing all the data when you are
 //running tests.
 func destroyStore() error {
-	return NewStoreImpl(LOCALHOST).DestroyAll(LOCALHOST)
+	return store.NewStoreImpl(store.MEMCACHE_LOCALHOST).DestroyAll(store.MEMCACHE_LOCALHOST)
 }
 
 // This is the main loop in which Rock controls the build and server process and watches for source changes

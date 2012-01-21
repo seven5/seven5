@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	//	"os"
-	"github.com/bradfitz/gomemcache/memcache"
 	"log"
+	"net/http"
 	"reflect"
 	"seven5/store"
 	"strconv"
@@ -34,11 +32,20 @@ const (
 //made to detect problems in the Validate() method of Restful, rather than using this mechanism as it
 //complicates the REST implementation.
 type RestError interface {
-	error
+	//so we are an "error" also
+	Error() string
 	//ErrorMap returns the error message as the value and the key is the field with the problem,
 	//or "_" for the whole thing is really busted.  This is the same format as the
 	//result of Validate() on the Restful type.
 	ErrorMap() map[string]string
+}
+
+//NewRestError creates a default implementation of RestError and returns it.   Pass "_" as the
+//fieldName if you mean there is a problem with the whole request.
+func NewRestError(field string, errorMessage string) RestError {
+	m:=make(map[string]string)
+	m[field]=errorMessage
+	return &restErrorDefault{m,errorMessage}
 }
 
 //RestfulOp is a type that indications the operation to be performed. It is passed to the Validate
@@ -151,10 +158,10 @@ func (self *RestHandlerDefault) ProcessRequest(req *http.Request) *http.Response
 	if response.Header == nil {
 		response.Header = make(map[string][]string)
 	}
-	response.Header.Set("Cache-Control","no-cache")
-	
-	response.Header.Set("Pragma","no-cache")
-	response.Header.Set("Expires","0")
+	response.Header.Set("Cache-Control", "no-cache")
+
+	response.Header.Set("Pragma", "no-cache")
+	response.Header.Set("Expires", "0")
 
 	//fmt.Fprintf(os.Stderr, "method %s called on %s with body '%s'\n", req.Header["METHOD"], req.Path, req.Body)
 
@@ -179,7 +186,7 @@ func (self *RestHandlerDefault) ProcessRequest(req *http.Request) *http.Response
 
 	path := req.URL.Path
 	method := req.Method
-	//fmt.Printf("PATH: '%s'  --- Method %s\n",path,method)
+	//fmt.Printf("PATH: '%s'  --- Method %s\n", path, method)
 
 	session, respErr := discoverSession(req, response, self.store)
 	if respErr != nil {
@@ -274,13 +281,13 @@ func formatValidationError(errMap map[string]string, response *http.Response) *h
 
 //bodyToBytes converts the contents of the body of the request into a set of bytes.  This
 //reads the body to EOF, so don't call it when the body might be large.
-func bodyToBytes(req *http.Request) ([]byte,error) {
-	b:=new(bytes.Buffer)
-	_,err:=b.ReadFrom(req.Body)
-	if err!=nil {
-		return nil,err
+func bodyToBytes(req *http.Request) ([]byte, error) {
+	b := new(bytes.Buffer)
+	_, err := b.ReadFrom(req.Body)
+	if err != nil {
+		return nil, err
 	}
-	return b.Bytes(),nil
+	return b.Bytes(), nil
 }
 
 //dispatchCreate is called to handle a POST message to the /api/plural  url.  It is not
@@ -288,9 +295,9 @@ func bodyToBytes(req *http.Request) ([]byte,error) {
 func dispatchCreate(req *http.Request, response *http.Response, svc Restful, store store.T, session *Session) *http.Response {
 	values := svc.Make(uint64(0))
 	var err error
-	
-	b,err:=bodyToBytes(req)
-	if err!=nil {
+
+	b, err := bodyToBytes(req)
+	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		response.Status = fmt.Sprintf("buffer conversion error: %s", err)
 		return response
@@ -343,16 +350,16 @@ func pathToId(path string, name string, response *http.Response) uint64 {
 func dispatchUpdate(req *http.Request, response *http.Response,
 	svc Restful, id uint64, ugh store.T, session *Session) *http.Response {
 
-	b,err:=bodyToBytes(req)
-	if err!=nil {
+	b, err := bodyToBytes(req)
+	if err != nil {
 		response.StatusCode = http.StatusInternalServerError
 		response.Status = fmt.Sprintf("byte conversion error: %s", err)
 		return response
 	}
 	//extra step: we have to unmarshal the content into the object... and ignore the
 	//one provided to us by disp
-	updateValues:=svc.Make(id)
-	err= json.Unmarshal(b, &updateValues)
+	updateValues := svc.Make(id)
+	err = json.Unmarshal(b, &updateValues)
 	if err != nil {
 		response.StatusCode = http.StatusInternalServerError
 		response.Status = fmt.Sprintf("json parse error: %s", err)
@@ -391,14 +398,14 @@ func dispatchRead(req *http.Request, response *http.Response,
 var noSuchResource = map[string]string{"_": "no such resource"}
 
 //centralize all the code that handles the simple flavor of rest requests like /api/plural/192
-func dispatchNumbered(req *http.Request, response *http.Response, values interface{}, session *Session, op RestfulOp, svc Restful, store store.T, errorName string, fn numberedRestFunc) *http.Response {
+func dispatchNumbered(req *http.Request, response *http.Response, values interface{}, session *Session, op RestfulOp, svc Restful, someStore store.T, errorName string, fn numberedRestFunc) *http.Response {
 	var err error
 
-	if errMap := svc.Validate(store, values, op, "", "", session); errMap != nil {
+	if errMap := svc.Validate(someStore, values, op, "", "", session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
 
-	if err = fn(store, session, svc, values); err != nil && err != memcache.ErrCacheMiss {
+	if err = fn(someStore, session, svc, values); err != nil && err != store.ErrorNotFoundInStore {
 		restError, ok := err.(RestError)
 		if ok {
 			return formatValidationError(restError.ErrorMap(), response)
@@ -408,7 +415,7 @@ func dispatchNumbered(req *http.Request, response *http.Response, values interfa
 		return response
 	}
 
-	if err == memcache.ErrCacheMiss {
+	if err == store.ErrorNotFoundInStore {
 		return formatValidationError(noSuchResource, response)
 	}
 
@@ -426,7 +433,7 @@ func marshalJsonIntoResponse(response *http.Response, values interface{}) *http.
 		response.Status = fmt.Sprintf("unable to compute json for item:%s", err)
 		return response
 	}
-	b:=NewBufferCloserFromBytes(dataBuffer)
+	b := NewBufferCloserFromBytes(dataBuffer)
 	response.ContentLength = b.Len()
 	response.Body = b
 	response.StatusCode = 200
@@ -439,10 +446,10 @@ func marshalJsonIntoResponse(response *http.Response, values interface{}) *http.
 //is really searching for a collection of objects and so the response is json array of objects.
 func dispatchFetch(req *http.Request, response *http.Response, svc Restful, store store.T, session *Session) *http.Response {
 	var err error
-	
+
 	//1:check the request for errors
 	parsed := req.URL
-	//fmt.Printf("uri to parse: '%s'\n", uri)
+	//fmt.Printf("uri to parse: '%s' '%s'\n", parsed.Path, parsed.RawQuery)
 
 	values := parsed.Query()
 	jsonText := values.Get("query")
@@ -454,7 +461,7 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 		response.Status = fmt.Sprintf("json parse error: %s", err)
 		return response
 	}
-	//fmt.Printf("object parsed out is %+v\n", searchData)
+	//fmt.Printf("object parsed out in fetch is %+v\n", searchData)
 
 	//set these to be the "defaults" if the client doesn't specify them
 	keyToSearchOn := ""
@@ -505,4 +512,21 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 
 	//5:everythings ok, send result to client
 	return marshalJsonIntoResponse(response, hits)
+}
+
+//restErrorDefault is a simple implementation of the RestError type that knows how to print
+//out an error message.
+type restErrorDefault struct {
+	restError map[string]string
+	errorMessage string
+}
+
+//Error makes a restErrorDefault meet the contract of Error
+func (self restErrorDefault) Error() string {
+	return self.errorMessage
+}
+
+//ErrorMap() makes a restErrorDefault meet the contract of a RestError
+func (self restErrorDefault) ErrorMap() map[string]string {
+	return self.restError
 }

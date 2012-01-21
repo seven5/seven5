@@ -12,8 +12,13 @@ import (
 
 //m2ToHttp converts a mongrel2 level request to an http one compatible with net/http
 func m2ToHttp(in *mongrel2.HttpRequest) (out *http.Request) {
+	
+	//for k,v := range in.Header {
+	//	fmt.Printf("------->'%s' -> '%s'\n",k,v)
+	//}
+	
 	method := in.Header["METHOD"]
-	url := in.Path
+	url := in.Header["URI"]
 	buffer := bytes.NewBuffer(in.Body)
 	out, err := http.NewRequest(method, url, buffer)
 	if err != nil {

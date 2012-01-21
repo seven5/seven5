@@ -50,6 +50,9 @@ type StoredItem interface {
 	SetValue([]byte)
 }
 
+const MEMCACHE_LOCALHOST = "localhost:11211"
+
+
 //ErrorNotFoundInStore indicates, well, that it was not found in the store. 
 var ErrorNotFoundInStore = errors.New("Key not found in storage layer")
 

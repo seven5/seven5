@@ -65,7 +65,7 @@ type sample2 struct {
 
 //we create a conn to the memcached at start of the suite
 func (self *GobSuite) SetUpSuite(c *gocheck.C) {
-	self.impl = NewStoreImpl(LOCALHOST)
+	self.impl = NewStoreImpl(MEMCACHE_LOCALHOST)
 	self.store = &GobStore{self.impl}
 }
 
@@ -76,7 +76,7 @@ func (self *GobSuite) TearDownSuite(c *gocheck.C) {
 //before each test we destroy all data in memcached.  if memcached is connected to a terminal
 //(foreground) it will generate some bells to tell you that this is happening (annoying)
 func (self *GobSuite) SetUpTest(c *gocheck.C) {
-	err := self.impl.DestroyAll(LOCALHOST)
+	err := self.impl.DestroyAll(MEMCACHE_LOCALHOST)
 	if err != nil {
 		c.Fatal("unable to setup test and clear memcached:%s\n", err)
 	}
@@ -514,7 +514,7 @@ func sampleData(size int) []*sample2 {
 
 func BenchmarkWriteSpeed(b *testing.B) {
 	b.StopTimer()
-	store := &GobStore{NewStoreImpl(LOCALHOST)}
+	store := &GobStore{NewStoreImpl(MEMCACHE_LOCALHOST)}
 	data := sampleData(b.N)
 	fmt.Printf("Write speed test: %d items...\n", b.N)
 	b.StartTimer()
@@ -529,7 +529,7 @@ var haveWrittenSampleData = false
 
 func BenchmarkSelectSpeed(b *testing.B) {
 	b.StopTimer()
-	store := &GobStore{NewStoreImpl(LOCALHOST)}
+	store := &GobStore{NewStoreImpl(MEMCACHE_LOCALHOST)}
 	if !haveWrittenSampleData {
 		haveWrittenSampleData = true
 		size := 5000
@@ -552,7 +552,7 @@ func BenchmarkSelectSpeed(b *testing.B) {
 
 func BenchmarkWriteOverhead(b *testing.B) {
 	b.StopTimer()
-	impl := NewStoreImpl(LOCALHOST)
+	impl := NewStoreImpl(MEMCACHE_LOCALHOST)
 	item := NewStoredItem()
 	item.SetKey("key")
 	item.SetValue([]byte("0"))
@@ -564,7 +564,7 @@ func BenchmarkWriteOverhead(b *testing.B) {
 
 func BenchmarkReadOverhead(b *testing.B) {
 	b.StopTimer()
-	impl := NewStoreImpl(LOCALHOST)
+	impl := NewStoreImpl(MEMCACHE_LOCALHOST)
 	item := NewStoredItem()
 	item.SetKey("key")
 	item.SetValue([]byte("0"))

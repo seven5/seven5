@@ -76,7 +76,7 @@ var systemGuise = []Routable{newFaviconGuise(), newLoginGuise(), newModelGuise()
 //for this app, if any; normally the privateInit func is determined by the tune program.
 func startUp(transport Transport, privateInit func(*log.Logger,store.T) error, conf *projectConfig, named []Routable) bool {
 
-	store := store.NewGobStore(store.NewStoreImpl(store.LOCALHOST))
+	store := store.NewGobStore(store.NewStoreImpl(store.MEMCACHE_LOCALHOST))
 	
 	allNamed := make([]Routable, len(systemGuise)+len(named))
 	for i, n := range systemGuise {

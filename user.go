@@ -140,7 +140,7 @@ func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Ses
 	}
 
 	if err == USER_EXISTS { 
-		return newUserRestError(map[string]string{"Username": "username already exists"})
+		return NewRestError("Username", "username already exists")
 	}
 	return store.FindById(ptrToValues, id)
 }
@@ -163,8 +163,6 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 		return err;
 	}
 	
-	errMap:=make(map[string]string)
-
 	if u.FirstName!=""{
 		other.FirstName=u.FirstName
 	}
@@ -172,18 +170,19 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 		other.LastName=u.LastName
 	}
 	//you can change some properties of yourself but not these
+	noCanDo:=false
 	if !session.User.IsSuperuser {
 		if u.IsStaff!=other.IsStaff {
-			errMap["_"]="operation not permitted"
+			noCanDo=true
 		}
 		if u.IsSuperuser==other.IsSuperuser {
-			errMap["_"]="operation not permitted"
+			noCanDo=true
 		}
 		if u.IsActive==other.IsActive {
-			errMap["_"]="operation not permitted"
+			noCanDo=true
 		}
-		if len(errMap)>0 {
-			return newUserRestError(errMap)
+		if noCanDo {
+			return NewRestError("_", "operation not permitted")
 		}
 	} else {
 		//you can ONLY change these as superuser
@@ -198,16 +197,12 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 	
 	///XXX concurency bug see seven5/seven5/#10
 	if u.UserInput_Email!="" && u.UserInput_Email!=other.Email {
-		if u.Email=="" {
-			return newUserRestError(map[string]string{"Email": "bad email address"})
-			
-		}
 		hits:=make([]*User,0,1)
 		if err:=store.FindByKey(&hits,"Email",u.UserInput_Email,uint64(0)); err!=nil {
 			return err
 		}
 		if len(hits)>0 {
-			return newUserRestError(map[string]string{"Email": "email address already in use"})
+			return NewRestError("Email", "email address already in use")
 		}
 		other.Email = u.UserInput_Email
 	}
@@ -217,8 +212,7 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 			return err
 		}
 		if len(hits)>0 {
-			e:=newUserRestError(map[string]string{"Username": "username already in use"})
-			return e
+			return NewRestError("Username", "username already in use")
 		}
 		other.Username = u.Username
 	}
@@ -226,9 +220,6 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 	var err error
 	
 	if u.UserInput_Pwd !="" {
-		if u.UserInput_Pwd=="" {
-			return newUserRestError(map[string]string{"UserInput_Pwd": "bad password"})
-		}
 		other.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(u.UserInput_Pwd), bcrypt.DefaultCost)
 		if err != nil {
 			return err
@@ -361,30 +352,4 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 //Make returns a User struct.	
 func (self *UserSvc) Make(id uint64) interface{} {
 	return &User{Id: id}
-}
-
-//Used to to wrap errors from our functions that can generate "non fatal" errors such as
-//create and update.  This allows us to send a 200 to the client, not a 500. An exmaple of this 
-//is attempting to create a user with an already existing
-type userRestError struct {
-	m map[string]string //error map
-}
-
-//newUserRestError creates a userRestError object that is both an error an RestError.  
-//The error returned to the client (200 class) has field and error messages in the errorMap.  
-//Use "_" as the key in the error map when the error concerns the entire User struct.
-func newUserRestError(errorMap map[string]string) *userRestError{
-	result:=new(userRestError)
-	result.m = errorMap
-	return result
-}
-
-//Error makes userExistsError satisfy the error interface also
-func (self *userRestError) Error() string {
-	return "non fatal error involving User struct"
-}
-
-//ErrorMap makes userExistsError satisfy the RestError interface
-func (self *userRestError) ErrorMap() map[string]string {
-	return self.m
 }

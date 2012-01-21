@@ -69,9 +69,6 @@ func newFaviconGuise() *FaviconGuise {
 //ProcessRequest handles a single request of the HTTP level of mongrel.  This responds with the ico
 //data provided by the default or by the parameter to SetFavicon.
 func (self *FaviconGuise) ProcessRequest(req *http.Request) *http.Response {
-	path := req.Header["PATH"]
-	path = path[len("/css/"):]
-
 	resp := new(http.Response)
 	buff:=NewBufferCloserFromBytes(ico)
 	resp.Body = buff
