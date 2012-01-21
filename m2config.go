@@ -371,7 +371,7 @@ func bootstrapFromDir(projectDir string) *projectConfig {
 //createNetworkResources creates the necessary 0MQ context and starts or re-initializes
 //the mongrel2 server.  It returns the context if everything is ok and this should be
 //used by the whole program.
-func createNetworkResources(config *projectConfig) (gozmq.Context, error) {
+func createNetworkResources(config *projectConfig) (Transport, error) {
 	ctx, err := gozmq.NewContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to create zmq context :%s\n", err.Error())
@@ -385,7 +385,7 @@ func createNetworkResources(config *projectConfig) (gozmq.Context, error) {
 		return nil, nil
 	}
 
-	return ctx, nil
+	return NewTransport(ctx), nil
 
 }
 

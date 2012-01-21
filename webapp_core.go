@@ -3,8 +3,6 @@ package seven5
 import (
 	"errors"
 	"fmt"
-	"github.com/seven5/gozmq"
-	"github.com/bradfitz/gomemcache/memcache"
 	"log"
 	"net/http"
 	"os"
@@ -46,7 +44,7 @@ type Routable interface {
 	//BindToTransport is used to connect your routable to the lower level transport that 
 	//mucks about with sockets and other grungy stuff.  For now, this is
 	//always mongrel2 and the transport parameter is a zeromq Context object.
-	BindToTransport(name string, transport interface{}) error
+	BindToTransport(name string, transport Transport) error
 }
 
 //Httpified is an interface indicating that the object in question can process http
@@ -69,15 +67,16 @@ var systemGuise = []Routable{newFaviconGuise(), newLoginGuise(), newModelGuise()
 //(user-level) that are provided as a parameter.  Typically user-level
 //code should never need this.
 //
-//The return parameter is the zmq context for this application and this should be closed 
-// on shutdown (usually using defer). This functions runs all the Named provided
+//The first parameter is the transport cruft (zmq context) for this application and it
+//is to bind each routable to this transport. This function starts all the Routable provided
 //via a goroutine.  If something went wrong this returns nil and most web
 //apps will just want to exit since the error has already been printed to stderr.  If you are
-//calling this from test code, you will want to set the second parameter to the proposed
-//project directory; otherwise pass "" .
-func startUp(ctx gozmq.Context, privateInit func(*log.Logger,store.T) error, conf *projectConfig, named []Routable) bool {
+//calling this from test code, you will want to set the third parameter to the proposed
+//project directory; otherwise pass "" .  The second parameter is the private init function
+//for this app, if any; normally the privateInit func is determined by the tune program.
+func startUp(transport Transport, privateInit func(*log.Logger,store.T) error, conf *projectConfig, named []Routable) bool {
 
-	store := &store.MemcacheGobStore{memcache.New(store.LOCALHOST)}
+	store := store.NewGobStore(store.NewStoreImpl(store.LOCALHOST))
 	
 	allNamed := make([]Routable, len(systemGuise)+len(named))
 	for i, n := range systemGuise {
@@ -95,7 +94,7 @@ func startUp(ctx gozmq.Context, privateInit func(*log.Logger,store.T) error, con
 	}
 
 	for _, h := range allNamed {
-		h.BindToTransport(h.Name(),ctx)
+		h.BindToTransport(h.Name(),transport)
 		h.AppStarting(conf.Logger, store)
 		switch x := h.(type) {
 		case Httpified:
@@ -118,7 +117,6 @@ func startUp(ctx gozmq.Context, privateInit func(*log.Logger,store.T) error, con
 //to be a pwd.PrivateInit() function--normally this is discovered by the "tune" command
 //and selected automatically.
 func WebAppRun(privateInit func(*log.Logger,store.T) error, named ...Routable) error {
-	var ctx gozmq.Context
 	var err error
 	
 	//add backbone-REST services into the set of named
@@ -137,22 +135,24 @@ func WebAppRun(privateInit func(*log.Logger,store.T) error, named ...Routable) e
 		return err
 	}
 
+	var transport Transport
 	//setup the network
-	if ctx, err = createNetworkResources(config); err != nil {
-		fmt.Fprintf(os.Stderr,"error creating network resources:%v\n",err)
+	if transport, err = createNetworkResources(config); err != nil {
+		fmt.Fprintf(os.Stderr,"error creating networking/transport resources:%v\n",err)
 		
-		return errors.New(fmt.Sprintf("error starting 0MQ or mongrel:%s", err.Error()))
+		return errors.New(fmt.Sprintf("error starting transport (networking or mongrel):%s", err.Error()))
 	}
-	if ctx == nil {
-		fmt.Fprintf(os.Stderr,"unable to create 0MQ context!")
+	if transport == nil {
+		fmt.Fprintf(os.Stderr,"unable to create networking/transport (zmq context)!")
 		
-		return errors.New("No ctx was created.\n")
+		return errors.New("No networking/transport was created.\n")
 	}
-	defer ctx.Close()
-
+	defer func() {
+		transport.Shutdown()
+	}()
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
-	if !startUp(ctx, privateInit, config, allNamed) {
+	if !startUp(transport, privateInit, config, allNamed) {
 		fmt.Fprintf(os.Stderr,"error starting up handlers! Exiting!")
 		
 		return errors.New(fmt.Sprintf("error starting up the handers:%s", err))

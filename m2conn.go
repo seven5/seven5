@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/seven5/mongrel2"
-	"github.com/seven5/gozmq"
 	"net/http"
 	"os"
 	"strings"
@@ -215,10 +214,10 @@ func (self *httpRunnerDefault) Shutdown() {
 }
 
 //Bind connects this runner to the lower level of the implementation.
-func (self *httpRunnerDefault) BindToTransport(name string, transport interface{}) error {
-	ctx := transport.(gozmq.Context)
+func (self *httpRunnerDefault) BindToTransport(name string, transport Transport) error {
+	t := transport.(*zmqTransport)
 
-	if err := mongrel2.RawHandler(self).Bind(name, ctx); err != nil {
+	if err := mongrel2.RawHandler(self).Bind(name, t.Ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to bind %s to socket! %s\n", name, err)
 		return err
 	}

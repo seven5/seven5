@@ -1,17 +1,14 @@
 package seven5
 
 import (
-	"github.com/seven5/gozmq"
 	"launchpad.net/gocheck"
 	"net/http"
 	"path/filepath"
-	//"fmt"
-	//"os"
 )
 //PrepareFunctionalTest configures mongrel to run the RawHandler supplied.
 //Return value is nil on error, and that's a fatal error that has already
 //been logged.
-func PrepareFunctionalTest(n Routable, c *gocheck.C) gozmq.Context {
+func PrepareFunctionalTest(n Routable, c *gocheck.C) Transport {
 	//using . because 'gb -t' changes the cwd to the right place
 	path, err := filepath.Abs(".")
 	if err != nil {
@@ -28,16 +25,16 @@ func PrepareFunctionalTest(n Routable, c *gocheck.C) gozmq.Context {
 		c.Fatalf("unable to write mongrel2 test configuration: %s", err)
 	}
 
-	var ctx gozmq.Context
+	var transport Transport
 
-	if ctx, err = createNetworkResources(config); err != nil {
-		c.Fatalf("unable to create mongrel2 or 0MQ resources:", err)
+	if transport, err = createNetworkResources(config); err != nil {
+		c.Fatalf("unable to create transport/networking (mongrel2 or 0MQ) resources:", err)
 	}
 
-	if !startUp(ctx, nil, config, []Routable{n}) {
+	if !startUp(transport, nil, config, []Routable{n}) {
 		c.Fatalf("unable to start the handlers, no context found: %s, %s", n.Name(), path)
 	}
-	return ctx
+	return transport
 }
 
 //WriteTestConfig does the necessary steps to write a mongrel 2 configuration suitable for

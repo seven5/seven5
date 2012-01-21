@@ -29,6 +29,12 @@ func (self *RockListener) FileRemoved(fileInfo os.FileInfo) {
 	fmt.Printf("[ROCK ON] %s removed\n",fileInfo.Name())
 }
 
+//destroyStore is a utility routine that is useful for clearing all the data when you are
+//running tests.
+func destroyStore() error {
+	return NewStoreImpl(LOCALHOST).DestroyAll(LOCALHOST)
+}
+
 // This is the main loop in which Rock controls the build and server process and watches for source changes
 func (rock *Rock) Run(projectName string) {
 	if rock.Build(projectName){

@@ -2,7 +2,6 @@ package store
 
 import (
 	"fmt"
-	"github.com/bradfitz/gomemcache/memcache"
 	"launchpad.net/gocheck"
 	"math/rand"
 	//"os"
@@ -15,11 +14,12 @@ func Test(t *testing.T) { gocheck.TestingT(t) }
 
 // This is the "suite" structure for objects that need to survive the whole of the tests
 // in this file.
-type MemcachedSuite struct {
+type GobSuite struct {
 	store T
+	impl StoreImpl
 }
 
-var s = &MemcachedSuite{}
+var s = &GobSuite{}
 
 // hook up suite to gocheck
 var _ = gocheck.Suite(s)
@@ -64,49 +64,49 @@ type sample2 struct {
 }
 
 //we create a conn to the memcached at start of the suite
-func (self *MemcachedSuite) SetUpSuite(c *gocheck.C) {
-	self.store = &MemcacheGobStore{memcache.New(LOCALHOST)}
+func (self *GobSuite) SetUpSuite(c *gocheck.C) {
+	self.impl = NewStoreImpl(LOCALHOST)
+	self.store = &GobStore{self.impl}
 }
 
 //no need to destry the connection, the program is ending anyway
-func (self *MemcachedSuite) TearDownSuite(c *gocheck.C) {
+func (self *GobSuite) TearDownSuite(c *gocheck.C) {
 }
 
 //before each test we destroy all data in memcached.  if memcached is connected to a terminal
 //(foreground) it will generate some bells to tell you that this is happening (annoying)
-func (self *MemcachedSuite) SetUpTest(c *gocheck.C) {
-	err := self.store.(*MemcacheGobStore).DestroyAll(LOCALHOST)
+func (self *GobSuite) SetUpTest(c *gocheck.C) {
+	err := self.impl.DestroyAll(LOCALHOST)
 	if err != nil {
 		c.Fatal("unable to setup test and clear memcached:%s\n", err)
 	}
 }
 
-//test that we can work at the memcached level, since the rest of tests are at the store.T
+//test that we can work at the storeImpl level, since the rest of tests are at the store.T
 //level
-func (self *MemcachedSuite) TestMemcacheLevelSetupWorks1(c *gocheck.C) {
-	m := self.store.(*MemcacheGobStore)
-
-	item := &memcache.Item{Key: "fart", Value: []byte("fartvalue")}
-	err := m.Set(item)
+func (self *GobSuite) TestMemcacheLevelSetupWorks1(c *gocheck.C) {
+	item := NewStoredItem()
+	item.SetKey("fart")
+	item.SetValue([]byte("fartvalue"))
+	err := self.impl.Set(item)
 
 	if err != nil {
 		c.Fatal("unable to set test value (fart) to check suite is working ok")
 	}
-	it, err := m.Get("fart")
+	it, err := self.impl.Get("fart")
 	if err != nil {
 		c.Fatal("unable to get test value (fart) to check suite is working ok")
 	}
-	if it.Key != "fart" || string(it.Value) != "fartvalue" {
+	if it.Key() != "fart" || string(it.Value()) != "fartvalue" {
 		c.Fatal("unable to correctly read test value (fart) to check suite is working ok")
 	}
 }
 
 //make sure the store is empty at start
-func (self *MemcachedSuite) TestMemcacheLevelSetupWorks2(c *gocheck.C) {
-	m := self.store.(*MemcacheGobStore)
+func (self *GobSuite) TestMemcacheLevelSetupWorks2(c *gocheck.C) {
 
-	_, err := m.Get("fart")
-	if err != memcache.ErrCacheMiss {
+	_, err := self.impl.Get("fart")
+	if err !=ErrorNotFoundInStore {
 		c.Fatal("expected all the cache entries to be cleared before each test!")
 	}
 }
@@ -114,7 +114,7 @@ func (self *MemcachedSuite) TestMemcacheLevelSetupWorks2(c *gocheck.C) {
 //utility routine that is used a few places to write an instance of sample1
 //note that the parameters to the storage layer are a pointer to the structure, even in cases
 //where the structure is not modified.  
-func (self *MemcachedSuite) WriteSample1(user string, yr int, pwd string, c *gocheck.C) *sample1 {
+func (self *GobSuite) WriteSample1(user string, yr int, pwd string, c *gocheck.C) *sample1 {
 	s := &sample1{Username: user, Birth_year: yr, Password: pwd}
 	if err := self.store.Write(s); err != nil {
 		c.Fatalf("failed to write a sample1:%v", err)
@@ -123,7 +123,7 @@ func (self *MemcachedSuite) WriteSample1(user string, yr int, pwd string, c *goc
 }
 
 //basic read/write test at the level of store.T (in this case, self.store)
-func (self *MemcachedSuite) TestBasicStoreWithId(c *gocheck.C) {
+func (self *GobSuite) TestBasicStoreWithId(c *gocheck.C) {
 	iansmith := "iansmith"
 	yr := 1970
 	pwd := "fart"
@@ -146,7 +146,7 @@ func (self *MemcachedSuite) TestBasicStoreWithId(c *gocheck.C) {
 
 //create a set of blog posts on various dates and show that they get aggregated together
 //into bunches based on the AggMonth method.
-func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
+func (self *GobSuite) TestExtraKeyNames(c *gocheck.C) {
 	quick := "the quick and the dead"
 	mostly := "the mostly dead"
 	jim := "it's dead, jim"
@@ -213,7 +213,7 @@ func (self *MemcachedSuite) TestExtraKeyNames(c *gocheck.C) {
 }
 
 //test deleting works and that the indexes get updated properly
-func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
+func (self *GobSuite) TestDeleteItems(c *gocheck.C) {
 	t1 := self.WriteSample1("iansmith", 1970, "fart", c)
 	c.Assert(t1.Id, gocheck.Not(gocheck.Equals), 0)
 	t2 := self.WriteSample1("trevorsmith", 1972, "yech", c)
@@ -250,12 +250,12 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 	//check we can't delete stuff not there
 	t2.Id = 429
 	err = self.store.Delete(t2)
-	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+	c.Check(err, gocheck.Equals, ErrorNotFoundInStore)
 
 	//check that we cannot write stuff that is not there
 	t2.Id = 429
 	err = self.store.Write(t2)
-	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+	c.Check(err, gocheck.Equals, ErrorNotFoundInStore)
 
 	//delete trev
 	t2.Id = uint64(2)
@@ -264,7 +264,7 @@ func (self *MemcachedSuite) TestDeleteItems(c *gocheck.C) {
 
 	//now can't find trev
 	err = self.store.FindById(t3, uint64(2))
-	c.Check(err, gocheck.Equals, memcache.ErrCacheMiss)
+	c.Check(err, gocheck.Equals, ErrorNotFoundInStore)
 
 	//still can find ian
 	err = self.store.FindById(t3, t1.Id)
@@ -305,7 +305,7 @@ type neither struct {
 }
 
 //test ordering works properly, if we force it with seven5order
-func (self *MemcachedSuite) TestOrderOfItems(c *gocheck.C) {
+func (self *GobSuite) TestOrderOfItems(c *gocheck.C) {
 
 	stackItem := &lifo{"abc", 0}
 	queueItem := &fifo{"abc", 0}
@@ -402,7 +402,7 @@ func isValidForDontKnow(name string, includeGHI bool) bool {
 }
 
 //test that init creates the necessary structures
-func (self *MemcachedSuite) TestInit(c *gocheck.C) {
+func (self *GobSuite) TestInit(c *gocheck.C) {
 	self.store.Init(&sample1{})
 	hits := make([]*sample1, 0, 1)
 	err := self.store.FindByKey(&hits, "Birth_year", "1970", uint64(0))
@@ -426,7 +426,7 @@ type freundreck struct {
 }
 
 //http://www.youtube.com/watch?v=EcHP1tWWEvI&feature=related
-func (self *MemcachedSuite) TestOwner(c *gocheck.C) {
+func (self *GobSuite) TestOwner(c *gocheck.C) {
 	lenny := &youzer{"Lenny", []uint64{}, uint64(0)}
 	carl := &youzer{"Carl", []uint64{}, uint64(0)}
 	homer := &youzer{"Homer", []uint64{}, uint64(0)}
@@ -514,7 +514,7 @@ func sampleData(size int) []*sample2 {
 
 func BenchmarkWriteSpeed(b *testing.B) {
 	b.StopTimer()
-	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
+	store := &GobStore{NewStoreImpl(LOCALHOST)}
 	data := sampleData(b.N)
 	fmt.Printf("Write speed test: %d items...\n", b.N)
 	b.StartTimer()
@@ -529,7 +529,7 @@ var haveWrittenSampleData = false
 
 func BenchmarkSelectSpeed(b *testing.B) {
 	b.StopTimer()
-	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
+	store := &GobStore{NewStoreImpl(LOCALHOST)}
 	if !haveWrittenSampleData {
 		haveWrittenSampleData = true
 		size := 5000
@@ -552,21 +552,26 @@ func BenchmarkSelectSpeed(b *testing.B) {
 
 func BenchmarkWriteOverhead(b *testing.B) {
 	b.StopTimer()
-	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
-	item := &memcache.Item{Key: "key", Value: []byte("0")}
+	impl := NewStoreImpl(LOCALHOST)
+	item := NewStoredItem()
+	item.SetKey("key")
+	item.SetValue([]byte("0"))
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		store.Client.Set(item)
+		impl.Set(item)
 	}
 }
 
 func BenchmarkReadOverhead(b *testing.B) {
 	b.StopTimer()
-	store := &MemcacheGobStore{memcache.New(LOCALHOST)}
-	item := &memcache.Item{Key: "key", Value: []byte("0")}
-	store.Client.Set(item)
+	impl := NewStoreImpl(LOCALHOST)
+	item := NewStoredItem()
+	item.SetKey("key")
+	item.SetValue([]byte("0"))
+	
+	impl.Set(item)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = store.Client.Get("key")
+		_, _ = impl.Get("key")
 	}
 }

@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/bradfitz/gomemcache/memcache"
-	"net"
 	//"os"
 	"github.com/petar/GoLLRB/llrb"
 	"reflect"
@@ -14,19 +12,28 @@ import (
 	"time"
 )
 
+//init function registers our type with the gobs code so we can use gobs with LLRB
 func init() {
 	//so we can use gobs with the llrb tree nodes
 	var y ValueInfo
 	gob.Register(y)
 }
 
-type MemcacheGobStore struct {
-	*memcache.Client
+//GobStore is the implementation of the Store.T API that stores everything with enc/gob.  This
+//object does not care what the underlying key-value implementation is.
+type GobStore struct {
+	impl StoreImpl
 }
 
+//NewGobStore returns a GobStore pointed at the given key-value store (StoreImpl)
+func NewGobStore(storeImpl StoreImpl) *GobStore {
+	return &GobStore{storeImpl}
+}
+
+//pointerToObjSlice is used by the sorting routines that sort the result of a query.
 type pointerToObjSlice struct {
 	S          Lesser
-	Mem        *MemcacheGobStore
+	Mem        *GobStore
 	SliceValue reflect.Value
 }
 
@@ -37,49 +44,35 @@ const (
 	VALUEKEY  = "%s-value-%s"
 )
 
+//LessUint64 is a comparison function used to compare uint64s for the GoLLRB datastructure
+//to keep the nodes of it's RB tree in order.
 func LessUint64(a,b interface{}) bool {
 	x:=a.(uint64)
 	y:=b.(uint64)
 	return x<y
 }
 
-//DestroyAll will delete all data from the hosts (or from localhost on 11211 if no hosts have)
-//have been set.  This call is "out of band" can be executed whether or not there is a connected
-//client active.
-func (self *MemcacheGobStore) DestroyAll(host ...string) error {
-	//fmt.Fprintf(os.Stderr, "Warning: clearing memcache....\n")
-
-	for _, h := range host {
-		conn, err := net.Dial("tcp", h)
-		if err != nil {
-			return err
-		}
-		conn.Write([]byte("flush_all\r\n"))
-		waitForResponseBuffer := make([]byte, 1, 1)
-		conn.Read(waitForResponseBuffer)
-		conn.Close()
-
-	}
-	return nil
-}
 
 //GetNextId will return the next id for the type X.  It will create the necessary structures in
-//the memcache if that is needed.
-func (self *MemcacheGobStore) GetNextId(typeName string) (uint64, error) {
+//the store if that is needed.
+func (self *GobStore) GetNextId(typeName string) (uint64, error) {
 	key := fmt.Sprintf(IDKEY, typeName)
-	newValue, err := self.Client.Increment(key, uint64(1))
+	newValue, err := self.impl.Increment(key, uint64(1))
 	if err == nil {
 		return newValue, nil
 	}
-	if err != memcache.ErrCacheMiss {
+	if err != ErrorNotFoundInStore {
 		return uint64(0), err
 	}
 
-	item := &memcache.Item{Key: key, Value: []byte("0")}
-	err = self.Client.Add(item)
-	if err == memcache.ErrNotStored {
+	item := NewStoredItem()
+	item.SetKey(key)
+	item.SetValue([]byte("0"))
+	
+	err = self.impl.Add(item)
+	if err == ErrorNotFoundInStore {
 		//try a 2nd time, maybe race condition
-		newValue, err = self.Client.Increment(key, uint64(1))
+		newValue, err = self.impl.Increment(key, uint64(1))
 		if err != nil {
 			return uint64(0), err
 		}
@@ -89,7 +82,7 @@ func (self *MemcacheGobStore) GetNextId(typeName string) (uint64, error) {
 		return uint64(0), err
 	}
 	//try to do increment again since we set it successfully
-	result, err := self.Client.Increment(key, uint64(1))
+	result, err := self.impl.Increment(key, uint64(1))
 
 	if err != nil {
 		return uint64(0), err
@@ -97,10 +90,10 @@ func (self *MemcacheGobStore) GetNextId(typeName string) (uint64, error) {
 	return result, nil
 }
 
-//Write takes a structure and sends it to memcache.  If the id field is not set yet, it creates
-//an Id for the item before writing it to memcache.  The value passed must be a pointer to a 
+//Write takes a structure and sends it to store  If the id field is not set yet, it creates
+//an Id for the item before writing it to sotre.  The value passed must be a pointer to a 
 //struct and the struct must have an Id field that is uint64.
-func (self *MemcacheGobStore) Write(s interface{}) error {
+func (self *GobStore) Write(s interface{}) error {
 	var id uint64
 	var typeName string
 	var err error
@@ -145,7 +138,7 @@ type fieldFunc func(fieldOrMethodName string, flattenedValue string, isFifo keyO
 //walkAllExtraKeys is a utility route to run a function for every key mentioned in the structure
 //declaration of s.  This function assumes that s has already been checked an is properly
 //formed.
-func (self *MemcacheGobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error {
+func (self *GobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error {
 	//write the extra indexes
 	fields, methods := GetStructKeys(s)
 	var mapKey string
@@ -197,7 +190,7 @@ func toStringMethodOrSprintf(v reflect.Value) string {
 //FindById is the reverse of Write and reads a structure from memcached for a given type and Id.
 //The contents of the first parameter will be overwritten by this call and the previous contents
 //ignored (although its type must be a pointer to a struct of the right type)
-func (self *MemcacheGobStore) FindById(s interface{}, id uint64) error {
+func (self *GobStore) FindById(s interface{}, id uint64) error {
 	var typeName string
 	var err error
 
@@ -205,8 +198,8 @@ func (self *MemcacheGobStore) FindById(s interface{}, id uint64) error {
 		return err
 	}
 	key := fmt.Sprintf(RECKEY, typeName, id)
-	var item *memcache.Item
-	if item, err = self.Client.Get(key); err != nil {
+	var item StoredItem
+	if item, err = self.impl.Get(key); err != nil {
 		return err
 	}
 	return self.DecodeItemBytes(s, item)
@@ -214,8 +207,8 @@ func (self *MemcacheGobStore) FindById(s interface{}, id uint64) error {
 
 //decodeItemBytes returns a structured object from the gob blob of bytes. It assumes that s
 //is a pointer a structure that has already been checked.
-func (self *MemcacheGobStore) DecodeItemBytes(s interface{}, item *memcache.Item) error {
-	buffer := bytes.NewBuffer(item.Value)
+func (self *GobStore) DecodeItemBytes(s interface{}, item StoredItem) error {
+	buffer := bytes.NewBuffer(item.Value())
 	decoder := gob.NewDecoder(buffer)
 	return decoder.Decode(s)
 }
@@ -224,9 +217,9 @@ func (self *MemcacheGobStore) DecodeItemBytes(s interface{}, item *memcache.Item
 //writeKey tries to find a map that it can use to index the records by the value
 //provided.  it creates the map if necessary.  The map is per keyName with the keys
 //of the map being values and the values are ids.
-func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, fullIndex []uint64, isFifo keyOrder, userId uint64) error {
+func (self *GobStore) writeKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, fullIndex []uint64, isFifo keyOrder, userId uint64) error {
 	var index []uint64
-	var item *memcache.Item
+	var item StoredItem
 	var err error
 
 	if err = self.readIndex(mapKey, &index, &item, typeName, keyName, true, userId); err != nil {
@@ -253,7 +246,7 @@ func (self *MemcacheGobStore) writeKey(s interface{}, keyName string, typeName s
 //writeIndex puts an index in memcached by serializing it with gobs.  it needs to be passed 
 //back the same item value that was returned from readIndex so we can correctly detect 
 //concurrency problems. if item is nil it assumes that this is a creation (and no concurrency check needed)
-func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, item *memcache.Item, typeName string, keyName string, userId uint64) error {
+func (self *GobStore) writeIndex(keyValue string, indexValue []uint64, item StoredItem, typeName string, keyName string, userId uint64) error {
 	//serialize to gob the index
 	buffer := new(bytes.Buffer)
 	enc := gob.NewEncoder(buffer)
@@ -264,29 +257,31 @@ func (self *MemcacheGobStore) writeIndex(keyValue string, indexValue []uint64, i
 	//did we have anything in the index before? if so, try to swap in new value but abort
 	//if that fails
 	if item != nil {
-		item.Value = buffer.Bytes()
-		return self.Client.CompareAndSwap(item)
+		item.SetValue(buffer.Bytes())
+		return self.impl.CompareAndSwap(item)
 	}
 	
 	//this is a brand new index, write it out to disk
 	memcacheKey := self.getKeyNameForRecord(typeName, keyName, keyValue, userId)
-	newItem := &memcache.Item{Key: memcacheKey, Value: buffer.Bytes()}
-	return self.Client.Set(newItem)
+	newItem := NewStoredItem()
+	newItem.SetKey(memcacheKey)
+	newItem.SetValue(buffer.Bytes())
+	return self.impl.Set(newItem)
 }
 
 //readIndex pulls an index from memcached and sets the first parameter to it, if there was no error.
 //the create flag indicates if not finding the item in memcached is an error or it should be
 //created (true).  The item parameter is set to the retrieved Item object for use later
 //with compareAndSwap
-func (self *MemcacheGobStore) readIndex(keyValue string, result *[]uint64, item **memcache.Item, typeName string, keyName string, create bool, userId uint64) error {
+func (self *GobStore) readIndex(keyValue string, result *[]uint64, item *StoredItem, typeName string, keyName string, create bool, userId uint64) error {
 	//compute memcached key
 	key := self.getKeyNameForRecord(typeName, keyName, keyValue, userId)
 	var err error
 
-	*item, err = self.Client.Get(key)
+	*item, err = self.impl.Get(key)
 
 	//if not there, create the map from scratch, based on create param
-	if err == memcache.ErrCacheMiss {
+	if err == ErrorNotFoundInStore {
 		if create {
 			*result = []uint64{}
 			*item = nil
@@ -295,7 +290,7 @@ func (self *MemcacheGobStore) readIndex(keyValue string, result *[]uint64, item 
 		}
 	} else if err == nil {
 		//no error, read the map
-		buffer := bytes.NewBuffer((*item).Value)
+		buffer := bytes.NewBuffer((*item).Value())
 		decoder := gob.NewDecoder(buffer)
 		err = decoder.Decode(result)
 		if err != nil {
@@ -312,9 +307,9 @@ func (self *MemcacheGobStore) readIndex(keyValue string, result *[]uint64, item 
 
 //deleteKey does the work to update an index when an item is deleted and preserve the
 //lifo or fifo ordering (by not changing it)
-func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, userId uint64, isFifo keyOrder) error {
+func (self *GobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, userId uint64, isFifo keyOrder) error {
 	var slice []uint64
-	var item *memcache.Item
+	var item StoredItem
 
 	if err := self.readIndex(mapKey, &slice, &item, typeName, keyName, true, userId); err != nil {
 		return err
@@ -349,7 +344,7 @@ func (self *MemcacheGobStore) deleteKey(s interface{}, keyName string, typeName 
 //
 // The result is placed the slice pointed to by the first
 //element--and only as many results are returned as available places in the slice.
-func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string, value string, userId uint64) (errReturn error) {
+func (self *GobStore) FindByKey(ptrToResult interface{}, keyName string, value string, userId uint64) (errReturn error) {
 	var err error
 	if reflect.TypeOf(ptrToResult).Kind() != reflect.Ptr {
 		return BAD_SLICE_PTR
@@ -386,7 +381,7 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 	mergedResult := make([]uint64,0,256)
 	tree:=llrb.New(LessUint64)
 	
-	var ignored *memcache.Item
+	var ignored StoredItem
 
 	for _, v:=range pairs {
 		
@@ -409,15 +404,15 @@ func (self *MemcacheGobStore) FindByKey(ptrToResult interface{}, keyName string,
 
 //findByKeyInternal does the work of a single search of the store.  It assumes that the validity
 //checking of the types (such as first parameter) has already been done by the caller.
-func (self *MemcacheGobStore) findByKeyInternal(ptrToResult interface{}, resultItemType reflect.Type, typeName string, keyName string, value string, userId uint64) (errReturn error) {
-	var item *memcache.Item
+func (self *GobStore) findByKeyInternal(ptrToResult interface{}, resultItemType reflect.Type, typeName string, keyName string, value string, userId uint64) (errReturn error) {
+	var item StoredItem
 	var slice []uint64
 	var err error
 	result := reflect.ValueOf(ptrToResult).Elem()
 	
 	if err = self.readIndex(value, &slice, &item, typeName, keyName, false, userId); err != nil {
 		//no key with that value at all?
-		if err == memcache.ErrCacheMiss {
+		if err == ErrorNotFoundInStore {
 			return nil
 		}
 		return err
@@ -487,7 +482,7 @@ func (self *MemcacheGobStore) findByKeyInternal(ptrToResult interface{}, resultI
 //of the first parameter's capacity.  It assumes that result is a pointer to a slice that
 //has already been checked too if the items in the slice (pointed to) are ok.  The second
 //parameter is a slice of the ids to load.
-func (self *MemcacheGobStore) fillResult(result reflect.Value, slice []uint64, resultItemType reflect.Type) error {
+func (self *GobStore) fillResult(result reflect.Value, slice []uint64, resultItemType reflect.Type) error {
 	var err error
 	ct := result.Len()
 	//we have to read them in order to make sure we preserve the order in the slice
@@ -509,7 +504,7 @@ func (self *MemcacheGobStore) fillResult(result reflect.Value, slice []uint64, r
 
 //readMulti is only used when we have found a key and need to load the actual objects that
 //are stored (as Ids, not values) under that key.
-func (self *MemcacheGobStore) readMulti(s interface{}, ids []uint64, result reflect.Value) (errReturn error) {
+func (self *GobStore) readMulti(s interface{}, ids []uint64, result reflect.Value) (errReturn error) {
 	min := len(ids)
 	avail := result.Cap() - result.Len()
 	if avail < min {
@@ -517,7 +512,7 @@ func (self *MemcacheGobStore) readMulti(s interface{}, ids []uint64, result refl
 	}
 	key := make([]string, min, min)
 	var err error
-	var item map[string]*memcache.Item
+	var item map[string]StoredItem
 	var typeName string
 
 
@@ -531,7 +526,7 @@ func (self *MemcacheGobStore) readMulti(s interface{}, ids []uint64, result refl
 		key[i] = fmt.Sprintf(RECKEY, typeName, v)
 	}
 	//we are now sure that the key slice is the right size to fit the result
-	item, err = self.Client.GetMulti(key)
+	item, err = self.impl.GetMulti(key)
 	if err != nil {
 		return err
 	}
@@ -557,7 +552,7 @@ func (self *MemcacheGobStore) readMulti(s interface{}, ids []uint64, result refl
 //DeleteById deletes an item from the store by its unique id.  This does the work to update all
 //the index.  The only fields that are examined are the Id field and (optionally) the
 //Owner field.  If there *is* an Owner field, it must be set.
-func (self *MemcacheGobStore) Delete(s interface{}) error {
+func (self *GobStore) Delete(s interface{}) error {
 	var typeName string
 	var err, memcache_err error
 	var id, userId uint64
@@ -581,10 +576,10 @@ func (self *MemcacheGobStore) Delete(s interface{}) error {
 		return err
 	}
 	key := fmt.Sprintf(RECKEY, typeName, id)
-	memcache_err = self.Client.Delete(key)
+	memcache_err = self.impl.Delete(key)
 
-	if memcache_err == memcache.ErrCacheMiss && err == INDEX_MISS {
-		return memcache.ErrCacheMiss
+	if memcache_err == ErrorNotFoundInStore && err == INDEX_MISS {
+		return ErrorNotFoundInStore
 	}
 
 	if err == INDEX_MISS {
@@ -596,13 +591,13 @@ func (self *MemcacheGobStore) Delete(s interface{}) error {
 
 //updateUserIdWithOwner will change the uint64 passed as 2nd arg to the value of the 
 //Owner field in the structure pointed to by first arg, if the Owner field is present.
-func (self *MemcacheGobStore) updateUserIdWithOwner(s interface{}, userId *uint64) bool {
+func (self *GobStore) updateUserIdWithOwner(s interface{}, userId *uint64) bool {
 	return self.updateUserIdWithOwnerValue(reflect.ValueOf(s), userId)
 }
 
 //updateUserIdWithOwnerValue will change the uint64 passed as 2nd arg to the value of the 
 //Owner field in the structure pointed to by first arg, if the Owner field is present.
-func (self *MemcacheGobStore) updateUserIdWithOwnerValue(s reflect.Value, userId *uint64) bool {
+func (self *GobStore) updateUserIdWithOwnerValue(s reflect.Value, userId *uint64) bool {
 	ownerValue := s.Elem().FieldByName("Owner")
 	if ownerValue != ZeroValue {
 		*userId = ownerValue.Uint()
@@ -614,7 +609,7 @@ func (self *MemcacheGobStore) updateUserIdWithOwnerValue(s reflect.Value, userId
 //Init sets up the store to be ready to receive objects of this type.  This is useful if you
 //want to allow reads() before you have had any writes.  Note that you must fill in the owner
 //field if you plan to use it!
-func (self *MemcacheGobStore) Init(s interface{}) error {
+func (self *GobStore) Init(s interface{}) error {
 	var typeName string
 	var err error
 
@@ -622,8 +617,10 @@ func (self *MemcacheGobStore) Init(s interface{}) error {
 		return err
 	}
 
-	item := &memcache.Item{Key: fmt.Sprintf(IDKEY, typeName), Value: []byte("0")}
-	if err = self.Client.Set(item); err != nil {
+	item := NewStoredItem()
+	item.SetKey(fmt.Sprintf(IDKEY, typeName))
+	item.SetValue([]byte("0"))
+	if err = self.impl.Set(item); err != nil {
 		return err
 	}
 
@@ -635,7 +632,7 @@ func (self *MemcacheGobStore) Init(s interface{}) error {
 	}
 	return self.walkAllExtraKeys(s, func(n string, v string, IGNORED keyOrder) error {
 		empty := []uint64{}
-		var item *memcache.Item
+		var item StoredItem
 		if e := self.readIndex(v, &empty, &item, typeName, n, true, userId); e != nil {
 			return e
 		}
@@ -649,14 +646,14 @@ func (self *MemcacheGobStore) Init(s interface{}) error {
 //FindAll returns all the items of the particular type that is pointed to by the first parameter
 //in a slice, up to the capacity of the slice. This returns a nil (a length 0 result) if you have 
 //chose to turn off this feature with seven5order:"none"
-func (self *MemcacheGobStore) FindAll(s interface{}, userId uint64) error {
+func (self *GobStore) FindAll(s interface{}, userId uint64) error {
 	return self.FindByKey(s, MAGIC_KEY, MAGIC_VALUE, userId)
 }
 
 //sort can take a slice and sort it (second param) if the first parameter has the method
 //Less() and the types of the pointers are the same between the first parameter and the
 //slice of pointers that is the second one.
-func (self *MemcacheGobStore) sort(x interface{}, sliceValue reflect.Value) error {
+func (self *GobStore) sort(x interface{}, sliceValue reflect.Value) error {
 	if sliceValue.Len()==0 {
 		return nil //no sorting to do!
 	}
@@ -676,7 +673,7 @@ func (self *MemcacheGobStore) sort(x interface{}, sliceValue reflect.Value) erro
 //BulkWrite repeatedly writes the raw structure object to memcached but does not update the
 //indexes until the end.  Note that if you have an Owner field it must be set and that it
 //must be the same for all values written together in a single call to this method.
-func (self *MemcacheGobStore) BulkWrite(sliceOfPtrs interface{}) error {
+func (self *GobStore) BulkWrite(sliceOfPtrs interface{}) error {
 	var id uint64
 	var typeName string
 	var err error
@@ -755,7 +752,7 @@ func (self *MemcacheGobStore) BulkWrite(sliceOfPtrs interface{}) error {
 
 //writeItemData knows how to write the fields of a structure to memcache, assigning
 //a new Id number if necessary.  this is a primitive for other types of write.
-func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName string) error {
+func (self *GobStore) writeItemData(s interface{}, id uint64, typeName string) error {
 	var err error
 
 	mightBeBadId:=(id!=uint64(0))
@@ -780,17 +777,19 @@ func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName s
 	
 	if mightBeBadId {
 		key := fmt.Sprintf(RECKEY, typeName, id)
-		item,err:=self.Client.Get(key);
+		item,err:=self.impl.Get(key);
 		if err!=nil {
 			return err
 		}
-		item.Value=buffer.Bytes()
-		return self.CompareAndSwap(item)
+		item.SetValue(buffer.Bytes())
+		return self.impl.CompareAndSwap(item)
 	}
 	
 	//stuff the bytes into the store
-	item := &memcache.Item{Key: key, Value: buffer.Bytes()}
-	err = self.Client.Set(item)
+	item := NewStoredItem()
+	item.SetKey(key)
+	item.SetValue(buffer.Bytes())
+	err = self.impl.Set(item)
 	if err != nil {
 		return err
 	}
@@ -800,7 +799,7 @@ func (self *MemcacheGobStore) writeItemData(s interface{}, id uint64, typeName s
 //getRecordKey returns a key string for a given set of information about the key.  This is
 //used to create different keys if you supply a userId (!=0) to implement a bit of segregation
 //by owner.
-func (self *MemcacheGobStore) getKeyNameForRecord(typeName string, keyName string, keyValue string, userId uint64) string {
+func (self *GobStore) getKeyNameForRecord(typeName string, keyName string, keyValue string, userId uint64) string {
 	if fmt.Sprintf("%s", keyValue) == "<uint64 Value>" {
 		panic("somebody passed a VALUE object to getKeyNameForRecord")
 	}
@@ -812,7 +811,7 @@ func (self *MemcacheGobStore) getKeyNameForRecord(typeName string, keyName strin
 
 //UniqueKeyValues should return all the unique keys (plus the owners) for a given key and type.
 //This should filter for the owner==last parameter if the vaule is non-zero.
-func (self *MemcacheGobStore) UniqueKeyValues(example interface{}, keyName string, result *[]ValueInfo, ownerFilter uint64) error {
+func (self *GobStore) UniqueKeyValues(example interface{}, keyName string, result *[]ValueInfo, ownerFilter uint64) error {
 	_, typeName, err := GetIdValueAndStructureName(example)
 	if err!=nil {
 		return err
@@ -843,22 +842,22 @@ func (self *MemcacheGobStore) UniqueKeyValues(example interface{}, keyName strin
 
 //loadTree brings in a tree from the store, creating it if necessary.  It returns the item it read
 //so it can be used with CAS ops later.  It returns null for both values if there is an error.
-func (self *MemcacheGobStore) loadTree(typeName string, keyName string) (*memcache.Item,*llrb.Tree,error) {
+func (self *GobStore) loadTree(typeName string, keyName string) (StoredItem,*llrb.Tree,error) {
 	key:=fmt.Sprintf(VALUEKEY,typeName,keyName)
 	var err error
-	var item *memcache.Item
-	if item, err = self.Client.Get(key); err != nil {
-		if err!=memcache.ErrCacheMiss {
+	var item StoredItem
+	if item, err = self.impl.Get(key); err != nil {
+		if err!=ErrorNotFoundInStore{
 			return nil,nil,err
 		}
 	}
 	var root *llrb.Node
 	
-	if err==memcache.ErrCacheMiss {
+	if err==ErrorNotFoundInStore{
 		tree:=llrb.New(LessValueInfoForValue)
 		return nil, tree, nil
 	} 
-	buffer := bytes.NewBuffer(item.Value)
+	buffer := bytes.NewBuffer(item.Value())
 	decoder := gob.NewDecoder(buffer)
 	err = decoder.Decode(&root)
 	if err!=nil {
@@ -873,7 +872,7 @@ func (self *MemcacheGobStore) loadTree(typeName string, keyName string) (*memcac
 //saveTree takes a tree and writes it back to storage.  It assumes the passed memache.Item
 //is the one returned from loadTree().  The typeName and keyName are only used if the
 //item is null (because this is a fresh create).
-func (self *MemcacheGobStore) saveTree(typeName string, keyName string, item *memcache.Item, tree *llrb.Tree) error {
+func (self *GobStore) saveTree(typeName string, keyName string, item StoredItem, tree *llrb.Tree) error {
 	//encode
 	buffer := new(bytes.Buffer)
 	enc := gob.NewEncoder(buffer)
@@ -883,18 +882,20 @@ func (self *MemcacheGobStore) saveTree(typeName string, keyName string, item *me
 	
 	//write it back
 	if item!=nil {
-		item.Value=buffer.Bytes()
-		return self.Client.CompareAndSwap(item)
+		item.SetValue(buffer.Bytes())
+		return self.impl.CompareAndSwap(item)
 	}
 	//unconditional write because we have never seen it before
-	item=&memcache.Item{Key:fmt.Sprintf(VALUEKEY,typeName,keyName), Value:buffer.Bytes()}
-	return self.Client.Set(item)
+	item=NewStoredItem()
+	item.SetKey(fmt.Sprintf(VALUEKEY,typeName,keyName))
+	item.SetValue(buffer.Bytes())
+	return self.impl.Set(item)
 }
 
 
 //addUniqueKey does the work to check and see if the key's value has been written before and
 //if not to update it.
-func (self *MemcacheGobStore) addUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
+func (self *GobStore) addUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
 
 	//fmt.Printf("addUniqueKey: %s [%s] '%s'\n",typeName,n,v)
 
@@ -916,7 +917,7 @@ func (self *MemcacheGobStore) addUniqueKey(typeName string, n string, v string, 
 }
 
 //deleteUnique key updates our tree that maintains what keys we have seen before
-func (self *MemcacheGobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
+func (self *GobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
 
 	//fmt.Printf("deleteUniqueKey: %s [%s] '%s'\n",typeName,n,v)
 
@@ -937,11 +938,11 @@ func (self *MemcacheGobStore) deleteUniqueKey(typeName string, n string, v strin
 
 //writeEmptyTree is used to init the data structure if you want to read  before
 //you have written anything.  
-func (self *MemcacheGobStore) writeEmptyTree(typeName string, n string) error {
+func (self *GobStore) writeEmptyTree(typeName string, n string) error {
 	return nil
 }
 //writeTreeBatch is used when you have many writes to do all at once.
-func (self *MemcacheGobStore) writeTreeBatch(typeName string, keyName string, possiblyUnique []ValueInfo) error {
+func (self *GobStore) writeTreeBatch(typeName string, keyName string, possiblyUnique []ValueInfo) error {
 	item, tree, err:=self.loadTree(typeName, keyName)
 	if err!=nil {
 		return err
