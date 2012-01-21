@@ -11,7 +11,7 @@ import (
 //PrepareFunctionalTest configures mongrel to run the RawHandler supplied.
 //Return value is nil on error, and that's a fatal error that has already
 //been logged.
-func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
+func PrepareFunctionalTest(n Routable, c *gocheck.C) gozmq.Context {
 	//using . because 'gb -t' changes the cwd to the right place
 	path, err := filepath.Abs(".")
 	if err != nil {
@@ -34,7 +34,7 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 		c.Fatalf("unable to create mongrel2 or 0MQ resources:", err)
 	}
 
-	if !startUp(ctx, nil, config, []Named{n}) {
+	if !startUp(ctx, nil, config, []Routable{n}) {
 		c.Fatalf("unable to start the handlers, no context found: %s, %s", n.Name(), path)
 	}
 	return ctx
@@ -42,7 +42,7 @@ func PrepareFunctionalTest(n Named, c *gocheck.C) gozmq.Context {
 
 //WriteTestConfig does the necessary steps to write a mongrel 2 configuration suitable for
 //testing.
-func WriteTestConfig(config *projectConfig, n Named) error {
+func WriteTestConfig(config *projectConfig, n Routable) error {
 	var err error
 	//this accepts all the defaults for log placement, pid files, etc.
 	if err = generateServerHostConfig(config, localhost, test_port); err != nil {

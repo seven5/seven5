@@ -1,13 +1,13 @@
 package seven5
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
-	"github.com/seven5/mongrel2"
 	"strings"
+	"net/http"
+	"seven5/store"
 )
 
 //This is a small little guise for dumping out an icon when the client askss for /favicon.ico.  If you
@@ -15,7 +15,7 @@ import (
 //to SetFavicon in this object.
 type FaviconGuise struct {
 	//we need the implementation of the default HTTP machinery 
-	*HttpRunnerDefault
+	*httpRunnerDefault
 }
 
 var ico []byte
@@ -56,28 +56,26 @@ func (self *FaviconGuise) Pattern() string {
 }
 
 //AppStarting is called at startup.  Currently not used.
-func (self *FaviconGuise) AppStarting(log *log.Logger) error {
+func (self *FaviconGuise) AppStarting(log *log.Logger, store store.T) error {
 	return nil
 }
 
 //NewFaviconGuise creates a new instance of this guise.  This is called by the infrastructure and
 //client code should never need to call it.
 func newFaviconGuise() *FaviconGuise {
-	return &FaviconGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}}
+	return &FaviconGuise{newHttpRunnerDefault()}
 }
 
 //ProcessRequest handles a single request of the HTTP level of mongrel.  This responds with the ico
 //data provided by the default or by the parameter to SetFavicon.
-func (self *FaviconGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
+func (self *FaviconGuise) ProcessRequest(req *http.Request) *http.Response {
 	path := req.Header["PATH"]
 	path = path[len("/css/"):]
 
-	resp := new(mongrel2.HttpResponse)
-	resp.ServerId = req.ServerId
-	resp.ClientId = []int{req.ClientId}
-
-	resp.ContentLength = len(ico)
-	resp.Body = bytes.NewBuffer(ico)
+	resp := new(http.Response)
+	buff:=NewBufferCloserFromBytes(ico)
+	resp.Body = buff
+	resp.ContentLength = buff.Len()
 	return resp
 }
 

@@ -1,14 +1,11 @@
 package seven5
 
 import (
-	"bytes"
 	"crypto/bcrypt"
 	"fmt"
 	"log"
 	"math/rand"
-	"github.com/seven5/mongrel2"
 	"net/http"
-	"net/url"
 	"seven5/store"
 )
 
@@ -19,7 +16,7 @@ import (
 //and only one type of message (POST) is processed.
 type LoginGuise struct {
 	//we need the implementation of the default HTTP machinery 
-	*HttpRunnerDefault
+	*httpRunnerDefault
 	store.T
 }
 
@@ -43,29 +40,22 @@ func (self *LoginGuise) AppStarting(log *log.Logger, store store.T) error {
 //NewLoginGuise creates a new guise... but only one should be needed in any program and this code is 
 //called as the program starts by the infrastructure so user code should never need it.
 func newLoginGuise() *LoginGuise {
-	return &LoginGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}, nil}
+	return &LoginGuise{newHttpRunnerDefault(), nil}
 }
 
 //ProcessRequests handles a single request to the LoginGuise. It returns a single response. This 
 //handles only one message, a POST, to the url this LoginGuise is associated with.  If 
 //the login is successful (username and password are query parameters) the response includes
 //the session id.  Otherwise, the response gives an error message.
-func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
+func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 	var err error
+	
 	//path:=req.Path
-	_ = req.Header["METHOD"]
-	uri := req.Header["URI"]
+	//method = req.Method
+	parsed := req.URL
 
-	resp := new(mongrel2.HttpResponse)
-	resp.ServerId = req.ServerId
-	resp.ClientId = []int{req.ClientId}
+	resp := new(http.Response)
 
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		resp.StatusCode = http.StatusBadRequest
-		resp.StatusMsg = "could not understand URI"
-		return resp
-	}
 	values := parsed.Query()
 	user := ""
 	pwd := ""
@@ -93,7 +83,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 	err = self.T.FindByKey(&hits, "Username", user, uint64(0))
 	if err != nil {
 		resp.StatusCode = http.StatusInternalServerError
-		resp.StatusMsg = fmt.Sprintf("%v", err)
+		resp.Status = fmt.Sprintf("%v", err)
 		return resp
 	}
 	if len(hits) == 0 {
@@ -102,7 +92,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 	err = bcrypt.CompareHashAndPassword(hits[0].BcryptHash, []byte(pwd))
 	if err != nil && err != bcrypt.MismatchedHashAndPasswordError {
 		resp.StatusCode = http.StatusInternalServerError
-		resp.StatusMsg = fmt.Sprintf("%v", err)
+		resp.Status = fmt.Sprintf("%v", err)
 		return resp
 	}
 	if err == bcrypt.MismatchedHashAndPasswordError {
@@ -117,7 +107,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 		err = self.T.FindByKey(&s, "SessionId", r, uint64(0))
 		if err != nil {
 			resp.StatusCode = http.StatusInternalServerError
-			resp.StatusMsg = fmt.Sprintf("%v", err)
+			resp.Status = fmt.Sprintf("%v", err)
 			return resp
 		}
 		if len(s) == 0 {
@@ -132,7 +122,7 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 	if err != nil {
 		fmt.Printf("error searching for  %s:%v\n", user, err)
 		resp.StatusCode = http.StatusInternalServerError
-		resp.StatusMsg = fmt.Sprintf("%v", err)
+		resp.Status = fmt.Sprintf("%v", err)
 		return resp
 	}
 	//fmt.Printf("successful login %s and placed in session %s\n", user, session.SessionId)
@@ -141,15 +131,15 @@ func (self *LoginGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 
 //fillBody creates the body of the response for a message back to the client. It expects to be
 //sending the client the json content provided as parameter 1.
-func fillBody(jsonContent string, resp *mongrel2.HttpResponse) *mongrel2.HttpResponse {
-	body := new(bytes.Buffer)
+func fillBody(jsonContent string, resp *http.Response) *http.Response {
+	body := NewBufferCloser()
 	body.WriteString(jsonContent)
-	resp.Header = make(map[string]string)
-	resp.Header["Content-Type"] = "text/json"
+	resp.Header = make(map[string][]string)
+	resp.Header.Set("Content-Type","text/json")
 	resp.Body = body
 	resp.ContentLength = body.Len()
 	resp.StatusCode = 200
-	resp.StatusMsg = "ok"
+	resp.Status = "ok"
 	return resp
 }
 

@@ -1,10 +1,9 @@
 package seven5
 
 import (
-	"bytes"
 	"fmt"
 	"log"
-	"github.com/seven5/mongrel2"
+	"net/http"
 	"os"
 	"reflect"
 	"seven5/store"
@@ -75,7 +74,7 @@ func backboneServices() []Httpified {
 //Javascript.
 type modelGuise struct {
 	//we need the implementation of the default HTTP machinery 
-	*HttpRunnerDefault
+	*httpRunnerDefault
 }
 
 //Name returns "ModelGuise"
@@ -98,16 +97,12 @@ func (self *modelGuise) AppStarting(log *log.Logger, store store.T) error {
 //newModelGuise creates a new ModelGuise.. but only one should be needed in any program.  This is created
 //by the infrastructure and user-level code should never need to call this.
 func newModelGuise() *modelGuise {
-	return &modelGuise{&HttpRunnerDefault{mongrel2.HttpHandlerDefault: &mongrel2.HttpHandlerDefault{new(mongrel2.RawHandlerDefault)}}}
+	return &modelGuise{newHttpRunnerDefault()}
 }
 
-func (self *modelGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.HttpResponse {
-	resp := new(mongrel2.HttpResponse)
-	resp.ServerId = req.ServerId
-	resp.ClientId = []int{req.ClientId}
-
-	buffer := new(bytes.Buffer)
-
+func (self *modelGuise) ProcessRequest(req *http.Request) *http.Response {
+	resp := new(http.Response)
+	buffer := NewBufferCloser()
 	t := template.Must(template.New("js").Parse(modelTemplate))
 	for model, fields := range models {
 		data := make(map[string]interface{})
@@ -117,11 +112,11 @@ func (self *modelGuise) ProcessRequest(req *mongrel2.HttpRequest) *mongrel2.Http
 		if err := t.Execute(buffer, data); err != nil {
 			fmt.Fprintf(os.Stderr, "error writing model:%s\n", err)
 			resp.StatusCode = 500
-			resp.StatusMsg = err.Error()
+			resp.Status= err.Error()
 			return resp
 		}
 	}
-	resp.ContentLength = buffer.Len()
+	resp.ContentLength = int64(buffer.Len())
 	resp.Body = buffer
 	return resp
 }

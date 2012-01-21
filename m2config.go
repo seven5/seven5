@@ -188,7 +188,7 @@ func generateServerHostConfig(config *projectConfig, defaultHost string, port in
 //into the mongrel2 configuration.  Then it creates a mongrel2 route for the handler to 
 //be contacted on.  The route is @[name] if the handler is a JSON service, otherwise it is
 //bound into the HTTP space at /[name]
-func generateHandlerAddressAndRouteConfig(config *projectConfig, host string, handler Named) error {
+func generateHandlerAddressAndRouteConfig(config *projectConfig, host string, handler Routable) error {
 	addr, err := mongrel2.GetHandlerSpec(handler.Name())
 	if err != nil {
 		return err
