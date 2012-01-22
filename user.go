@@ -5,18 +5,27 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"seven5/store"
 	"time"
 )
+
+//init function compiles the regexp for email addresses
+func init() {
+	sanityEmail := "^\\S+@\\S+\\.\\S+$"
+	emailRegexp = regexp.MustCompile(sanityEmail)
+}
+
+var emailRegexp *regexp.Regexp
 
 //User is a structure representing a user.  The fields are largely ripped off from the Django
 //user model.  Note that to allow user creation there are fields that clients send to the
 //server but which are not stored directly.  Many of the fields of this object are not shared
 //with clients.
 type User struct {
-	Username    string `seven5key:"Username"`
-	FirstName   string `seven5key:"FirstName"`
-	LastName    string `seven5key:"LastName"`
+	Username    string    `seven5key:"Username"`
+	FirstName   string    `seven5key:"FirstName"`
+	LastName    string    `seven5key:"LastName"`
 	Email       string    `json:"-" seven5key:"Email"`
 	BcryptHash  []byte    `json:"-"`
 	Groups      []string  `json:"-"`
@@ -89,6 +98,13 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 	user.FirstName = FirstName
 	user.LastName = LastName
 	user.Email = Email
+
+	if r:=emailRegexp.Find([]byte(Email)); r==nil {
+		return uint64(0), errors.New(fmt.Sprintf("Invalid Email Address: %s",Email))
+	} else {
+		fmt.Printf("ok found email match %s\n",string(r))
+	}
+
 	user.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(PlainTextPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return uint64(0), err
@@ -139,7 +155,7 @@ func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Ses
 		return err
 	}
 
-	if err == USER_EXISTS { 
+	if err == USER_EXISTS {
 		return NewRestError("Username", "username already exists")
 	}
 	return store.FindById(ptrToValues, id)
@@ -155,99 +171,102 @@ func (self *UserSvc) Read(store store.T, ptrToObject interface{}, session *Sessi
 //Update can be called only on a user who is also logged into the session or by a user who is
 //logged in as a super user.
 func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *Session) error {
-	u:=ptrToNewValues.(*User)
+	u := ptrToNewValues.(*User)
 
 	//does it exist?
-	other:=&User{Id:u.Id}
-	if err:=store.FindById(other,u.Id); err!=nil {
-		return err;
+	other := &User{Id: u.Id}
+	if err := store.FindById(other, u.Id); err != nil {
+		return err
 	}
-	
-	if u.FirstName!=""{
-		other.FirstName=u.FirstName
+
+	if u.FirstName != "" {
+		other.FirstName = u.FirstName
 	}
-	if u.LastName!="" {
-		other.LastName=u.LastName
+	if u.LastName != "" {
+		other.LastName = u.LastName
 	}
 	//you can change some properties of yourself but not these
-	noCanDo:=false
+	noCanDo := false
 	if !session.User.IsSuperuser {
-		if u.IsStaff!=other.IsStaff {
-			noCanDo=true
+		if u.IsStaff != other.IsStaff {
+			noCanDo = true
 		}
-		if u.IsSuperuser==other.IsSuperuser {
-			noCanDo=true
+		if u.IsSuperuser == other.IsSuperuser {
+			noCanDo = true
 		}
-		if u.IsActive==other.IsActive {
-			noCanDo=true
+		if u.IsActive == other.IsActive {
+			noCanDo = true
 		}
 		if noCanDo {
 			return NewRestError("_", "operation not permitted")
 		}
 	} else {
 		//you can ONLY change these as superuser
-		if u.UserInput_Super!=other.IsStaff {
-			other.IsStaff=u.UserInput_Super
+		if u.UserInput_Super != other.IsStaff {
+			other.IsStaff = u.UserInput_Super
 		}
-		if u.UserInput_Super==other.IsSuperuser {
-			other.IsSuperuser=u.UserInput_Super
+		if u.UserInput_Super == other.IsSuperuser {
+			other.IsSuperuser = u.UserInput_Super
 		}
 		//XXX NO WAY TO CHANGE THE ACTIVE FIELD!!!
 	}
-	
+
 	///XXX concurency bug see seven5/seven5/#10
-	if u.UserInput_Email!="" && u.UserInput_Email!=other.Email {
-		hits:=make([]*User,0,1)
-		if err:=store.FindByKey(&hits,"Email",u.UserInput_Email,uint64(0)); err!=nil {
+	if u.UserInput_Email != "" && u.UserInput_Email != other.Email {
+		hits := make([]*User, 0, 1)
+		if err := store.FindByKey(&hits, "Email", u.UserInput_Email, uint64(0)); err != nil {
 			return err
 		}
-		if len(hits)>0 {
+		if len(hits) > 0 {
 			return NewRestError("Email", "email address already in use")
+		}
+		if r:=emailRegexp.Find([]byte(u.UserInput_Email)); r==nil {
+			return NewRestError("Email", "email address is badly formed")
 		}
 		other.Email = u.UserInput_Email
 	}
-	if u.Username!="" && u.Username!=other.Username {
-		hits:=make([]*User,0,1)
-		if err:=store.FindByKey(&hits,"Username",u.Username,uint64(0)); err!=nil {
+	if u.Username != "" && u.Username != other.Username {
+		hits := make([]*User, 0, 1)
+		if err := store.FindByKey(&hits, "Username", u.Username, uint64(0)); err != nil {
 			return err
 		}
-		if len(hits)>0 {
+		if len(hits) > 0 {
 			return NewRestError("Username", "username already in use")
 		}
 		other.Username = u.Username
 	}
-	
+
 	var err error
-	
-	if u.UserInput_Pwd !="" {
+
+	if u.UserInput_Pwd != "" {
 		other.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(u.UserInput_Pwd), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
 	}
 
-	if err=store.Write(other); err!=nil {
-		fmt.Printf("error on write in update %v",err)
+	if err = store.Write(other); err != nil {
+		fmt.Printf("error on write in update %v", err)
 		return err
 	}
-	v:=reflect.ValueOf(ptrToNewValues).Elem()
-	o:=reflect.ValueOf(other).Elem()
+	v := reflect.ValueOf(ptrToNewValues).Elem()
+	o := reflect.ValueOf(other).Elem()
 	v.Set(o)
-	return nil	
+	return nil
 }
 
 //Create can only be called if the session points to a user who is a super user.
 func (self *UserSvc) Delete(store store.T, ptrToValues interface{}, session *Session) error {
-	u:=ptrToValues.(*User)
-	other:=&User{Id:u.Id}
-	if err:=store.FindById(other,u.Id); err!=nil {
-		return err;
-	}
-	if err:=store.Delete(other);err!=nil {
+	u := ptrToValues.(*User)
+	other := &User{Id: u.Id}
+	if err := store.FindById(other, u.Id); err != nil {
 		return err
 	}
-	v:=reflect.ValueOf(ptrToValues).Elem()
-	o:=reflect.ValueOf(other).Elem()
+	if err := store.Delete(other); err != nil {
+		return err
+	}
+	v := reflect.ValueOf(ptrToValues).Elem()
+	o := reflect.ValueOf(other).Elem()
 	v.Set(o)
 	return nil
 }
@@ -257,7 +276,7 @@ func (self *UserSvc) Delete(store store.T, ptrToValues interface{}, session *Ses
 func (self *UserSvc) FindByKey(store store.T, key string, value string, session *Session, max uint16) (interface{}, error) {
 	hits := make([]*User, 0, max)
 	err := store.FindByKey(&hits, key, value, uint64(0))
-	return hits,err
+	return hits, err
 }
 
 //Validate is called BEFORE any other method in this set (except Make).  This does various kinds of
@@ -300,12 +319,18 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 		}
 		if user.UserInput_Email == "" {
 			ok = false
-			result["Email"] = "Email address is required"
+			result["UserInput_Email"] = "Email address is required"
+		} else {
+			if r:=emailRegexp.Find([]byte(user.UserInput_Email)); r==nil {
+				ok = false
+				result["UserInput_Email"] = "Badly formed email address"
+			}
 		}
 		if user.UserInput_Pwd == "" {
 			ok = false
 			result["PlainTextPassword"] = "Password is required"
 		}
+		
 		if !ok {
 			return result
 		}
@@ -337,13 +362,13 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			result["_"] = "only logged in users may search for other users"
 			return result
 		}
-		if key != "Username" && key!="LastName" && key!="FirstName"{
+		if key != "Username" && key != "LastName" && key != "FirstName" {
 			result["_"] = "Only searching by Username, FirstName, or LastName is allowed"
-			return result;
+			return result
 		}
 		if value == "" {
 			result[key] = "Must provide a value to search for (can't search for all values yet)"
-			return result;
+			return result
 		}
 	}
 	return nil
