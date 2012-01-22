@@ -6,17 +6,19 @@ import (
 	"github.com/seven5/mongrel2"
 	"net/http"
 	"os"
-	"strings"
 	"runtime"
+	"strings"
 )
+
+var shutdownMsg = "shutdown has begun"
 
 //m2ToHttp converts a mongrel2 level request to an http one compatible with net/http
 func m2ToHttp(in *mongrel2.HttpRequest) (out *http.Request) {
-	
+
 	//for k,v := range in.Header {
 	//	fmt.Printf("------->'%s' -> '%s'\n",k,v)
 	//}
-	
+
 	method := in.Header["METHOD"]
 	url := in.Header["URI"]
 	buffer := bytes.NewBuffer(in.Body)
@@ -48,7 +50,7 @@ func httpToM2(sid string, cid int, in *http.Response) (out *mongrel2.HttpRespons
 	for k, v := range in.Header {
 		out.Header[http.CanonicalHeaderKey(k)] = v[0] //should we do this?
 	}
-	
+
 	out.ContentLength = in.ContentLength
 	out.Body = in.Body
 
@@ -94,15 +96,28 @@ func (self *httpRunnerDefault) runHttp(config *projectConfig, target Httpified) 
 	self.In = i
 	self.Out = o
 
+	//concurrency claim: this goroutine (ReadLoop) CANNOT be properly killed from outside because 
+	//it is possible to be blocked in a C-level call to read (zmq socket).  So it is 
+	//possible that we leave it "stranded" during shutdown and then later expect the closing
+	//of the ZMQ context to signal with ETERM that it should die.
 	go self.ReadLoop(self.In)
 	go self.WriteLoop(self.Out)
 
 	for {
 		//block until we get a message from the server
-		req := <-self.In
+		req, ok := <-self.In
 
-		if req == nil {
-			config.Logger.Printf("[%s]: close of mongrel2 connection in raw handler!", target.Name())
+		if !ok {
+			config.Logger.Printf("[%s]: close of channel in run HTTP!", target.Name())
+			//concurrency claim: this is closed by a call to Shutdown() on this same
+			//object. That shutdown, however, occurs on a DIFFERENT goroutine and that
+			//OTHER goroutine will have been the one who signalled us by closing
+			//self.In.  However, the other go routine cannot safely close the self.Out
+			//channel because he has no way to be sure that there is not a processing
+			//pass "in play" already (this loop could be in any state when he did
+			//the close.)  So, we must do the close before we return.  This has the 
+			//effect of killing the goroutine launched above on self.Writeloop().
+			close(self.Out)
 			return
 		} else {
 			config.Logger.Printf("[%s]: serving %s", target.Name(), req.Path)
@@ -127,7 +142,17 @@ func (self *httpRunnerDefault) runHttp(config *projectConfig, target Httpified) 
 		}
 
 		resp := protectedProcessRequest(config, req, target)
-		self.Out <- resp
+		if resp == nil {
+			//special case for shutting down
+			resp = new(mongrel2.HttpResponse)
+			resp.StatusCode = 200
+			resp.StatusMsg = "shutting down"
+			self.Out <- resp
+			//NOW do the shutdown
+			close(getShutdownChannel())
+		} else {
+			self.Out <- resp
+		}
 	}
 }
 
@@ -145,17 +170,21 @@ func protectedProcessRequest(config *projectConfig, req *mongrel2.HttpRequest, t
 			b := NewBufferCloserFromString(fmt.Sprintf("Panic: %v\n", x))
 			resp.ContentLength = b.Len()
 			resp.Body = b
-			fmt.Fprintf(os.Stderr, "%s\n-----------\n", generateStackTrace(fmt.Sprintf("%v", x)))
+			fmt.Fprintf(os.Stderr, "Recover result: %s\n-----------\n", generateStackTrace(fmt.Sprintf("%v", x)))
 		}
 	}()
 
 	//this is the place where we interact with user level code...entering http/Request&Response
 	requestAsHttp := m2ToHttp(req)
 	respAsHttp := target.ProcessRequest(requestAsHttp)
-	resp = httpToM2(req.ServerId, req.ClientId, respAsHttp)
-	//leaving http/Request&Response
-
-	config.Logger.Printf("[%s]: responded to %s with %d bytes of content\n", target.Name(), req.Path, resp.ContentLength)
+	if respAsHttp == nil {
+		//this special case allows us to handle the shutdown message and *THEN* die
+		resp = nil
+	} else {
+		resp = httpToM2(req.ServerId, req.ClientId, respAsHttp)
+		//leaving http/Request&Response
+		config.Logger.Printf("[%s]: responded to %s with %d bytes of content\n", target.Name(), req.Path, resp.ContentLength)
+	}
 	return
 }
 
@@ -206,19 +235,24 @@ func isGoRuntime(file string) string {
 	return ""
 }
 
-//Shutdown here is a bit trickier than it might look.  This sends the shutdown message
-//to the write loop.  The read loop would never see the read message if you closed it here
-//because it is blocked waiting on the socket.  So, when the context is closed the 
-//read loop will catch the ETERM error and close the channel.
+//Shutdown here is a bit trickier than it might look.  Concurrency claim:  we close ONLY the
+//read channel that is in use by runHttp().  We cannot safely close the write channel
+//in use in runHttp() because there may be a request being processed (on runHttp's goroutine)
+//when this method gets called.  By closing the read channel only we insure that the other
+//goroutine will run until completion of its-in progress request and that will mean using
+//the write channel.  (If we closed the write channel also, the other goroutine could get
+//an "attempt to write on closed channel" panic.) This means that the other side of this signal
+// (runHttp)  is responsible for cleaning up the out channel.
 func (self *httpRunnerDefault) Shutdown() {
-	//this check is needed because if you call shutdown before things get rolling, you'll
-	//try to close a nil channel
-	if self.Out != nil {
-		close(self.Out)
+	//fmt.Printf("shutdown called: about to signal on a read channel\n")
+	//check for nil because it may not be initialized yet...
+	if self.In != nil {
+		close(self.In)
 	}
 }
 
-//Bind connects this runner to the lower level of the implementation.
+//BindToTransport connects this runner to the lower level of the implementation, which for 
+//mongrel2
 func (self *httpRunnerDefault) BindToTransport(name string, transport Transport) error {
 	t := transport.(*zmqTransport)
 

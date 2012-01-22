@@ -51,8 +51,16 @@ func GenerateMain(importPath string, base string, exported *seven5.ExportedSeven
 		fmt.Printf("[TUNE] found model %s and assuming New%sSvc\n",m,m)
 	}
 	
-	data["privateInit"] = exported.PrivateInit
-
+	cfg:=make(map[string]string)
+	data["config"]=cfg
+	if exported.PrivateInit {
+		cfg["PrivateInit"] = importPath+".PrivateInit"
+	} else {
+		cfg["PrivateInit"] = "nil"
+	}
+	cfg["AllowShutdown"]="true"
+	cfg["Store"]="store.NewGobStore(store.NewStoreImpl(store.MEMCACHE_LOCALHOST))"
+	
 	buff := bytes.NewBufferString("")
 	if err := t.Execute(buff, data); err != nil {
 		return "",err

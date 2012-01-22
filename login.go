@@ -9,6 +9,22 @@ import (
 	"seven5/store"
 )
 
+//allowShutdown defaults to false.  If it is true, the shutdown message will be processed
+//from any successful login by a superuser.
+var allowShutdown = false
+
+var shutdownRequested = "Shutdown Requested"
+
+//AllowShutdown sets the flag that enables or disables a client's ability to send a shutdown
+//message to the system.  If true, a login request (/api/seven5/login) from a user with
+//superuser privileges may supply the
+//additional parameter "shutdown=true" to cause the server to shutdown.   This method
+//is not one that generally should be called by user code--calls to it are automatically
+//generated via the Tune program.
+func AllowShutdown(allowed bool) {
+	allowShutdown=allowed
+}
+
 //LoginGuise is a special http level processor that mounts itself at "/api/seven5/login".  This guise
 //is responsible ONLY for checking credentials and creating new sessions for successful
 //logins (or issuing errors for bad logins).  In some ways, LoginGuise manipulates users and 
@@ -59,6 +75,7 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 	values := parsed.Query()
 	user := ""
 	pwd := ""
+	shutdown:=false
 
 	for k, v := range values {
 		if k == "username" {
@@ -68,6 +85,11 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 		if k == "password" {
 			pwd = v[0]
 			continue
+		}
+		if k=="shutdown" {
+			if v[0]=="true" && allowShutdown {
+				shutdown=true
+			}
 		}
 	}
 
@@ -97,6 +119,15 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 	}
 	if err == bcrypt.MismatchedHashAndPasswordError {
 		return formatValidationError(badCred, resp)
+	}
+
+	if shutdown && hits[0].IsSuperuser {
+	/*	resp.StatusCode = http.StatusOK
+		resp.Status = shutdownMsg
+		close(getShutdownChannel())
+		return resp*/
+		fmt.Printf("Shutdown has been requested by the client (superuser)\n")
+		return nil
 	}
 
 	//create the new session Id... make sure it's unique

@@ -204,8 +204,9 @@ func (self *GobStore) FindById(s interface{}, id uint64) error {
 	return self.DecodeItemBytes(s, item)
 }
 
-//decodeItemBytes returns a structured object from the gob blob of bytes. It assumes that s
-//is a pointer a structure that has already been checked.
+//DecodeItemBytes returns a structured object from the gob blob of bytes. It assumes that s
+//is a pointer a structure that has already been checked.  This has to be public for now,
+//as it is called via the reflection interface which refuses to invoke non-exported functions.
 func (self *GobStore) DecodeItemBytes(s interface{}, item StoredItem) error {
 	buffer := bytes.NewBuffer(item.Value())
 	decoder := gob.NewDecoder(buffer)
@@ -228,7 +229,7 @@ func (self *GobStore) writeKey(s interface{}, keyName string, typeName string, m
 	//ok, if we get here, we are ok and have the index loaded (or created)...
 	if len(fullIndex) == 0 {
 		//we are adding a single item
-		if isFifo != keyOrder(LIFO_ORDER) {
+		if isFifo != keyOrder(lifo_order) {
 			index = append(index, id)
 		} else {
 			index = append([]uint64{id}, index...)
@@ -426,7 +427,7 @@ func (self *GobStore) findByKeyInternal(ptrToResult interface{}, resultItemType 
 	example:=reflect.New(resultItemType).Interface()
 	//we need to see if they specified any order for this key
 	f, m := getStructKeys(example)
-	order := keyOrder(UNSPECIFIED_ORDER)
+	order := keyOrder(unspecified_order)
 	for _, fld := range f {
 		if fld.Name == keyName {
 			order = fld.IsFifo
@@ -448,7 +449,7 @@ func (self *GobStore) findByKeyInternal(ptrToResult interface{}, resultItemType 
 	}
 
 	//can we do this with readMulti?
-	if order == keyOrder(UNSPECIFIED_ORDER) {
+	if order == keyOrder(unspecified_order) {
 		self.readMulti(example, slice, result)
 	} else {
 		/*
@@ -716,7 +717,7 @@ func (self *GobStore) BulkWrite(sliceOfPtrs interface{}) error {
 				index = make(map[string][]uint64)
 				master[n] = index
 			}
-			if isFifo != LIFO_ORDER {
+			if isFifo != lifo_order {
 				index[v] = append(index[v], newValueOfId)
 			} else {
 				index[v] = append([]uint64{newValueOfId}, index[v]...)
@@ -735,7 +736,7 @@ func (self *GobStore) BulkWrite(sliceOfPtrs interface{}) error {
 	for keyName, maps := range master {
 		unique:=[]ValueInfo{}
 		for mapKey, index := range maps {
-			order := keyOrder(UNSPECIFIED_ORDER) /*already dealt with this issue in the loops above*/
+			order := keyOrder(unspecified_order) /*already dealt with this issue in the loops above*/
 			if err := self.writeKey(s, keyName, typeName, mapKey, 0, index, order, userId); err != nil {
 				return err
 			}

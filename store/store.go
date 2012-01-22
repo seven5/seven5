@@ -2,6 +2,8 @@
 //The interface store.T is the abstraction that (with some luck) will be sufficient to 
 //support multiple key-value impls.  Different storage implementations may place 
 //different restrictions on what values can be stored, how they must be related, etc.  
+//Details of the expectations of a store implementation are visible on the type
+//StoreImpl.
 //
 //The Write() and Find...() interfaces take a pointer to a structure and this should 
 //not be changed by the store implementation--although the store implementation may 
@@ -24,12 +26,7 @@
 //the FindAll() method must maintain a complete list of all the items of a particular type
 //and this can be slow.  You can use the struct tag seven5order:"none" turn this off (only
 //for the Id field) and the FindAll method will always return an error.
-
-//On a given field, the order of the keys stored can be unspecified, fifo, or lifo.  Unspecified
-//is the default.  If you specify a key order of lifo or fifo, it is more expensive to
-//do reads.  Most users of this feature will want this to allow an "effective sort" of
-//the results of a find that is based on the write order.  Again, the seven5order:""
-//is the way to specify the order on a field--and it applies to all keys on that field.
+//
 package store
 
 import (
@@ -42,11 +39,11 @@ import (
 
 const (
 	//order inserted is order returned (expensive)
-	FIFO_ORDER = iota  
+	fifo_order = iota  
 	//order inserted is opposite returned (expensive)
-	LIFO_ORDER = FIFO_ORDER+1  
+	lifo_order = fifo_order+1  
 	//order returned is unrelated to order inserted (cheap)
-	UNSPECIFIED_ORDER = FIFO_ORDER+2  
+	unspecified_order = fifo_order+2  
 )
 
 type T interface {
@@ -222,7 +219,7 @@ func getStructKeys(s interface{}) ([]fieldPlusName, []methodPlusName) {
 	numFields := t.NumField()
 
 	for i := 0; i < numFields; i++ {
-		isFifo := UNSPECIFIED_ORDER
+		isFifo := unspecified_order
 		none := false
 		f := t.Field(i)
 
@@ -230,14 +227,14 @@ func getStructKeys(s interface{}) ([]fieldPlusName, []methodPlusName) {
 		if tag != "" {
 			//lifo and none are possible other cases
 			if tag == "lifo" {
-				isFifo = LIFO_ORDER
+				isFifo = lifo_order
 			} else if tag == "none" {
 				if f.Name != "Id" {
 					panic(fmt.Sprintf("setting seven5order to none makes no sense on key %s", f.Name))
 				}
 				none = true
 			} else if tag == "fifo" {
-				isFifo=FIFO_ORDER
+				isFifo=fifo_order
 			} else {
 				panic(fmt.Sprintf("invalid value of seven5order on key %s [%s]", f.Name, tag))
 			}
@@ -251,7 +248,7 @@ func getStructKeys(s interface{}) ([]fieldPlusName, []methodPlusName) {
 		}
 		//check for the other keys on other fields, possibly comma separated
 		if f.Tag.Get("seven5key") == "" {
-			if isFifo!=UNSPECIFIED_ORDER {
+			if isFifo!=unspecified_order {
 				panic(fmt.Sprintf("You specified an order, but no key(s) with that order (%s)",f.Name))
 			}
 			continue

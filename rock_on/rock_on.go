@@ -145,6 +145,14 @@ func (rock *Rock) StartServer(projectName string) (success bool) {
 		fmt.Println("[ROCK ON] Error starting the project application: ", err)
 		return false
 	}
+	err =rock.webCmd.Wait()
+	if err != nil{
+		fmt.Println("[ROCK ON] Executable _seven5/"+projectName+" exited with an error: ", err)
+		return false
+	} else {
+		fmt.Println("[ROCK ON] Executable _seven5/"+projectName+" was shut down")
+	}
+	
 	return true
 }
 

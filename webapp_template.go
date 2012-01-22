@@ -9,6 +9,7 @@ package main
 import (
 	{{importIfNeeded .import}}
 	"seven5"
+	"seven5/store"
 )
 
 //Because you can't dynamically load go code yet, you have to use this
@@ -16,6 +17,12 @@ import (
 func main() {
 
     seven5.BackboneService("user", seven5.NewUserSvc(), &seven5.User{})
+
+	cfg:=&seven5.WebAppConfig{
+		AllowShutdown: {{.config.AllowShutdown}},
+		PrivateInit: {{.config.PrivateInit}},
+		Store: {{.config.Store}},
+    }
 
 	{{$pkg = .import}}
 	{{range .model}}
@@ -30,10 +37,5 @@ func main() {
 	{{end}}
 	{{/* ************************************************************************************* */}}
 
-	{{if .privateInit}}
-		{{$init = printf "%s%s" $pkg ".PrivateInit"}}
-		seven5.WebAppRun({{$init}})
-	{{else}}
-		seven5.WebAppRun(nil)
-	{{end}}
+	seven5.WebAppRun(cfg)
 }`

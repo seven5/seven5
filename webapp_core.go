@@ -1,14 +1,13 @@
 package seven5
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"seven5/store"
-	"time"
-	"bytes"
 )
 
 const (
@@ -21,6 +20,18 @@ const (
 	//response.
 	route_test_header = "X-Seven5-Route-Test"
 )
+
+//WebAppConfig is a structure that represents some parameters of the application that are
+//passed in "from the outside".  Typically, the tune application generates this structure
+//based on analyzing the source code and perhaps some options passed to tune itself.
+type WebAppConfig struct {
+	//true if it is ok for superuser to shutdown the server
+	AllowShutdown bool
+	//storage implementation for this application
+	Store store.T
+	//private initialization function, normally part of pwd.go--can be nil
+	PrivateInit func(*log.Logger, store.T) error
+}
 
 //Routable is use to indicate that your object has a name method and should be placed into the
 //URL space.  This interface is separate from the Httpified interface because of the need to
@@ -40,7 +51,7 @@ type Routable interface {
 	//AppStarting is called at startup time to allow startup actions to occur.  The logger
 	//provided is connected to the seven5.log and the store is the store in use for this
 	//application.
-	AppStarting(*log.Logger, store.T) error	
+	AppStarting(*log.Logger, store.T) error
 	//BindToTransport is used to connect your routable to the lower level transport that 
 	//mucks about with sockets and other grungy stuff.  For now, this is
 	//always mongrel2 and the transport parameter is a zeromq Context object.
@@ -74,27 +85,18 @@ var systemGuise = []Routable{newFaviconGuise(), newLoginGuise(), newModelGuise()
 //calling this from test code, you will want to set the third parameter to the proposed
 //project directory; otherwise pass "" .  The second parameter is the private init function
 //for this app, if any; normally the privateInit func is determined by the tune program.
-func startUp(transport Transport, privateInit func(*log.Logger,store.T) error, conf *projectConfig, named []Routable) bool {
+func startUp(transport Transport, privateInit func(*log.Logger, store.T) error, store store.T,
+	conf *projectConfig, routeable []Routable) bool {
 
-	store := store.NewGobStore(store.NewStoreImpl(store.MEMCACHE_LOCALHOST))
-	
-	allNamed := make([]Routable, len(systemGuise)+len(named))
-	for i, n := range systemGuise {
-		allNamed[i] = n
-	}
-	for i, n := range named {
-		allNamed[i+len(systemGuise)] = n
-	}
-
-	if privateInit!=nil {
-		if err:=privateInit(conf.Logger, store); err!=nil {
-			fmt.Fprintf(os.Stderr,"private init failed:%v\n",err)
+	if privateInit != nil {
+		if err := privateInit(conf.Logger, store); err != nil {
+			fmt.Fprintf(os.Stderr, "private init failed:%v\n", err)
 			return false
 		}
 	}
 
-	for _, h := range allNamed {
-		h.BindToTransport(h.Name(),transport)
+	for _, h := range routeable {
+		h.BindToTransport(h.Name(), transport)
 		h.AppStarting(conf.Logger, store)
 		switch x := h.(type) {
 		case Httpified:
@@ -108,63 +110,75 @@ func startUp(transport Transport, privateInit func(*log.Logger,store.T) error, c
 	return true
 }
 
+
 //WebAppRun takes the named handlers (often empty) and begins driving HTTP through them.
 //Most webapps will call this method to start their app running and it will never return.
 //Any return is probably an error or a shutdown request.  This interrogates the backbone
 //support code to look for restful services that were registered with BackboneService()
 //so you only need to pass Routable objects to this method if you have non-restful things
-//to start.  The first parameter should be nil or a function with the signature appropriate
-//to be a pwd.PrivateInit() function--normally this is discovered by the "tune" command
-//and selected automatically.
-func WebAppRun(privateInit func(*log.Logger,store.T) error, named ...Routable) error {
+//to start.  The first parameter is typically supplied by the tune application so
+//changing the values supplied should be done elsewhere.
+func WebAppRun(webConfig *WebAppConfig, nonRest ...Routable) error {
 	var err error
-	
-	//add backbone-REST services into the set of named
-	bboneSvc:= backboneServices()
-	allNamed:=make([]Routable,len(named)+len(bboneSvc))
-	for i, n:=range named {
-		allNamed[i]=n
-	}
-	for i, n:=range bboneSvc {
-		allNamed[i+len(named)]=n
-	}
-	
-	config,err:=webAppDefaultConfig(allNamed)
-	if err!=nil {
-		fmt.Fprintf(os.Stderr,"error generating configuration:%v\n",err)
+
+	//allRoutable is the set of all routable in the system. 
+	var allRoutable []Routable
+	//transport is the transport in use.
+	var transport Transport
+
+	AllowShutdown(webConfig.AllowShutdown)
+
+	//add backbone-REST services into the set of routables
+	bboneSvc := backboneServices()
+	allRoutable = make([]Routable, len(systemGuise)+len(nonRest)+len(bboneSvc))
+	copy(allRoutable, systemGuise)
+	userRoutable := allRoutable[len(systemGuise):]
+	copy(userRoutable, nonRest)
+	copy(userRoutable[len(nonRest):], bboneSvc)
+
+	projConfig, err := webAppDefaultConfig(allRoutable)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error generating mongrel2 configuration:%v\n", err)
 		return err
 	}
 
-	var transport Transport
 	//setup the network
-	if transport, err = createNetworkResources(config); err != nil {
-		fmt.Fprintf(os.Stderr,"error creating networking/transport resources:%v\n",err)
-		
+	if transport, err = createNetworkResources(projConfig); err != nil {
+		fmt.Fprintf(os.Stderr, "error creating networking/transport resources:%v\n", err)
+
 		return errors.New(fmt.Sprintf("error starting transport (networking or mongrel):%s", err.Error()))
 	}
 	if transport == nil {
-		fmt.Fprintf(os.Stderr,"unable to create networking/transport (zmq context)!")
-		
+		fmt.Fprintf(os.Stderr, "unable to create networking/transport (zmq context)!")
+
 		return errors.New("No networking/transport was created.\n")
 	}
+	//this does the work of shutdown... we use a defer func in case the stack is unwound
+	//due to a panic.
 	defer func() {
+		for _, r := range allRoutable {
+			r.Shutdown()
+		}
 		transport.Shutdown()
 	}()
+
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
-	if !startUp(transport, privateInit, config, allNamed) {
-		fmt.Fprintf(os.Stderr,"error starting up handlers! Exiting!")
-		
-		return errors.New(fmt.Sprintf("error starting up the handers:%s", err))
-	}
-	
-	//wait forever in 10 sec increments... need to keep this function alive because when
-	//it exits (such as control-c) the context gets closed
-	for {
-		time.Sleep(10*time.Second)
+	if !startUp(transport, webConfig.PrivateInit, webConfig.Store, projConfig, allRoutable) {
+		fmt.Fprintf(os.Stderr, "error starting up handlers! Exiting!")
+
+		return errors.New(fmt.Sprintf("error starting up the routables:%s", err))
 	}
 
-	return nil //will never happen
+	//just block until somebody requests a shutdown
+	_, ok := <-shutdownChannel
+	if ok {
+		panic("Should never be sending values through the shutdown channel!")
+	}
+	//fmt.Printf("channel closed for shutdown\n")
+	
+	//only happens if there is a shutdown request... our defer func does the work.
+	return nil
 }
 
 //webAppDefaultConfig builds the mongrel2 database needed to run in the default seven5
@@ -217,23 +231,6 @@ func webAppDefaultConfig(named []Routable) (*projectConfig, error) {
 	return config, nil
 }
 
-//Shutdown causes the channels to be closed so the various goroutines (including the system
-//guises) can close down their resources.  Normal web applications run forever so they don't
-//need this, but tests do.
-func Shutdown(named ...Routable) {
-
-	allNamed := make([]Routable, len(systemGuise)+len(named))
-	for i, n := range systemGuise {
-		allNamed[i] = n
-	}
-	for i, n := range named {
-		allNamed[i+len(systemGuise)] = n
-	}
-
-	for _, bye := range allNamed {
-		bye.Shutdown()
-	}
-}
 
 //BufferCloser is a convenience type for using a buffer as the body of an HTTP response.  This
 //is being exposed beacuse bytes.Buffer is a Reader but not a Closer().  This is a simple
@@ -244,13 +241,14 @@ type BufferCloser struct {
 
 //NewBufferCloser creates a new, empty buffer, ala new(bytes.Buffer)
 func NewBufferCloser() *BufferCloser {
-	return &BufferCloser{new (bytes.Buffer)}
+	return &BufferCloser{new(bytes.Buffer)}
 }
 
 //NewBufferCloserFromBytes creates a new buffer pointed at the parameter, ala bytes.NewBuffer([]byte)
 func NewBufferCloserFromBytes(b []byte) *BufferCloser {
 	return &BufferCloser{bytes.NewBuffer(b)}
 }
+
 //NewBufferCloserFromString creates a new buffer pointed at the parameter, ala bytes.NewBuffer(string)
 func NewBufferCloserFromString(s string) *BufferCloser {
 	return &BufferCloser{bytes.NewBufferString(s)}
@@ -259,7 +257,7 @@ func NewBufferCloserFromString(s string) *BufferCloser {
 //Close dumps the storage for the underlying buffer (to prevent inadvertent reuse) 
 //but otherwise does nothing.
 func (self *BufferCloser) Close() error {
-	self.Buffer=nil
+	self.Buffer = nil
 	return nil
 }
 
@@ -268,3 +266,14 @@ func (self *BufferCloser) Close() error {
 func (self *BufferCloser) Len() int64 {
 	return int64(self.Buffer.Len())
 }
+
+//shutdownChannel is used ONLY for signaling that a shutdown has been requested
+var shutdownChannel = make(chan int)
+
+//getShutdownNeeded returns channel that can be closed by someone who wants the system to
+//go down.  No point in calling this more than once.  Use close(getShutdownChannel()) blow
+//everything up.
+func getShutdownChannel() chan int {
+	return shutdownChannel
+}
+

@@ -4,6 +4,7 @@ import (
 	"launchpad.net/gocheck"
 	"net/http"
 	"path/filepath"
+	"seven5/store"
 )
 //PrepareFunctionalTest configures mongrel to run the RawHandler supplied.
 //Return value is nil on error, and that's a fatal error that has already
@@ -31,7 +32,8 @@ func PrepareFunctionalTest(n Routable, c *gocheck.C) Transport {
 		c.Fatalf("unable to create transport/networking (mongrel2 or 0MQ) resources:", err)
 	}
 
-	if !startUp(transport, nil, config, []Routable{n}) {
+	if !startUp(transport, nil, store.NewGobStore(store.NewStoreImpl(store.MEMCACHE_LOCALHOST)),
+		config, []Routable{n}) {
 		c.Fatalf("unable to start the handlers, no context found: %s, %s", n.Name(), path)
 	}
 	return transport
