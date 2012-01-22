@@ -5,7 +5,7 @@
 //Details of the expectations of a store implementation are visible on the type
 //StoreImpl.
 //
-//The Write() and Find...() interfaces take a pointer to a structure and this should 
+//The Write() interface take a pointer to a structure and this should 
 //not be changed by the store implementation--although the store implementation may 
 //place restrictions on the structure itself.  The annotation 
 //seven5key:"<keyname>[,<keyname>...]" should 
@@ -117,9 +117,11 @@ func lessValueInfoForValue(a,b interface{}) bool {
 	x := a.(ValueInfo)
 	y := b.(ValueInfo)
 	
-	if x.Value==y.Value {
+// tiebreaker is unclear
+/*	if x.Value==y.Value {
 		return x.Stored.Before(y.Stored)
 	}
+*/
 	return x.Value < y.Value
 }
 

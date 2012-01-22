@@ -186,7 +186,7 @@ func (self *RestHandlerDefault) ProcessRequest(req *http.Request) *http.Response
 
 	path := req.URL.Path
 	method := req.Method
-	//fmt.Printf("PATH: '%s'  --- Method %s\n", path, method)
+	//fmt.Printf("PATH: '%s'  --- Method %s  inside %s\n", path, method, self.Name())
 
 	session, respErr := discoverSession(req, response, self.store)
 	if respErr != nil {

@@ -162,8 +162,8 @@ func (self *httpRunnerDefault) runHttp(config *projectConfig, target Httpified) 
 func protectedProcessRequest(config *projectConfig, req *mongrel2.HttpRequest, target Httpified) (resp *mongrel2.HttpResponse) {
 	defer func() {
 		if x := recover(); x != nil {
-			config.Logger.Printf("[%s]: PANIC! sent error page for %s: %v\n", target.Name(), req.Path, x)
-			fmt.Fprintf(os.Stderr, "[%s]: PANIC! sent error page for %s: %v\n", target.Name(), req.Path, x)
+			config.Logger.Printf("[%s]: PANIC! sent error page for %s: %v\n", target.Name(), req.Path,x)
+			fmt.Fprintf(os.Stderr, "[%s]: PANIC! sent error page for %s\n", target.Name(), req.Path)
 			resp = new(mongrel2.HttpResponse)
 			resp.StatusCode = 500
 			resp.StatusMsg = "Internal Server Error"
