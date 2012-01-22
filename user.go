@@ -101,10 +101,7 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 
 	if r:=emailRegexp.Find([]byte(Email)); r==nil {
 		return uint64(0), errors.New(fmt.Sprintf("Invalid Email Address: %s",Email))
-	} else {
-		fmt.Printf("ok found email match %s\n",string(r))
 	}
-
 	user.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(PlainTextPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return uint64(0), err

@@ -118,7 +118,7 @@ func analyzeBackbone(path string, exported *ExportedSeven5Objects) {
 		if !ok {
 			continue
 		}
-		ast.Walk(&modelVisitor{exported,exp.Name},decl.Type)
+		ast.Walk(&modelVisitor{exported,exp.Name,fset},decl.Type)
 	}
 }
 
@@ -127,6 +127,7 @@ func analyzeBackbone(path string, exported *ExportedSeven5Objects) {
 type modelVisitor struct {
 	exported *ExportedSeven5Objects
 	name string
+	fset token.FileSet
 }
 
 //Visit does the work for modelVisitor of examining all the fields of a struct looking for names that
@@ -139,15 +140,25 @@ func (self *modelVisitor) Visit(node ast.Node) ast.Visitor {
 	for _,f := range t.Fields.List {
 		n:=f.Names
 		tname:=f.Type
+		var fullName string
+		
+		switch tnameType:=tname.(type) {
+		case *ast.Ident:
+			fullName=tnameType.Name
+		case *ast.SelectorExpr:
+			fullName=tnameType.X.(*ast.Ident).Name+"_"+tnameType.Sel.Name
+		default:
+			panic(fmt.Sprintf("type of field %v is too complex for us to understand!",f.Names))
+		}
 		
 		for _,candidate := range n {
 			if !isNameOkForJS(candidate) {
-				fmt.Fprintf(os.Stderr,"Warning: Ignoring %s type because %s is not translatable to Javascript!\n",self.name, candidate)
+				fmt.Fprintf(os.Stderr,"Warning: Ignoring %s type because %s is not translatable to Javascript (name)!\n",self.name, candidate)
 				return nil 
 			}
 		}
-		if !isTypeOkForJS(tname) {
-			fmt.Fprintf(os.Stderr,"Warning: Ignoring %s type because %s is not translatable to Javascript!\n",self.name,tname)
+		if !isTypeOkForJS(fullName) {
+			fmt.Fprintf(os.Stderr,"Warning: Ignoring %s type because %s is not translatable to Javascript (typename)!\n",self.name,tname)
 			return nil 
 		}
 		for _,candidate:=range n {
@@ -169,7 +180,6 @@ func isNameOkForJS(candidate *ast.Ident) bool {
 
 //isTypeOkForJS for now just checks that we have an identifier for the type name and assumes
 //that all "direct" types (no pointers or anything) are ok for JS
-func isTypeOkForJS(e ast.Expr) bool {
-	_, ok:=e.(*ast.Ident)
-	return ok
+func isTypeOkForJS(s string) bool {
+	return true
 }
