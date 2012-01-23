@@ -238,9 +238,7 @@ type PrivateString string
 
 //MarshalJSON always returns the empty value because it's PRIVATE.
 func (self PrivateString) MarshalJSON() ([]byte, error) {
-	fmt.Printf("calling marshal... true value is '%s'\n",string(self))
-	return json.Marshal("")
-	//return []byte(x),nil
+	return json.Marshal(`""`)
 }
 
 //UnMarshalJSON does a string unmarshal for itself.

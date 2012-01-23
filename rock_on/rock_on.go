@@ -155,6 +155,7 @@ func (rock *Rock) StartServer(projectName string) (success bool) {
 		return false
 	} else {
 		fmt.Println("[ROCK ON] Executable _seven5/" + projectName + " was shut down")
+		return false
 	}
 
 	return true
@@ -201,7 +202,7 @@ func main() {
 		return
 	}
 	projName := filepath.Clean(filepath.Base(dir))
-	if len(flag.Args()) == 1 {
+	if len(flag.Args()) == 0{
 		fmt.Fprintf(os.Stdout, "[ROCK ON] no directory given, hope project name '%s' is ok\n", projName)
 	} else {
 		projName = flag.Arg(0)
