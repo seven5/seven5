@@ -121,7 +121,7 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 		return formatValidationError(badCred, resp)
 	}
 
-	if shutdown && hits[0].IsSuperuser {
+	if shutdown && bool(hits[0].IsSuperuser) {
 	/*	resp.StatusCode = http.StatusOK
 		resp.Status = shutdownMsg
 		close(getShutdownChannel())

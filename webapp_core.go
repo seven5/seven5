@@ -20,7 +20,6 @@ const (
 	//response.
 	route_test_header = "X-Seven5-Route-Test"
 )
-
 //WebAppConfig is a structure that represents some parameters of the application that are
 //passed in "from the outside".  Typically, the tune application generates this structure
 //based on analyzing the source code and perhaps some options passed to tune itself.

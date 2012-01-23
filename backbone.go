@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"seven5/store"
 	"strings"
+	"encoding/json"
 	"text/template"
 )
 
@@ -226,6 +227,55 @@ func isVowel(s string) bool {
 		}
 	}
 	return false
+}
+
+//PrivateString is a variant of string that differs only in that it never marshals itself
+//into JSON.  It's a good choice for fields values in structures that you don't want to be exposed
+//to the client side via models, like password hashes or email.  If you wish to not even
+//indicate the presence of the field, this can be combined with the annotation json:"omitempty"
+//(doesn't work now, see http://code.google.com/p/go/issues/detail?id=2761)
+type PrivateString string
+
+//MarshalJSON always returns the empty value because it's PRIVATE.
+func (self PrivateString) MarshalJSON() ([]byte, error) {
+	fmt.Printf("calling marshal... true value is '%s'\n",string(self))
+	return json.Marshal("")
+	//return []byte(x),nil
+}
+
+//UnMarshalJSON does a string unmarshal for itself.
+func (self *PrivateString) UnmarshalJSON(b []byte) error {
+	//storage:=make([]byte,len(b))
+	//copy(storage,b)
+	*self=PrivateString(string(b[1:len(b)-1]))
+	return nil
+}
+
+//PrivateBool is a variant of bool that differs only in that it never marshals itself
+//into JSON.  It's a good choice for fields in structures that you don't want to be exposed
+//to the client side via models, like internal flags.  If you wish to not even
+//indicate the presence of the field, this can be combined with the annotation json:"omitempty"
+//(doesn't work now, see http://code.google.com/p/go/issues/detail?id=2761)
+type PrivateBool bool
+
+//MarshalJSON always returns the empty value because it's PRIVATE bool.
+func (self *PrivateBool) MarshalJSON() ([]byte, error) {
+	return []byte(`""`),nil
+}
+
+//UnMarshalJSON does a bool unmarshal for itself.
+func (self *PrivateBool) UnmarshalJSON(b []byte) error {
+	s:=string(b)
+	s=strings.ToLower(s)
+	switch (s) {
+	case "true":
+		*self=PrivateBool(true)
+	case "false":
+		*self=PrivateBool(false)
+	default:
+		panic("it's a bool but it has some value besides true and false!")
+	}
+	return nil
 }
 
 const modelTemplate = `

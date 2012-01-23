@@ -3,7 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
-	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/seven5/gomemcache/memcache"
 	"net"
 )
 

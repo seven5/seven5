@@ -77,7 +77,7 @@ func WriteMain(main_go string, projectName string) (err error) {
 			return
 		}
 		var perm uint32 = 0777
-		err = os.Mkdir(seven5.WEBAPP_START_DIR, perm)
+		err = os.Mkdir(seven5.WEBAPP_START_DIR, os.FileMode(perm))
 		if err != nil {
 			return
 		}

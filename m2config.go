@@ -2,7 +2,7 @@ package seven5
 
 import (
 	"errors"
-	"exp/sql"
+	"database/sql"
 	"flag"
 	"fmt"
 	"github.com/seven5/gozmq"

@@ -26,20 +26,19 @@ type User struct {
 	Username    string    `seven5key:"Username"`
 	FirstName   string    `seven5key:"FirstName"`
 	LastName    string    `seven5key:"LastName"`
-	Email       string    `json:"-" seven5key:"Email"`
+	Email       PrivateString    `json:"omitempty" seven5key:"Email"`
 	BcryptHash  []byte    `json:"-"`
 	Groups      []string  `json:"-"`
 	Id          uint64    `seven5All:"false" json:"id"`
-	IsStaff     bool      `json:"-"`
-	IsActive    bool      `json:"-"`
-	IsSuperuser bool      `json:"-"`
+	IsStaff     PrivateBool `json:"omitempty"`
+	IsActive    PrivateBool `json:"omitempty"`
+	IsSuperuser PrivateBool      `json:"omitempty"`
 	LastLogin   time.Time //UTC ... can be zero valued for never logged in
 	Created     time.Time //UTC
-	//for input only from the client... annotation indicates should not be stored by the storage layer
-	//the json layer will marshal this inbound but will not outbound if it is empty (as expected)
-	UserInput_Pwd   string `json:"PlainTextPassword,omitempty" seven5store:"false"`
-	UserInput_Super bool   `json:"Superuser,omitempty" seven5store:"false"`
-	UserInput_Email string `json:"Email,omitempty" seven5store:"false"`
+	
+	//for input only from the client...this value is NOT stored, we store the bcrypt hash
+	//above but this lets the client code SET the value on input, but not read from it
+	PlainTextPassword   PrivateString `json:"omitempty"`
 
 	//this is for app-specific preferences
 	Preference map[string]interface{}
@@ -70,7 +69,7 @@ type Session struct {
 //tries to find the username given first and if a user with that username already exists, it does
 //nothing.If not found, it creates a super user and returns the userid.
 func CreateSuperUser(store store.T, username string, firstName string, lastName string, email string, plainTextPassword string) (uint64, error) {
-	return create(store, username, firstName, lastName, email, plainTextPassword, true)
+	return create(store, username, firstName, lastName, PrivateString(email), plainTextPassword, PrivateBool(true))
 }
 
 //CreateUser is customarily done in the pwd.go file associated with your application in the
@@ -78,11 +77,11 @@ func CreateSuperUser(store store.T, username string, firstName string, lastName 
 //tries to find the username given first and if a user with that username already exists, it does
 //nothing.  If not found, it creates a normal user and returns the userid.
 func CreateUser(store store.T, username string, firstName string, lastName string, email string, plainTextPassword string) (uint64, error) {
-	return create(store, username, firstName, lastName, email, plainTextPassword, false)
+	return create(store, username, firstName, lastName, PrivateString(email), plainTextPassword, PrivateBool(false))
 }
 
 //create is the building block for CreateUser and CreateSuperUser.
-func create(store store.T, Username string, FirstName string, LastName string, Email string, PlainTextPassword string, isSuper bool) (uint64, error) {
+func create(store store.T, Username string, FirstName string, LastName string, Email PrivateString, PlainTextPassword string, isSuper PrivateBool) (uint64, error) {
 	var err error
 
 	hit := make([]*User, 0, 1)
@@ -102,12 +101,13 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 	if r:=emailRegexp.Find([]byte(Email)); r==nil {
 		return uint64(0), errors.New(fmt.Sprintf("Invalid Email Address: %s",Email))
 	}
+
 	user.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(PlainTextPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return uint64(0), err
 	}
 	user.IsStaff = isSuper
-	user.IsActive = true
+	user.IsActive = PrivateBool(true)
 	user.IsSuperuser = isSuper
 	user.Created = time.Now()
 	user.Preference = make(map[string]interface{})
@@ -139,15 +139,11 @@ func NewUserSvc() Httpified {
 //who is a super user.
 func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Session) error {
 	u := ptrToValues.(*User)
-	pwd := u.UserInput_Pwd
-	super := u.UserInput_Super
-	email := u.UserInput_Email
+	pwd := u.PlainTextPassword
 
-	u.UserInput_Pwd = ""      //XXX SHOULD BE AUTOMATIC
-	u.UserInput_Email = ""    //XXX SHOULD BE AUTOMATIC
-	u.UserInput_Super = false //XXX SHOULD BE AUTOMATIC
+	u.PlainTextPassword = ""      //XXX SHOULD BE AUTOMATIC
 
-	id, err := create(store, u.Username, u.FirstName, u.LastName, email, pwd, super)
+	id, err := create(store, u.Username, u.FirstName, string(u.LastName), u.Email, string(pwd), u.IsSuperuser)
 	if err != nil && err != USER_EXISTS {
 		return err
 	}
@@ -199,28 +195,33 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 		}
 	} else {
 		//you can ONLY change these as superuser
-		if u.UserInput_Super != other.IsStaff {
-			other.IsStaff = u.UserInput_Super
+		if u.IsSuperuser != other.IsSuperuser {
+			if !bool(u.IsSuperuser) && u.Id==session.User.Id {
+				return NewRestError("_","don't do that, you can't recover")
+			}
+			other.IsSuperuser = u.IsSuperuser
 		}
-		if u.UserInput_Super == other.IsSuperuser {
-			other.IsSuperuser = u.UserInput_Super
+		if u.IsStaff == other.IsStaff {
+			other.IsStaff = u.IsStaff
 		}
-		//XXX NO WAY TO CHANGE THE ACTIVE FIELD!!!
+		if u.IsActive == other.IsActive {
+			other.IsActive = u.IsActive
+		}
 	}
 
 	///XXX concurency bug see seven5/seven5/#10
-	if u.UserInput_Email != "" && u.UserInput_Email != other.Email {
+	if u.Email != "" && u.Email != other.Email {
 		hits := make([]*User, 0, 1)
-		if err := store.FindByKey(&hits, "Email", u.UserInput_Email, uint64(0)); err != nil {
+		if err := store.FindByKey(&hits, "Email", string(u.Email), uint64(0)); err != nil {
 			return err
 		}
 		if len(hits) > 0 {
 			return NewRestError("Email", "email address already in use")
 		}
-		if r:=emailRegexp.Find([]byte(u.UserInput_Email)); r==nil {
+		if r:=emailRegexp.Find([]byte(u.Email)); r==nil {
 			return NewRestError("Email", "email address is badly formed")
 		}
-		other.Email = u.UserInput_Email
+		other.Email = u.Email
 	}
 	if u.Username != "" && u.Username != other.Username {
 		hits := make([]*User, 0, 1)
@@ -235,11 +236,13 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 
 	var err error
 
-	if u.UserInput_Pwd != "" {
-		other.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(u.UserInput_Pwd), bcrypt.DefaultCost)
+	if u.PlainTextPassword != "" {
+		other.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(u.PlainTextPassword), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
+		u.PlainTextPassword="" //XXX should be automatic
+		other.PlainTextPassword=""//XXX should be automatic
 	}
 
 	if err = store.Write(other); err != nil {
@@ -296,11 +299,10 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 	//
 	switch op {
 	case OP_CREATE:
-		if !session.User.IsSuperuser {
+		if !bool(session.User.IsSuperuser) {
 			result["_"] = "creation of new users is not allowed"
 			return result
 		}
-
 		ok := true
 		if user.Username == "" {
 			ok = false
@@ -314,20 +316,19 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			ok = false
 			result["LastName"] = "LastName is required"
 		}
-		if user.UserInput_Email == "" {
+		if user.Email == "" {
 			ok = false
-			result["UserInput_Email"] = "Email address is required"
+			result["Email"] = "Email address is required"
 		} else {
-			if r:=emailRegexp.Find([]byte(user.UserInput_Email)); r==nil {
+			if r:=emailRegexp.Find([]byte(user.Email)); r==nil {
 				ok = false
-				result["UserInput_Email"] = "Badly formed email address"
+				result["Email"] = "Badly formed email address"
 			}
 		}
-		if user.UserInput_Pwd == "" {
+		if user.PlainTextPassword == "" {
 			ok = false
 			result["PlainTextPassword"] = "Password is required"
 		}
-		
 		if !ok {
 			return result
 		}
@@ -341,7 +342,7 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			result["id"] = "no id value supplied!"
 			return result
 		}
-		if user.Id != session.User.Id && !session.User.IsSuperuser {
+		if user.Id != session.User.Id && !bool(session.User.IsSuperuser){
 			result["_"] = "updating of user data is not allowed"
 			return result
 		}
