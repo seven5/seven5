@@ -123,9 +123,22 @@ func (self *httpRunnerDefault) runHttp(config *projectConfig, target Httpified) 
 			config.Logger.Printf("[%s]: serving %s", target.Name(), req.Path)
 		}
 
-		/*for k,v:=range req.Header {
-			fmt.Fprintf(os.Stderr,"--->>> header: '%s'='%s'\n",k,v)
-		}*/
+		if req.Header==nil || req.Path=="" {
+			if req.Header==nil {
+				fmt.Fprintf(os.Stderr,"URI/Path is weird, ignoring... req.Header==nil and %v\n", req.Path)
+			} else {
+				fmt.Fprintf(os.Stderr,"URI/Path is weird, ignoring... req.Path==nil and %+v\n", req.Header)
+			}
+			continue
+		}
+		if req.Header["URI"][0]=='@' || (req.Path!="" && req.Path[0]=='@') {
+			fmt.Fprintf(os.Stderr,"URI is weird, ignoring... looks like a URL for a JSON service: '%s'\n", req.Header["URI"])
+			config.Logger.Printf("[%s]: ignoring weird URI, possible JSON\n", target.Name(), req.Header["URI"])
+			continue
+		}
+		//for k,v:=range req.Header {
+		//	fmt.Fprintf(os.Stderr,"--->>> header: '%s'='%s'\n",k,v)
+		//}
 
 		//note: mongrel converts this to lower case!
 		testHeader := req.Header[strings.ToLower(route_test_header)]

@@ -43,9 +43,9 @@ type RestError interface {
 //NewRestError creates a default implementation of RestError and returns it.   Pass "_" as the
 //fieldName if you mean there is a problem with the whole request.
 func NewRestError(field string, errorMessage string) RestError {
-	m:=make(map[string]string)
-	m[field]=errorMessage
-	return &restErrorDefault{m,errorMessage}
+	m := make(map[string]string)
+	m[field] = errorMessage
+	return &restErrorDefault{m, errorMessage}
 }
 
 //RestfulOp is a type that indications the operation to be performed. It is passed to the Validate
@@ -491,11 +491,11 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 		valueToFind = v.(string)
 	}
 
+
 	//3: run validation
 	if errMap := svc.Validate(store, svc.Make(0), OP_SEARCH, keyToSearchOn, valueToFind, session); errMap != nil {
 		return formatValidationError(errMap, response)
 	}
-
 	//4: run the query
 	var hits interface{}
 
@@ -517,7 +517,7 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 //restErrorDefault is a simple implementation of the RestError type that knows how to print
 //out an error message.
 type restErrorDefault struct {
-	restError map[string]string
+	restError    map[string]string
 	errorMessage string
 }
 

@@ -3,8 +3,9 @@ package store
 import (
 	"errors"
 	"fmt"
-	"github.com/seven5/gomemcache/memcache"
+	"github.com/bradfitz/gomemcache/memcache"
 	"net"
+	"time"
 )
 
 //StoreImpl is the beginnings of a type that can express all the operations need to be a
@@ -210,6 +211,7 @@ func (self *memcacheWrapper) DestroyAll(host string) error {
 	if err != nil {
 		return err
 	}
+	conn.SetDeadline(time.Now().Add(5*time.Second))
 	conn.Write([]byte("flush_all\r\n"))
 	waitForResponseBuffer := make([]byte, 1, 1)
 	_,err = conn.Read(waitForResponseBuffer)

@@ -17,6 +17,8 @@ func init() {
 	//so we can use gobs with the llrb tree nodes
 	var y ValueInfo
 	gob.Register(y)
+	var n llrb.Node
+	gob.Register(n)
 }
 
 //GobStore is the implementation of the Store.T API that stores everything with enc/gob.  This
@@ -96,6 +98,7 @@ func (self *GobStore) Write(s interface{}) error {
 	var id uint64
 	var typeName string
 	var err error
+	
 
 	if id, typeName, err = getIdValueAndStructureName(s); err != nil {
 		return err
@@ -360,7 +363,7 @@ func (self *GobStore) FindByKey(ptrToResult interface{}, keyName string, value s
 		return err
 	}
 	typeName := s.Elem().String()
-
+	
 	//walk through the type structure and generate an exemplar so we can examine it for
 	//the fields and structure tages
 	e := result.Type().Elem().Elem()
@@ -411,12 +414,12 @@ func (self *GobStore) findByKeyInternal(ptrToResult interface{}, resultItemType 
 	result := reflect.ValueOf(ptrToResult).Elem()
 	
 	if err = self.readIndex(value, &slice, &item, typeName, keyName, false, userId); err != nil {
-		//no key with that value at all?
 		if err == ErrorNotFoundInStore {
 			return nil
 		}
 		return err
 	}
+	
 	//had it before, but not now?
 	if len(slice) == 0 {
 		//just tell the caller there is nothing with that value
@@ -846,6 +849,7 @@ func (self *GobStore) loadTree(typeName string, keyName string) (StoredItem,*llr
 	key:=fmt.Sprintf(VALUEKEY,typeName,keyName)
 	var err error
 	var item StoredItem
+	
 	if item, err = self.impl.Get(key); err != nil {
 		if err!=ErrorNotFoundInStore{
 			return nil,nil,err
@@ -857,15 +861,16 @@ func (self *GobStore) loadTree(typeName string, keyName string) (StoredItem,*llr
 		tree:=llrb.New(lessValueInfoForValue)
 		return nil, tree, nil
 	} 
+	
 	buffer := bytes.NewBuffer(item.Value())
 	decoder := gob.NewDecoder(buffer)
 	err = decoder.Decode(&root)
 	if err!=nil {
+		fmt.Printf("decode error: %v\n",err)
 		return nil,nil, err
 	}
 	tree:=llrb.New(lessValueInfoForValue)
 	tree.SetRoot(root)
-	
 	return item,tree,nil
 }
 
@@ -873,6 +878,15 @@ func (self *GobStore) loadTree(typeName string, keyName string) (StoredItem,*llr
 //is the one returned from loadTree().  The typeName and keyName are only used if the
 //item is null (because this is a fresh create).
 func (self *GobStore) saveTree(typeName string, keyName string, item StoredItem, tree *llrb.Tree) error {
+	
+	if tree.Root()==nil {
+		storeKey:=fmt.Sprintf(VALUEKEY,typeName,keyName)
+		if err:=self.impl.Delete(storeKey); err!=nil {
+			return err
+		}
+		return nil
+	}
+
 	//encode
 	buffer := new(bytes.Buffer)
 	enc := gob.NewEncoder(buffer)
@@ -887,7 +901,8 @@ func (self *GobStore) saveTree(typeName string, keyName string, item StoredItem,
 	}
 	//unconditional write because we have never seen it before
 	item=NewStoredItem()
-	item.SetKey(fmt.Sprintf(VALUEKEY,typeName,keyName))
+	storeKey:=fmt.Sprintf(VALUEKEY,typeName,keyName)
+	item.SetKey(storeKey)
 	item.SetValue(buffer.Bytes())
 	return self.impl.Set(item)
 }
@@ -897,7 +912,6 @@ func (self *GobStore) saveTree(typeName string, keyName string, item StoredItem,
 //if not to update it.
 func (self *GobStore) addUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
 
-	//fmt.Printf("addUniqueKey: %s [%s] '%s'\n",typeName,n,v)
 
 	item, tree, err:=self.loadTree(typeName, n)
 	if err!=nil {
@@ -919,9 +933,6 @@ func (self *GobStore) addUniqueKey(typeName string, n string, v string, userId u
 //deleteUnique key updates our tree that maintains what keys we have seen before
 func (self *GobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
 
-	//fmt.Printf("deleteUniqueKey: %s [%s] '%s'\n",typeName,n,v)
-
-
 	item, tree, err:=self.loadTree(typeName, n)
 	if err!=nil {
 		return err
@@ -931,7 +942,6 @@ func (self *GobStore) deleteUniqueKey(typeName string, n string, v string, userI
 	if tree.Delete(pair)==nil {
 		panic(fmt.Sprintf("deleted an item from the tree but could not find it! %+v\n",pair))
 	}
-	
 	return self.saveTree(typeName,n,item,tree)
 	
 }
