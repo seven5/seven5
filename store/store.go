@@ -5,14 +5,15 @@
 //Details of the expectations of a store implementation are visible on the type
 //StoreImpl.
 //
-//The Write() interface take a pointer to a structure and this should 
+//The Write() interface takes a pointer to a structure and this should 
 //not be changed by the store implementation--although the store implementation may 
 //place restrictions on the structure itself.  The annotation 
 //seven5key:"<keyname>[,<keyname>...]" should 
 //be used on struct fields that should be considered keys.  For a simple key, set the
 //keyname value to the name of the field. Any other value must be a method on the
 //struct (not the pointer to it!) that will be called to compute a value for the field.
-//This allows construction of some types of aggregrates and some simple joins.
+//This allows construction of some types of aggregrates and some simple joins.  The
+//only supported comparison for a key is equality to a string reperesentation.
 //
 //Any type of value can be used an "extra" key via the annotation mechanism but it is the
 //implementors responsibility to make sure that the value correctly flattens to a "clean" key
@@ -37,15 +38,6 @@ import (
 	"time"
 )
 
-const (
-	//order inserted is order returned (expensive)
-	fifo_order = iota  
-	//order inserted is opposite returned (expensive)
-	lifo_order = fifo_order+1  
-	//order returned is unrelated to order inserted (cheap)
-	unspecified_order = fifo_order+2  
-)
-
 type T interface {
 	//Write should take a pointer to a structure and store it.  The pointer may need to have
 	//its Id field filled in and this is indicated by a 0 value in the field.  Multiple calls
@@ -61,8 +53,7 @@ type T interface {
 	//FindByKey allocates the storage needed for all the new items it returns. If you pass 
 	//a userId parameter, it will be used to retrieve only values who have the Owner field
 	//in the structure set to that value (use zero if no owner field).  If you have an
-	//Owner field in your struct, this does a "cross owner" search which is both more
-	//expensive and cannot preserve the order of insertion of the keys.
+	//Owner field in your struct, this does a "cross owner" search which is more expensive.
 	FindByKey(result interface{}, keyName string, keyValue string, userId uint64) error
 	//DeleteById deletes an item from store so it cannot be found again with either FindById
 	//or FindByKey.  The first parameter is not touched, but must be a pointer to a structure
@@ -79,7 +70,7 @@ type T interface {
 	//expensive to keep an index of all keys, this can be turned off with the structure
 	//tag seven5order:"none" on the Id field of the structure.  If you pass a userId
 	//only structures that have that value in the Owner field will be used. For structures
-	//without such a field, pass 0.  If on such structures have been stored, this returns
+	//without such a field, pass 0.  If no such structures have been stored, this returns
 	//a zero length result (nil)
 	FindAll(result interface{}, userId uint64) error
 	//BulkWrite does the same logical operation as write but does not write any intermediate 
@@ -129,8 +120,7 @@ func lessValueInfoForValue(a,b interface{}) bool {
 //comparison of order to the true storage class.  This is used automatically to sort results
 //of FindByKey() and FindAll() if it is present.  Note that a result set is sorted *after*
 //the results are found, so if you only alocate 10 places in the result slice but there are
-//100 items available you might not get what you expect.  Some control over this can be
-//had with the use of the seven5order annotation.
+//100 items available you might not get what you expect. 
 type Lesser interface {
 	Less(reflect.Value, reflect.Value) bool
 }
@@ -142,7 +132,6 @@ var (
 	BAD_ID           = errors.New("stored structs must have a field named 'Id' that is type uint64")
 	NO_STRING_METHOD = errors.New("any value used in a key field must have a String() method")
 	INDEX_MISS       = errors.New("can't find that item in the index")
-	ZeroValue        = reflect.Value{}
 )
 
 //these are the key name and key value for the "all" index, if used
@@ -191,15 +180,12 @@ func verifyStructPointerFieldTypes(v reflect.Type) error {
 	return nil
 }
 
-type keyOrder int
-
 //MethodPlusName is used to allow us to return the string of the methods name along with an
 //object that points to that method plus the value of the receiver.  Without this pair,
 //the method name cannot be determined from the reflect.Value.
 type methodPlusName struct {
 	Name   string
 	Meth   reflect.Value
-	IsFifo keyOrder
 }
 
 //FieldPlusName is used to allow us to return name of a field
@@ -207,7 +193,6 @@ type methodPlusName struct {
 type fieldPlusName struct {
 	Name   string
 	Value  reflect.Value
-	IsFifo keyOrder
 }
 
 //GetStructKeys returns two slices that are the names of the fields that are keys
@@ -221,51 +206,30 @@ func getStructKeys(s interface{}) ([]fieldPlusName, []methodPlusName) {
 	numFields := t.NumField()
 
 	for i := 0; i < numFields; i++ {
-		isFifo := unspecified_order
-		none := false
 		f := t.Field(i)
-
-		tag := f.Tag.Get("seven5order")
-		if tag != "" {
-			//lifo and none are possible other cases
-			if tag == "lifo" {
-				isFifo = lifo_order
-			} else if tag == "none" {
-				if f.Name != "Id" {
-					panic(fmt.Sprintf("setting seven5order to none makes no sense on key %s", f.Name))
-				}
-				none = true
-			} else if tag == "fifo" {
-				isFifo=fifo_order
-			} else {
-				panic(fmt.Sprintf("invalid value of seven5order on key %s [%s]", f.Name, tag))
-			}
-		}
+		
 		//Id is a special case, because you can turn off the findAll()
 		if f.Name == "Id" {
-			if !none {
-				resultFields = append(resultFields, fieldPlusName{MAGIC_KEY, ZeroValue, keyOrder(isFifo)})
+			if f.Tag.Get("seven5order")!="none" {
+				resultFields = append(resultFields, fieldPlusName{MAGIC_KEY, reflect.Value{}})
 			}
 			continue
 		}
 		//check for the other keys on other fields, possibly comma separated
 		if f.Tag.Get("seven5key") == "" {
-			if isFifo!=unspecified_order {
-				panic(fmt.Sprintf("You specified an order, but no key(s) with that order (%s)",f.Name))
-			}
 			continue
 		}
 		tagList := strings.Split(f.Tag.Get("seven5key"), ",")
 		for _, tag := range tagList {
 			if tag == f.Name {
-				resultFields = append(resultFields, fieldPlusName{f.Name, str.Field(i), keyOrder(isFifo)})
+				resultFields = append(resultFields, fieldPlusName{f.Name, str.Field(i)})
 				continue
 			}
 			m:=str.MethodByName(tag)
-			if m==ZeroValue{
+			if m==(reflect.Value{}) {
 				panic(fmt.Sprintf("method %s does not exist on struct! (did you define it on the POINTER to the struct?)", tag))
 			}
-			resultMethods = append(resultMethods, methodPlusName{tag, m, keyOrder(isFifo)})
+			resultMethods = append(resultMethods, methodPlusName{tag, m})
 		}
 	}
 

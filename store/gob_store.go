@@ -123,11 +123,11 @@ func (self *GobStore) Write(s interface{}) error {
 		return err
 	}
 	//update all the extra keys using writeKey
-	err = self.walkAllExtraKeys(s, func(n string, v string, isFifo keyOrder) error {
-		if e := self.writeKey(s, n, typeName, v, hacked, nil, isFifo, userId); e != nil {
+	err = self.walkAllExtraKeys(s, func(n string, v string) error {
+		if e := self.writeKey(s, n, typeName, v, hacked, nil, userId); e != nil {
 			return e
 		}
-		return self.addUniqueKey(typeName, n, v, userId, isFifo)
+		return self.addUniqueKey(typeName, n, v, userId)
 	})
 
 	return nil
@@ -135,7 +135,7 @@ func (self *GobStore) Write(s interface{}) error {
 
 //fieldFunc is the type of function you have to supply to walkAllExtraKeys which will get called
 //for each key of the structure (or methods, if declared in the structure defn)
-type fieldFunc func(fieldOrMethodName string, flattenedValue string, isFifo keyOrder) error
+type fieldFunc func(fieldOrMethodName string, flattenedValue string) error
 
 //walkAllExtraKeys is a utility route to run a function for every key mentioned in the structure
 //declaration of s.  This function assumes that s has already been checked an is properly
@@ -153,7 +153,7 @@ func (self *GobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error {
 		} else {
 			mapKey = toStringMethodOrSprintf(k.Value)
 		}
-		err = fn(k.Name, mapKey, k.IsFifo)
+		err = fn(k.Name, mapKey)
 		if err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func (self *GobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error {
 	for _, m := range methods {
 		out := m.Meth.Call([]reflect.Value{})
 		mapKey = toStringMethodOrSprintf(out[0])
-		err = fn(m.Name, mapKey, m.IsFifo)
+		err = fn(m.Name, mapKey)
 		if err != nil {
 			return err
 		}
@@ -174,7 +174,7 @@ func (self *GobStore) walkAllExtraKeys(s interface{}, fn fieldFunc) error {
 //TODO
 func toStringMethodOrSprintf(v reflect.Value) string {
 	method := v.MethodByName("String")
-	if method == ZeroValue {
+	if method == (reflect.Value{}) {
 		switch v.Kind() {
 		case reflect.Int64, reflect.Int16, reflect.Int32, reflect.Int8, reflect.Int:
 			return fmt.Sprintf("%d", v.Int())
@@ -220,7 +220,7 @@ func (self *GobStore) DecodeItemBytes(s interface{}, item StoredItem) error {
 //writeKey tries to find a map that it can use to index the records by the value
 //provided.  it creates the map if necessary.  The map is per keyName with the keys
 //of the map being values and the values are ids.
-func (self *GobStore) writeKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, fullIndex []uint64, isFifo keyOrder, userId uint64) error {
+func (self *GobStore) writeKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, fullIndex []uint64, userId uint64) error {
 	var index []uint64
 	var item StoredItem
 	var err error
@@ -231,12 +231,7 @@ func (self *GobStore) writeKey(s interface{}, keyName string, typeName string, m
 
 	//ok, if we get here, we are ok and have the index loaded (or created)...
 	if len(fullIndex) == 0 {
-		//we are adding a single item
-		if isFifo != keyOrder(lifo_order) {
-			index = append(index, id)
-		} else {
-			index = append([]uint64{id}, index...)
-		}
+		index = append(index, id)
 		err = self.writeIndex(mapKey, index, item, typeName, keyName, userId)
 	} else {
 		//this is the case of a bulk write, order is handled elsewhere
@@ -309,8 +304,8 @@ func (self *GobStore) readIndex(keyValue string, result *[]uint64, item *StoredI
 }
 
 //deleteKey does the work to update an index when an item is deleted and preserve the
-//lifo or fifo ordering (by not changing it)
-func (self *GobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, userId uint64, isFifo keyOrder) error {
+//ordering (by not changing it)
+func (self *GobStore) deleteKey(s interface{}, keyName string, typeName string, mapKey string, id uint64, userId uint64) error {
 	var slice []uint64
 	var item StoredItem
 
@@ -326,7 +321,7 @@ func (self *GobStore) deleteKey(s interface{}, keyName string, typeName string, 
 				slice = append(slice[0:i], slice[i+1:]...)
 			}
 			if len(slice)==0 {
-				if e:=self.deleteUniqueKey(typeName, keyName, mapKey, userId, isFifo); e!=nil {
+				if e:=self.deleteUniqueKey(typeName, keyName, mapKey, userId); e!=nil {
 					return e
 				}
 			}
@@ -426,55 +421,9 @@ func (self *GobStore) findByKeyInternal(ptrToResult interface{}, resultItemType 
 		return nil
 	}
 
-	ok := false
 	example:=reflect.New(resultItemType).Interface()
-	//we need to see if they specified any order for this key
-	f, m := getStructKeys(example)
-	order := keyOrder(unspecified_order)
-	for _, fld := range f {
-		if fld.Name == keyName {
-			order = fld.IsFifo
-			ok = true
-			break
-		}
-	}
-	if !ok {
-		for _, meth := range m {
-			if meth.Name == keyName {
-				order = meth.IsFifo
-				ok = true
-				break
-			}
-		}
-	}
-	if !ok {
-		panic(fmt.Sprintf("unable to find key that is being used in FindByKey (%s)", keyName))
-	}
+	self.readMulti(example, slice, result)
 
-	//can we do this with readMulti?
-	if order == keyOrder(unspecified_order) {
-		self.readMulti(example, slice, result)
-	} else {
-		/*
-		ct := result.Len()
-		//we have to read them in order to make sure we preserve the order in the slice
-		for _, id := range slice {
-			if ct == result.Cap() {
-				break
-			}
-			newObject := reflect.New(resultItemType)
-			ptr := newObject.Interface()
-			if err = self.FindById(ptr, id); err != nil {
-				return err
-			}
-			result.SetLen(ct + 1)
-			result.Index(ct).Set(newObject)
-			ct++
-		}*/
-		if err=self.fillResult(result,slice,resultItemType); err!=nil {
-			return err
-		}
-	}
 	//try to sort the result, if there is not the proper sort function it has no effect
 	self.sort(example, result)
 
@@ -484,7 +433,9 @@ func (self *GobStore) findByKeyInternal(ptrToResult interface{}, resultItemType 
 //fillResult will fill in a result with the values of the ids provided, up to the limit of
 //of the first parameter's capacity.  It assumes that result is a pointer to a slice that
 //has already been checked too if the items in the slice (pointed to) are ok.  The second
-//parameter is a slice of the ids to load.
+//parameter is a slice of the ids to load.  
+//NOTE: Code is currently dead.  It is the slow version of readMulti() but it preserves order
+//NOTE: and might be useful later.
 func (self *GobStore) fillResult(result reflect.Value, slice []uint64, resultItemType reflect.Type) error {
 	var err error
 	ct := result.Len()
@@ -571,8 +522,8 @@ func (self *GobStore) Delete(s interface{}) error {
 	}
 
 	//update all the extra keys using deleteKey
-	err = self.walkAllExtraKeys(s, func(n string, v string, isFifo keyOrder) error {
-		return self.deleteKey(s, n, typeName, v, id, userId, isFifo)
+	err = self.walkAllExtraKeys(s, func(n string, v string) error {
+		return self.deleteKey(s, n, typeName, v, id, userId)
 	})
 
 	if err != nil && err != INDEX_MISS {
@@ -602,7 +553,7 @@ func (self *GobStore) updateUserIdWithOwner(s interface{}, userId *uint64) bool 
 //Owner field in the structure pointed to by first arg, if the Owner field is present.
 func (self *GobStore) updateUserIdWithOwnerValue(s reflect.Value, userId *uint64) bool {
 	ownerValue := s.Elem().FieldByName("Owner")
-	if ownerValue != ZeroValue {
+	if ownerValue != (reflect.Value{}) {
 		*userId = ownerValue.Uint()
 		return true
 	}
@@ -633,7 +584,7 @@ func (self *GobStore) Init(s interface{}) error {
 			panic("You have an Owner field, but called it with the field set to zero!")
 		}
 	}
-	return self.walkAllExtraKeys(s, func(n string, v string, IGNORED keyOrder) error {
+	return self.walkAllExtraKeys(s, func(n string, v string) error {
 		empty := []uint64{}
 		var item StoredItem
 		if e := self.readIndex(v, &empty, &item, typeName, n, true, userId); e != nil {
@@ -714,17 +665,13 @@ func (self *GobStore) BulkWrite(sliceOfPtrs interface{}) error {
 			return err
 		}
 		newValueOfId := valueOfItem.Elem().FieldByName("Id").Uint()
-		err = self.walkAllExtraKeys(s, func(n string, v string, isFifo keyOrder) error {
+		err = self.walkAllExtraKeys(s, func(n string, v string) error {
 			index := master[n]
 			if index == nil {
 				index = make(map[string][]uint64)
 				master[n] = index
 			}
-			if isFifo != lifo_order {
-				index[v] = append(index[v], newValueOfId)
-			} else {
-				index[v] = append([]uint64{newValueOfId}, index[v]...)
-			}
+			index[v] = append(index[v], newValueOfId)
 			return nil
 		})
 		if err != nil {
@@ -739,8 +686,7 @@ func (self *GobStore) BulkWrite(sliceOfPtrs interface{}) error {
 	for keyName, maps := range master {
 		unique:=[]ValueInfo{}
 		for mapKey, index := range maps {
-			order := keyOrder(unspecified_order) /*already dealt with this issue in the loops above*/
-			if err := self.writeKey(s, keyName, typeName, mapKey, 0, index, order, userId); err != nil {
+			if err := self.writeKey(s, keyName, typeName, mapKey, 0, index, userId); err != nil {
 				return err
 			}
 			q:=ValueInfo{mapKey,userId,time.Time{}}
@@ -910,7 +856,7 @@ func (self *GobStore) saveTree(typeName string, keyName string, item StoredItem,
 
 //addUniqueKey does the work to check and see if the key's value has been written before and
 //if not to update it.
-func (self *GobStore) addUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
+func (self *GobStore) addUniqueKey(typeName string, n string, v string, userId uint64) error {
 
 
 	item, tree, err:=self.loadTree(typeName, n)
@@ -931,7 +877,7 @@ func (self *GobStore) addUniqueKey(typeName string, n string, v string, userId u
 }
 
 //deleteUnique key updates our tree that maintains what keys we have seen before
-func (self *GobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64, isFifo keyOrder) error {
+func (self *GobStore) deleteUniqueKey(typeName string, n string, v string, userId uint64) error {
 
 	item, tree, err:=self.loadTree(typeName, n)
 	if err!=nil {
