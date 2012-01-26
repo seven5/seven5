@@ -14,9 +14,9 @@ var pathErr = errors.New("The parent of the project directory must be called 'sr
 
 //at the moment, you can't use go to build something that's not correctly housed in
 //some part of go path
-func checkGOPATH(directory string) err {
+func checkGOPATH(directory string) error {
 	
-	gopath:=filepath.SplitList(os.GetEnv("GOPATH"))
+	gopath:=filepath.SplitList(os.Getenv("GOPATH"))
 	
 	dir:=filepath.Dir(directory)
 	
