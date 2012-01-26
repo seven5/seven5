@@ -7,7 +7,33 @@ import (
 	"path/filepath"
 	"strings"
 	"seven5"
+	"errors"
 )
+
+var pathErr = errors.New("The parent of the project directory must be called 'src' and that must be in a directory inside GOPATH")
+
+//at the moment, you can't use go to build something that's not correctly housed in
+//some part of go path
+func checkGOPATH(directory string) err {
+	
+	gopath:=filepath.SplitList(os.GetEnv("GOPATH"))
+	
+	dir:=filepath.Dir(directory)
+	
+	if filepath.Base(dir) !="src"{
+		return pathErr
+	}
+	
+	candidate := filepath.Dir(dir)
+	
+	for _, p:=range gopath {
+		if filepath.Clean(candidate) == p {
+			return nil
+		}
+	}
+	
+	return pathErr
+}
 
 //validateEnvVars checks the environment variables and returns a map of error messages--mapping
 //failed environemnt variable name to happy message. Empty map returned if everyhing is ok.
@@ -500,6 +526,13 @@ func main() {
 	file, e := os.Open(directoryPath)
 	if file != nil {
 		fmt.Fprintf(os.Stderr, "%s: directory '%s' already exists, not touching anything.\n", os.Args[0], directoryPath)
+		return
+	}
+
+	if e:=checkGOPATH(directoryPath); e!=nil {
+		fmt.Fprintf(os.Stderr, "%s: to build a project you have to have a properly configured GOPATH\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "%s: and within one of the elements of that path, you should run this\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "%s: tool inside a directory called 'src'.  Nothing done.\n", os.Args[0])
 		return
 	}
 
