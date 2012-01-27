@@ -123,11 +123,11 @@ func (self *httpRunnerDefault) runHttp(config *projectConfig, target Httpified) 
 			config.Logger.Printf("[%s]: serving %s", target.Name(), req.Path)
 		}
 
-		if req.Header==nil || req.Path=="" {
-			if req.Header==nil {
-				fmt.Fprintf(os.Stderr,"URI/Path is weird, ignoring... req.Header==nil and %v\n", req.Path)
+		if req.Header["URI"]=="" || req.Path=="" {
+			if req.Header["URI"]=="" {
+				fmt.Fprintf(os.Stderr,"URI/Path is weird, ignoring... req.Header[URI]=='' and '%v'\n", req.Path)
 			} else {
-				fmt.Fprintf(os.Stderr,"URI/Path is weird, ignoring... req.Path==nil and %+v\n", req.Header)
+				fmt.Fprintf(os.Stderr,"URI/Path is weird, ignoring... req.Path=='' and '%+v'\n", req.Header["URI"])
 			}
 			continue
 		}
