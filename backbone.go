@@ -281,6 +281,6 @@ window.{{.modelName}} = Backbone.Model.extend({
 	{{range .fields}} {{.}} : null,
 	{{end}}
 defaults: function(){
-	this.urlRoot="/{{.modelNamePlural}}"
+	this.urlRoot="/api/{{.modelNamePlural}}"
 }
 });`
