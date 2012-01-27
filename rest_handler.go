@@ -455,15 +455,15 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 	jsonText := values.Get("query")
 
 	searchData := make(map[string]interface{})
-	err = json.Unmarshal([]byte(jsonText), &searchData)
-	if err != nil {
-		response.StatusCode = http.StatusBadRequest
-		response.Status = fmt.Sprintf("json parse error: %s", err)
-		return response
+	if jsonText!="" {
+		err = json.Unmarshal([]byte(jsonText), &searchData)
+		if err != nil {
+			response.StatusCode = http.StatusBadRequest
+			response.Status = fmt.Sprintf("json parse error: %s", err)
+			return response
+		}
 	}
-	//fmt.Printf("object parsed out in fetch is %+v\n", searchData)
-
-	//set these to be the "defaults" if the client doesn't specify them
+	
 	keyToSearchOn := ""
 	valueToFind := ""
 	var max = uint16(10)
@@ -498,6 +498,7 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 	}
 	//4: run the query
 	var hits interface{}
+
 
 	if hits, err = svc.FindByKey(store, keyToSearchOn, valueToFind, session, max); err != nil {
 		restError, ok := err.(RestError)
