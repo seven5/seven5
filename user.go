@@ -1,7 +1,7 @@
 package seven5
 
 import (
-	"crypto/bcrypt"
+	"code.google.com/p/go.crypto/bcrypt"
 	"errors"
 	"fmt"
 	"reflect"
@@ -23,22 +23,22 @@ var emailRegexp *regexp.Regexp
 //server but which are not stored directly.  Many of the fields of this object are not shared
 //with clients.
 type User struct {
-	Username    string    `seven5key:"Username"`
-	FirstName   string    `seven5key:"FirstName"`
-	LastName    string    `seven5key:"LastName"`
-	Email       PrivateString    `json:"omitempty" seven5key:"Email"`
-	BcryptHash  []byte    `json:"-"`
-	Groups      []string  `json:"-"`
-	Id          uint64    `seven5All:"false" json:"id"`
-	IsStaff     PrivateBool `json:"omitempty"`
-	IsActive    PrivateBool `json:"omitempty"`
-	IsSuperuser PrivateBool      `json:"omitempty"`
-	LastLogin   time.Time //UTC ... can be zero valued for never logged in
-	Created     time.Time //UTC
-	
+	Username    string        `seven5key:"Username"`
+	FirstName   string        `seven5key:"FirstName"`
+	LastName    string        `seven5key:"LastName"`
+	Email       PrivateString `json:"omitempty" seven5key:"Email"`
+	BcryptHash  []byte        `json:"-"`
+	Groups      []string      `json:"-"`
+	Id          uint64        `seven5All:"false" json:"id"`
+	IsStaff     PrivateBool   `json:"omitempty"`
+	IsActive    PrivateBool   `json:"omitempty"`
+	IsSuperuser PrivateBool   `json:"omitempty"`
+	LastLogin   time.Time     //UTC ... can be zero valued for never logged in
+	Created     time.Time     //UTC
+
 	//for input only from the client...this value is NOT stored, we store the bcrypt hash
 	//above but this lets the client code SET the value on input, but not read from it
-	PlainTextPassword   PrivateString `json:"omitempty"`
+	PlainTextPassword PrivateString `json:"omitempty"`
 
 	//this is for app-specific preferences
 	Preference map[string]interface{}
@@ -98,8 +98,8 @@ func create(store store.T, Username string, FirstName string, LastName string, E
 	user.LastName = LastName
 	user.Email = Email
 
-	if r:=emailRegexp.Find([]byte(Email)); r==nil {
-		return uint64(0), errors.New(fmt.Sprintf("Invalid Email Address: %s",Email))
+	if r := emailRegexp.Find([]byte(Email)); r == nil {
+		return uint64(0), errors.New(fmt.Sprintf("Invalid Email Address: %s", Email))
 	}
 
 	user.BcryptHash, err = bcrypt.GenerateFromPassword([]byte(PlainTextPassword), bcrypt.DefaultCost)
@@ -141,7 +141,7 @@ func (self *UserSvc) Create(store store.T, ptrToValues interface{}, session *Ses
 	u := ptrToValues.(*User)
 	pwd := u.PlainTextPassword
 
-	u.PlainTextPassword = ""      //XXX SHOULD BE AUTOMATIC
+	u.PlainTextPassword = "" //XXX SHOULD BE AUTOMATIC
 
 	id, err := create(store, u.Username, u.FirstName, string(u.LastName), u.Email, string(pwd), u.IsSuperuser)
 	if err != nil && err != USER_EXISTS {
@@ -196,8 +196,8 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 	} else {
 		//you can ONLY change these as superuser
 		if u.IsSuperuser != other.IsSuperuser {
-			if !bool(u.IsSuperuser) && u.Id==session.User.Id {
-				return NewRestError("_","don't do that, you can't recover")
+			if !bool(u.IsSuperuser) && u.Id == session.User.Id {
+				return NewRestError("_", "don't do that, you can't recover")
 			}
 			other.IsSuperuser = u.IsSuperuser
 		}
@@ -218,7 +218,7 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 		if len(hits) > 0 {
 			return NewRestError("Email", "email address already in use")
 		}
-		if r:=emailRegexp.Find([]byte(u.Email)); r==nil {
+		if r := emailRegexp.Find([]byte(u.Email)); r == nil {
 			return NewRestError("Email", "email address is badly formed")
 		}
 		other.Email = u.Email
@@ -241,8 +241,8 @@ func (self *UserSvc) Update(store store.T, ptrToNewValues interface{}, session *
 		if err != nil {
 			return err
 		}
-		u.PlainTextPassword="" //XXX should be automatic
-		other.PlainTextPassword=""//XXX should be automatic
+		u.PlainTextPassword = ""     //XXX should be automatic
+		other.PlainTextPassword = "" //XXX should be automatic
 	}
 
 	if err = store.Write(other); err != nil {
@@ -320,7 +320,7 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			ok = false
 			result["Email"] = "Email address is required"
 		} else {
-			if r:=emailRegexp.Find([]byte(user.Email)); r==nil {
+			if r := emailRegexp.Find([]byte(user.Email)); r == nil {
 				ok = false
 				result["Email"] = "Badly formed email address"
 			}
@@ -342,7 +342,7 @@ func (self *UserSvc) Validate(store store.T, ptrToValues interface{}, op Restful
 			result["id"] = "no id value supplied!"
 			return result
 		}
-		if user.Id != session.User.Id && !bool(session.User.IsSuperuser){
+		if user.Id != session.User.Id && !bool(session.User.IsSuperuser) {
 			result["_"] = "updating of user data is not allowed"
 			return result
 		}

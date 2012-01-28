@@ -1,7 +1,7 @@
 package seven5
 
 import (
-	"crypto/bcrypt"
+	"code.google.com/p/go.crypto/bcrypt"
 	"fmt"
 	"log"
 	"math/rand"
@@ -22,7 +22,7 @@ var shutdownRequested = "Shutdown Requested"
 //is not one that generally should be called by user code--calls to it are automatically
 //generated via the Tune program.
 func AllowShutdown(allowed bool) {
-	allowShutdown=allowed
+	allowShutdown = allowed
 }
 
 //LoginGuise is a special http level processor that mounts itself at "/api/seven5/login".  This guise
@@ -65,7 +65,7 @@ func newLoginGuise() *LoginGuise {
 //the session id.  Otherwise, the response gives an error message.
 func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 	var err error
-	
+
 	//path:=req.Path
 	//method = req.Method
 	parsed := req.URL
@@ -75,7 +75,7 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 	values := parsed.Query()
 	user := ""
 	pwd := ""
-	shutdown:=false
+	shutdown := false
 
 	for k, v := range values {
 		if k == "username" {
@@ -86,9 +86,9 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 			pwd = v[0]
 			continue
 		}
-		if k=="shutdown" {
-			if v[0]=="true" && allowShutdown {
-				shutdown=true
+		if k == "shutdown" {
+			if v[0] == "true" && allowShutdown {
+				shutdown = true
 			}
 		}
 	}
@@ -96,8 +96,8 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 	//fmt.Printf("got u and p:'%s' and '%s'\n", user, pwd)
 
 	badCred := make(map[string]string)
-	badCred["_"]="invalid username or password"
-	
+	badCred["_"] = "invalid username or password"
+
 	if user == "" || pwd == "" {
 		return formatValidationError(badCred, resp)
 	}
@@ -112,20 +112,20 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 		return formatValidationError(badCred, resp)
 	}
 	err = bcrypt.CompareHashAndPassword(hits[0].BcryptHash, []byte(pwd))
-	if err != nil && err != bcrypt.MismatchedHashAndPasswordError {
+	if err != nil && err != bcrypt.ErrMismatchedHashAndPassword {
 		resp.StatusCode = http.StatusInternalServerError
 		resp.Status = fmt.Sprintf("%v", err)
 		return resp
 	}
-	if err == bcrypt.MismatchedHashAndPasswordError {
+	if err == bcrypt.ErrMismatchedHashAndPassword {
 		return formatValidationError(badCred, resp)
 	}
 
 	if shutdown && bool(hits[0].IsSuperuser) {
-	/*	resp.StatusCode = http.StatusOK
-		resp.Status = shutdownMsg
-		close(getShutdownChannel())
-		return resp*/
+		/*	resp.StatusCode = http.StatusOK
+			resp.Status = shutdownMsg
+			close(getShutdownChannel())
+			return resp*/
 		fmt.Printf("Shutdown has been requested by the client (superuser)\n")
 		return nil
 	}
@@ -166,7 +166,7 @@ func fillBody(jsonContent string, resp *http.Response) *http.Response {
 	body := NewBufferCloser()
 	body.WriteString(jsonContent)
 	resp.Header = make(map[string][]string)
-	resp.Header.Set("Content-Type","text/json")
+	resp.Header.Set("Content-Type", "text/json")
 	resp.Body = body
 	resp.ContentLength = body.Len()
 	resp.StatusCode = 200
