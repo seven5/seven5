@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"reflect"
 	"seven5/store"
 	"strconv"
 	"strings"
@@ -452,7 +451,7 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 	//fmt.Printf("uri to parse: '%s' '%s'\n", parsed.Path, parsed.RawQuery)
 
 	values := parsed.Query()
-	jsonText := values.Get("query")
+	/*jsonText := values.Get("query")
 
 	searchData := make(map[string]interface{})
 	if jsonText!="" {
@@ -462,13 +461,14 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 			response.Status = fmt.Sprintf("json parse error: %s", err)
 			return response
 		}
-	}
+	}*/
 	
 	keyToSearchOn := ""
 	valueToFind := ""
 	var max = uint16(10)
 
 	//2:decode search params
+	/*
 	for k, v := range searchData {
 		if k == "max" {
 			val := reflect.ValueOf(v)
@@ -490,7 +490,30 @@ func dispatchFetch(req *http.Request, response *http.Response, svc Restful, stor
 		}
 		valueToFind = v.(string)
 	}
-
+	*/
+	for k,arrayOfV := range values {
+		if k == "max" {
+			v:=arrayOfV[0]
+			i, err := strconv.Atoi(v)
+			if err!=nil {
+				response.StatusCode = http.StatusBadRequest
+				response.Status = fmt.Sprintf("expected max value to be int, but was %s", v)
+				return response
+			}
+			max=uint16(i)
+			continue
+		}
+		if k!="" {
+			if keyToSearchOn!="" {
+				response.StatusCode = http.StatusBadRequest
+				response.Status = fmt.Sprintf("cannot search on two keys: %s and %s", k, keyToSearchOn)
+				return response
+			}
+			keyToSearchOn = k
+			valueToFind = arrayOfV[0]
+			continue
+		}
+	}
 
 	//3: run validation
 	if errMap := svc.Validate(store, svc.Make(0), OP_SEARCH, keyToSearchOn, valueToFind, session); errMap != nil {
