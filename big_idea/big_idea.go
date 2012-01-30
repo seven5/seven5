@@ -434,6 +434,72 @@ func New%sSvc() seven5.Httpified{
 		return err
 	}
 	
+	content=fmt.Sprintf(`
+package %s
+
+//This is a place to put server-side tests.  You can test here or by using the client-side
+//RestTester.  This is probably a better place to test if you have very complex server-side
+//logic.
+//
+//The tests link.bbone_test.go in the dungheap sample program may give you some ideas.
+//
+//Note: If you are testing on the server side, you need to have memcached running or
+//the tests will always fail!
+
+import (
+	"launchpad.net/gocheck"
+	//"seven5"
+	"seven5/store"
+	"testing"
+)
+
+// Hook up gocheck into the default gotest runner.
+func Test(t *testing.T) { gocheck.TestingT(t) }
+
+// This is the "suite" structure for objects that need to survive the whole of the tests
+// in this file.
+type %sSuite struct {
+	Impl  store.StoreImpl
+	Store store.T
+}
+
+var suite = &%sSuite{}
+
+// hook up suite to gocheck
+var _ = gocheck.Suite(suite)
+
+//we create a conn to the memcached at start of the suite
+func (self *%sSuite) SetUpSuite(c *gocheck.C) {
+	self.Impl = store.NewStoreImpl(store.MEMCACHE_LOCALHOST)
+	self.Store = store.NewGobStore(self.Impl)
+}
+
+//no need to destry the connection, the program is ending anyway
+func (self *%sSuite) TearDownSuite(c *gocheck.C) {
+}
+
+//before each test 
+func (self *%sSuite) SetUpTest(c *gocheck.C) {
+	err := self.Impl.DestroyAll(store.MEMCACHE_LOCALHOST)
+	if err != nil {
+		c.Fatal("unable to setup test and clear memcached")
+	}
+}
+
+//after each test
+func (self *%sSuite) TearDownTest(c *gocheck.C) {
+}
+
+//test your logic or whatever here
+func (self *%sSuite) TestYourTest(c *gocheck.C) {
+}
+`,projectName,typeName,typeName,typeName,typeName,typeName,typeName,typeName)
+
+	if err := createFile(filepath.Join(dirPath, typeName+".bbone_test.go"), content); err != nil {
+		return err
+	}
+
+	
 	
 	content = `
 	//

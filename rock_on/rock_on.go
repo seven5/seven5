@@ -16,6 +16,7 @@ type Rock struct {
 	dirMonitor *seven5.DirectoryMonitor
 	buildCmd   *exec.Cmd
 	webCmd     *exec.Cmd
+	testCmd    *exec.Cmd
 }
 
 type RockListener struct {
@@ -39,28 +40,76 @@ func destroyStore() error {
 
 // This is the main loop in which Rock controls the build and server process and watches for source changes
 func (rock *Rock) Run(projectName string) {
+	var waitThenRebuild=false
+	
 	if rock.Build(projectName) {
-		rock.StartServer(projectName)
+		if rock.Test(projectName) {
+			startedOk:=rock.StartServer(projectName)
+			if !startedOk {
+				waitThenRebuild=true
+			}
+		} else {
+			waitThenRebuild = true;//failed to test ok at startup
+		}
+	} else {
+		waitThenRebuild = true;//failed to test ok at startup
 	}
+	
 	for {
-		if rock.NeedsRebuild(projectName) {
+		if waitThenRebuild {
+			fmt.Printf("[ROCK_ON] waiting 15 seconds, then will try rebuild and run...\n")
+			time.Sleep(15*time.Second)
+		}
+		if waitThenRebuild || rock.NeedsRebuild(projectName) {
 			start := time.Now()
 			rock.StopServer(projectName)
 			stop := time.Now()
 			if rock.Build(projectName) {
 				build := time.Now()
-				rock.StartServer(projectName)
-				end := time.Now()
-				duration := end.Sub(start)
-				stopDuration := stop.Sub(start)
-				buildDuration := build.Sub(stop)
-				startDuration := end.Sub(build)
-				fmt.Printf("[ROCK ON] restart took %4.4f seconds (%4.4f to stop, %4.4f to build, %4.4f to start)\n",
-					duration.Seconds(), stopDuration.Seconds(), buildDuration.Seconds(), startDuration.Seconds())
+				if rock.Test(projectName) {
+					//if we get here, we are going to run the program, so no more wait then rebuild
+					waitThenRebuild=false
+					tst := time.Now()
+					ok:=rock.StartServer(projectName)
+					if !ok {
+						fmt.Printf("[ROCK_ON] unable to start web service for %s\n",projectName)
+						waitThenRebuild=true
+						continue
+					}
+					end := time.Now()
+					duration := end.Sub(start)
+					stopDuration := stop.Sub(start)
+					buildDuration := build.Sub(stop)
+					testDuration := tst.Sub(build)
+					startDuration := end.Sub(tst)
+					fmt.Printf("[ROCK ON] restart took %4.4f secs (%4.4f stop, %4.4f build, %4.4f test, %4.4f start)\n",
+						duration.Seconds(), stopDuration.Seconds(), buildDuration.Seconds(), testDuration.Seconds(), startDuration.Seconds())
+				} else {
+					waitThenRebuild=true //failed to test
+				}
+			} else {
+				waitThenRebuild=true //failed to build
 			}
 		}
-		time.Sleep(1e9)
+		time.Sleep(time.Second)
 	}
+}
+
+
+func (rock *Rock) Test(packageName string) (success bool) {
+	rock.testCmd = exec.Command("go", "test", packageName)
+	output, err := rock.testCmd.CombinedOutput()
+	if output != nil {
+		fmt.Print(string(output))
+	}
+	rock.Drain("building and running tests")
+	
+	if err != nil {
+		fmt.Println("[ROCK ON] Error testing: ", err)
+		return false
+	}
+	fmt.Println("[ROCK ON] Tests ran ok")
+	return true
 }
 
 func (rock *Rock) Build(packageName string) (success bool) {
@@ -72,6 +121,7 @@ func (rock *Rock) Build(packageName string) (success bool) {
 	if output != nil {
 		fmt.Print(string(output))
 	}
+	rock.Drain("generating main for "+packageName)
 	if err != nil {
 		fmt.Println("[ROCK ON] Error tuning: ", err)
 		return false
@@ -86,6 +136,8 @@ func (rock *Rock) Build(packageName string) (success bool) {
 	if output != nil {
 		fmt.Print(string(output))
 	}
+	rock.Drain("building package "+packageName)
+	
 	if err != nil {
 		fmt.Println("[ROCK ON] Error building "+packageName+": ", err)
 		return false
@@ -99,6 +151,7 @@ func (rock *Rock) Build(packageName string) (success bool) {
 	if output != nil {
 		fmt.Print(string(output))
 	}
+	rock.Drain("building executable "+packageName)
 	if err != nil {
 		fmt.Println("[ROCK ON] Error building executable (_seven5/"+packageName+"): ", err)
 		return false
@@ -116,9 +169,14 @@ func (rock *Rock) Build(packageName string) (success bool) {
 	return true
 }
 
+func (rock *Rock) Drain(afterWhat string) {
+	//not needed when we are not using signals
+}
+
 func (rock *Rock) NeedsRebuild(projectName string) bool {
-	// TODO: Poll the directory monitor
+
 	changed, err := rock.dirMonitor.Poll()
+	
 	if err != nil {
 		fmt.Println("[ROCK ON] Error monitoring the directory", err)
 		os.Exit(1)
@@ -149,15 +207,6 @@ func (rock *Rock) StartServer(projectName string) (success bool) {
 		fmt.Println("[ROCK ON] Error starting the project application: ", err)
 		return false
 	}
-	err = rock.webCmd.Wait()
-	if err != nil {
-		fmt.Println("[ROCK ON] Executable _seven5/"+projectName+" exited with an error: ", err)
-		return false
-	} else {
-		fmt.Println("[ROCK ON] Executable _seven5/" + projectName + " was shut down")
-		return false
-	}
-
 	return true
 }
 
@@ -181,7 +230,7 @@ func NewRock(projectDirPath string) (rock *Rock, err error) {
 		return
 	}
 	dirMon.Listen(&RockListener{})
-	return &Rock{projectDirPath, dirMon, nil, nil}, nil
+	return &Rock{projectDirPath, dirMon, nil, nil, nil}, nil
 }
 
 func CurrentDirName() string {
@@ -195,14 +244,14 @@ func main() {
 
 	flag.BoolVar(&destroyDataOnEachRestart, "testMode", false, "clear store on each restart")
 	flag.Parse()
-	
+
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to get current directory: aborting:%s\n", err)
 		return
 	}
 	projName := filepath.Clean(filepath.Base(dir))
-	if len(flag.Args()) == 0{
+	if len(flag.Args()) == 0 {
 		fmt.Fprintf(os.Stdout, "[ROCK ON] no directory given, hope project name '%s' is ok\n", projName)
 	} else {
 		projName = flag.Arg(0)

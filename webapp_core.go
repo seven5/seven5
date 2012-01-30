@@ -164,7 +164,7 @@ func WebAppRun(webConfig *WebAppConfig, nonRest ...Routable) error {
 	//this uses the logger from the config, so no need to print error messages, it's handled
 	//by the callee... 
 	if !startUp(transport, webConfig.PrivateInit, webConfig.Store, projConfig, allRoutable) {
-		fmt.Fprintf(os.Stderr, "error starting up handlers! Exiting!")
+		fmt.Fprintf(os.Stderr, "error starting up handlers! Exiting!\n")
 
 		return errors.New(fmt.Sprintf("error starting up the routables:%s", err))
 	}
