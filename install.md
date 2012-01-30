@@ -100,12 +100,13 @@ Copy example/markdown into /usr/local/bin/ or some other place in your $PATH.
 When the "go" tool is fully finished, this step will not be needed.  For now, in a shell that has all the environment variables set as indicated above do this:
 
 	cd $GOPATH
-	goinstall github.com/seven5/gozmq
-	goinstall launchpad.net/gocheck
-	goinstall github.com/bradfitz/gomemcache/memcache
-	goinstall github.com/mattn/go-sqlite3
-	goinstall github.com/seven5/mongrel2
-	goinstall github.com/petar/GoLLRB/llrb
+	go get code.google.com/p/go.crypto/bcrypt
+	go get github.com/seven5/gozmq
+	go get launchpad.net/gocheck
+	go get github.com/bradfitz/gomemcache/memcache
+	go get github.com/mattn/go-sqlite3
+	go get github.com/seven5/mongrel2
+	go get github.com/petar/GoLLRB/llrb
 
 You should be able to see all the source code for these packages in $GOPATH/src and you should be able to see the packages installed in $GOPATH/darwin-amd64/ (or whatever directory gets derived from your GOOS+GOARCH). 
 
@@ -114,8 +115,11 @@ You should be able to see all the source code for these packages in $GOPATH/src 
 We'll install *Seven5* "the right way" using the git and the go tool.  First get the source code and put in the right place in your GOPATH:
 
 	cd $GOPATH/src
-	git clone git@github.com:seven5/seven5.git
-	go install seven5 seven5/store seven5/tune seven5/rock_on
+	git clone git@github.com:seven5/seven5.git -b master seven5
+	git clone git@github.com:seven5/seven5.git -b sample-dungheap seven5
+	git clone git@github.com:seven5/seven5.git -b gh-pages doc
+	
+	go install seven5 seven5/store seven5/tune seven5/rock_on seven5/big_idea
 	
 ## Test Seven5
 
