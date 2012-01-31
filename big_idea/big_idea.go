@@ -10,7 +10,7 @@ import (
 	"errors"
 )
 
-var pathErr = errors.New("The parent of the project directory must be called 'src' and that must be in a directory inside GOPATH")
+var pathErr = errors.New("the parent of the project directory must be called 'src' and that must be in a directory inside GOPATH")
 
 //at the moment, you can't use go to build something that's not correctly housed in
 //some part of go path
@@ -27,7 +27,7 @@ func checkGOPATH(directory string) error {
 	candidate := filepath.Dir(dir)
 	
 	for _, p:=range gopath {
-		if filepath.Clean(candidate) == p {
+		if filepath.Clean(candidate) == filepath.Clean(p) {
 			return nil
 		}
 	}
@@ -596,9 +596,10 @@ func main() {
 	}
 
 	if e:=checkGOPATH(directoryPath); e!=nil {
-		fmt.Fprintf(os.Stderr, "%s: to build a project you have to have a properly configured GOPATH\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "%s: To build a project you have to have a properly configured GOPATH\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "%s: and within one of the elements of that path, you should run this\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "%s: tool inside a directory called 'src'.  Nothing done.\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "%s: Error was %v.\n", os.Args[0],e)
 		return
 	}
 
@@ -711,6 +712,14 @@ describe("%s REST service", function() {
 					expect(result.length).toEqual(0);
 					expect(result.error).not.toBeDefined();
 			});
+		}); //it
+		it("should return an error if you search for something not a key", function() {
+			RT.loginRunAndExpectError("joe","joe",
+				function(result, session) {
+					var p={};;
+					p["When"]="whenIsNotAKey";
+					exampleSvc.fetch(p,RT.success, session);
+					});
 		}); //it
 		it("should return empty results when searching for something not there, even not logged in", function() {
 			RT.loginAndRun("joe","joe",

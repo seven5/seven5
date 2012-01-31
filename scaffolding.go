@@ -269,6 +269,20 @@ func (self *scaffoldedRestService) enforceRead(session *Session) (map[string]str
 	return nil, true
 }
 
+//checkKey
+func (self *scaffoldedRestService) checkKey(store store.T, ptrToValues interface{}, keyName string) (bool, error) {
+
+	structType:=reflect.ValueOf(ptrToValues).Elem().Type()
+	for i:=0; i<structType.NumField();i++ {
+		field:=structType.Field(i)
+		tag:=field.Tag.Get("seven5key")
+		if tag==keyName {
+			return true,nil
+		}
+	}
+	return false,nil
+}
+
 //Validate is called by the infrastructure.  For scaffolded services, the only checks that are
 //made are the ones indicated by the last two parameters to ScaffoldRestService.
 func (self *scaffoldedRestService) Validate(store store.T, ptrToValues interface{}, op RestfulOp, key string, value string, session *Session) map[string]string {
@@ -299,6 +313,17 @@ func (self *scaffoldedRestService) Validate(store store.T, ptrToValues interface
 			return errMap
 		}
 	case OP_SEARCH:
+		k, err:=self.checkKey(store, ptrToValues, key)
+		if err!=nil {
+			errMap:=make(map[string]string)
+			errMap["_"]=fmt.Sprintf("internal error: %v",err)
+			return errMap
+		}
+		if !k{
+			errMap:=make(map[string]string)
+			errMap["_"]=fmt.Sprintf("%s is not a key for this type",key)
+			return errMap
+		}
 		if errMap, ok := self.enforceRead(session); !ok {
 			return errMap
 		}
