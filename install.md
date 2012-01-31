@@ -116,7 +116,7 @@ We'll install *Seven5* "the right way" using the git and the go tool.  First get
 
 	cd $GOPATH/src
 	git clone git@github.com:seven5/seven5.git -b master seven5
-	git clone git@github.com:seven5/seven5.git -b sample-dungheap seven5
+	git clone git@github.com:seven5/seven5.git -b sample-dungheap dungheap
 	git clone git@github.com:seven5/seven5.git -b gh-pages doc
 	
 	go install seven5 seven5/store seven5/tune seven5/rock_on seven5/big_idea
