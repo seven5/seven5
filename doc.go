@@ -1,6 +1,7 @@
-//An opinionated, stiff web framework written in go.
+//An opinionated, stiff web framework written in go and and javascript.
 //
 //For general information about the project see http://seven5.github.com/seven5
+//Volga Announcement: https://github.com/seven5/seven5/wiki/ANN:-Seven5-Release-Volga-(0.1):-First-Public-Release
 //
 //For information about the API, see the http://gopkgdoc.appspot.com/pkg/github.com/seven5/seven5 and  
 //http://gopkgdoc.appspot.com/pkg/github.com/seven5/seven5/store, thoughtfully provided by godoc.
@@ -29,6 +30,5 @@
 //** MVC on client-side with backbone.js
 //** Full support for test-driven development
 //** All user-visible URLs controlled by client code (backbone's router)
-
 package seven5
 
