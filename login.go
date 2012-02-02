@@ -157,7 +157,7 @@ func (self *LoginGuise) ProcessRequest(req *http.Request) *http.Response {
 		return resp
 	}
 	//fmt.Printf("successful login %s and placed in session %s\n", user, session.SessionId)
-	return fillBody(fmt.Sprintf(`{"sessionId":"%s"}`, session.SessionId), resp)
+	return fillBody(fmt.Sprintf(`{"sessionId":"%s", "user":"%d"}`, session.SessionId, session.User.Id), resp)
 }
 
 //fillBody creates the body of the response for a message back to the client. It expects to be

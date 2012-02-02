@@ -1,8 +1,11 @@
 # Seven5
 
-## An opinionated, stiff web framework written in go.
+## An opinionated, stiff web framework written in Go and Javascript.
 
 For general information about the project see [seven5's documentation on github](http://seven5.github.com/seven5).
+
+For information about the latest release + screencasts: [Volga Announcement](https://github.com/seven5/seven5/wiki/ANN:-Seven5:-First-Public-Release)
+
 
 For information about the API, see the [seven5 package doc](http://gopkgdoc.appspot.com/pkg/github.com/seven5/seven5) and the [store package doc](http://gopkgdoc.appspot.com/pkg/github.com/seven5/seven5/store), thoughtfully
 provided by godoc.
