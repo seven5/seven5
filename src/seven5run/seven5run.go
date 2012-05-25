@@ -18,14 +18,6 @@ func main() {
 }
 
 func seven5run(writer http.ResponseWriter, request *http.Request) {
-	log:= &seven5.HtmlLogger{Level: seven5.DEBUG, Writer: writer, Proto: true}
-	run(writer,request,log)
-}
-
-func run(writer http.ResponseWriter, request *http.Request, log *seven5.HtmlLogger) {
-	log.Debug("hello world");
-	log.Info("hello world2");
-	log.Warn("hello world3");
-	log.Error("hello world4");
-	log.Dump(request)
+	bootstrapper := &seven5.Bootstrap{Writer:writer, Request:request}
+	bootstrapper.Run();
 }
