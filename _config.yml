@@ -1,0 +1,12 @@
+pygments:    true
+auto:        true
+server:      true
+markdown:    maruku
+port:        4000
+lsi:         true
+
+
+
+
+
+
