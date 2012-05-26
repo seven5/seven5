@@ -4,11 +4,8 @@ import (
 //	"seven5/plugins"
 )
 
-type ProjectPlugins struct {
-	ProjectValidator string
-}
-
+//Information that the USER supplies to Seven5
 type ProjectConfig struct {
-	Plugins ProjectPlugins 
+	Name string 
 }
 
