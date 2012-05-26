@@ -1,8 +1,0 @@
-{
-	"name" : "myValidator" 
-	"info" : {
-		"role"     : "ProjectValidator"
-		"typename" : "plugins.DefaultProjectValidator"
-		"imports"  : [ "seven5/plugns" ]
-	}
-}

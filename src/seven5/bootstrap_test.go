@@ -34,8 +34,7 @@ func (self *S) TestValidator(c *C) {
 
 func (self *S) TestGroupieConfig(c *C) {
 	t1:=util.ReadTestData("groupieconfig","test1.json", self.Logger)
-	_=util.ReadTestData("groupieconfig","test1.json", self.Logger)
-	_=util.ReadTestData("groupieconfig","test1.json", self.Logger)
+	ur:=util.ReadTestData("groupieconfig","test-unknown-role.json", self.Logger)
 
 	roleName := "ProjectValidator"
 	
@@ -45,6 +44,10 @@ func (self *S) TestGroupieConfig(c *C) {
 	c.Assert(conf[roleName], Not(IsNil))
 	c.Check(conf[roleName].TypeName, Equals, "plugins.DefaultProjectValidator")
 	c.Check(len(conf[roleName].ImportsNeeded), Not(Equals), 0)
+
+	_, err=ParseGroupieConfig(ur)
+	c.Assert(err, Not(IsNil))
+
 }
 
 func (self *S) TestBootstrapPill(c *C) {
