@@ -1,4 +1,4 @@
-package seven5
+package util
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"path/filepath"
 )
 
 //SimpleLogger is an interface representing a logger. There is a need for
@@ -26,6 +27,11 @@ type SimpleLogger interface {
 	Protocol(fmtString string, obj ...interface{})
 	//Dump out a protocol trace
 	DumpRequest(req *http.Request)
+	//Dump out a blob of Json
+	DumpJson(json string)
+	//Dump out a bunch of terminal data, usually a compile result
+	DumpTerminal(out string)
+	
 }
 
 // LoggerImpl encodes the real difference between the logger types.  The
@@ -37,6 +43,10 @@ type LoggerImpl interface {
  	Raw(s string);
 	//Dump out a protocol trace
 	DumpRequest(req *http.Request)
+	//Dump out a bunch of JSON
+	DumpJson(json string)
+	//Dump out a bunch of terminal data, usually a compile result
+	DumpTerminal(out string)
 }
 
 // BaseLogger is the common portion between the two logging types
@@ -81,12 +91,27 @@ const (
 	PANIC
 )
 
-//Dump 
+//DumpHttpRequest 
 func (self *BaseLogger) DumpRequest(req *http.Request) {
 	if !self.proto {
 		return
 	}
 	self.impl.DumpRequest(req)
+}
+//DumpJson
+func (self *BaseLogger) DumpJson(json string) {
+	if !self.proto {
+		return
+	}
+	self.impl.DumpJson(json)
+}
+
+//DumpTerminal
+func (self *BaseLogger) DumpTerminal(out string) {
+	if !self.proto {
+		return
+	}
+	self.impl.DumpTerminal(out)
 }
 
 // Debug prints a message at DEBUG level.
@@ -138,11 +163,12 @@ func (self *TerminalLoggerImpl) Print(level int, isProto bool, fmtString string,
 	hour := now.Hour()
 	minute := now.Minute()
 	levelName := levelToString(level)
-	self.Raw(fmt.Sprintf("[%s]%02d:%02d(%s:%d)%s\n",levelName,hour,
+	self.Raw(fmt.Sprintf("[%s]%02d:%02d(%s:%d)%s",levelName,hour,
 		minute,lastElement,line,fmt.Sprintf(fmtString,obj...)))
 }
 
-//Print raw message on the terminal.
+//Print raw message on the terminal.  Use stdout, not stderr so tests can pass
+//quietly.
 func (self *TerminalLoggerImpl) Raw(s string) {
 	fmt.Fprintln(os.Stdout,s)
 }
@@ -171,13 +197,8 @@ func getCallerAndLine() (string, int) {
 	if !ok {
 		log.Panicf("aborting due to failure to understand call stack")
 	}
-	split := strings.Split(file, "/")
-	if len(split) == 1 && split[0] == file {
-		split = strings.Split(file, "\\")
-	}
-	lastElement := split[len(split)-1]
-
-	return lastElement, line
+	split := strings.Split(file, string(filepath.Separator))
+	return split[len(split)-1], line
 }
 
 //Print (at the HtmlLogger) prints a nicely formatted Html output message.
@@ -243,6 +264,18 @@ func (self *HtmlLoggerImpl) SetupHTML() {
 	self.Raw(HTMLHeader)
 }
 
+func (self *TerminalLoggerImpl) DumpJson(json string) {
+	self.Raw("=========JSON START===========")
+	self.Raw(json)
+	self.Raw("=========JSON END===========")
+}
+
+func (self *TerminalLoggerImpl) DumpTerminal(out string) {
+	self.Raw("=========TERMINAL OUTPUT START===========")
+	self.Raw(out)
+	self.Raw("=========TERMINAL OUTPUT END===========")
+}
+
 // Dump prints the protocol message contained in the parameter to the
 // terminal with a bit of framing to make it look different than normal
 // log output.
@@ -268,7 +301,7 @@ func (self *TerminalLoggerImpl) DumpRequest(req *http.Request) {
 // Dump prints the protocol message contained in the parameter to the log
 // if the protocol parameter is enabled.
 func (self *HtmlLoggerImpl) DumpRequest(req *http.Request) {
-	self.Raw("<div class=\"protobox\">\n")
+	self.Raw("<div class=\"protobox http\">\n")
 
 	header := req.Header
 	for k, v := range header {
@@ -285,6 +318,23 @@ func (self *HtmlLoggerImpl) DumpRequest(req *http.Request) {
 	}
 	self.Raw("</div>\n")
 
+}
+
+// Dump prints the protocol message contained in the parameter to the log
+// if the protocol parameter is enabled.
+func (self *HtmlLoggerImpl) DumpJson(json string) {
+	self.Raw("<div class=\"protobox json\">\n")
+	self.Raw(json)
+	self.Raw("<div>\n")
+}
+
+
+// Dump prints the protocol message contained in the parameter to the log
+// if the protocol parameter is enabled.
+func (self *HtmlLoggerImpl) DumpTerminal(out string) {
+	self.Raw("<div class=\"protobox terminal\">\n")
+	self.Raw(out)
+	self.Raw("<div>\n")
 }
 
 const HTMLHeader = `
@@ -307,12 +357,24 @@ const HTMLHeader = `
 	padding: 10px;
     font-family: Courier;
     font-size: 0.7em;
-	color: green;
 	margin-left: 40px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space : nowrap;
 }
+
+.http {
+	color: green;
+}
+
+.json {
+	color: orange;
+}
+
+.terminal {
+	color: black;
+}
+
 
 .debug {
 	color: black;
