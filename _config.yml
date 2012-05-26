@@ -4,7 +4,7 @@ server:      true
 markdown:    maruku
 port:        4000
 lsi:         true
-
+baseurl:     /seven5
 
 
 
