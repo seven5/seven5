@@ -10,7 +10,7 @@ _Seven5_ is:
 
     Restful without mercy or remorse.
     Fiercely strong on typing.
-    Can't be bothered to worry much about data storage.
+    Not much bothered about data storage.
     Brutally reactionary towards the forces of dynamism.
     Generally opposed to server side content generation.
     
