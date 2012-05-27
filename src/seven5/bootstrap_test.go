@@ -5,6 +5,7 @@ import (
 	"testing"
 	"seven5/util"
 	"os"
+	"fmt"
 )
 
 
@@ -52,7 +53,19 @@ func (self *S) TestGroupieConfig(c *C) {
 }
 
 func (self *S) TestBootstrapPill(c *C) {
-	t1:=util.ReadTestData(self.Logger, "groupieconfig","test1.json")
+	b := &bootstrap{logger:self.Logger, request:nil}
+	checkNil := []bool{ false, true, true}
 	
+	for i,check := range(checkNil) {
+		dir := util.FindTestDataPath(self.Logger,"groupieconfig",
+			fmt.Sprintf("bootstraptest%d",i+1))
+		conf:=b.configureSeven5(dir)
+		if check {
+			c.Check(conf,IsNil)
+		} else {
+			c.Check(conf,Not(IsNil))
+			c.Check(b.takeSeven5Pill(conf),Not(Equals),"")
+		}
+	}
 }
 

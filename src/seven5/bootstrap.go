@@ -25,22 +25,22 @@ type bootstrap struct {
 func Bootstrap(writer  http.ResponseWriter,request *http.Request) {
 	logger:= util.NewHtmlLogger(util.DEBUG, true, writer)
 	b:=&bootstrap{request, logger}	
-	config:=b.configureSeven5()
+	config:=b.configureSeven5("")
 	if config!=nil {
 		b.takeSeven5Pill(config)
 	}
 }
 
 //configureSeven5 checks for a goroupie config file and returns a config or
-//nil in the error case.
-func (self *bootstrap) configureSeven5() groupieConfig {
+//nil in the error case. pass "" to use current working dir.
+func (self *bootstrap) configureSeven5(dir string) groupieConfig {
 
 	var groupieJson string
 	var err error
 	var result groupieConfig
 
 	self.logger.Debug("checking for groupies config file...")
-	groupieJson, err = findGroupieConfigFile()
+	groupieJson, err = findGroupieConfigFile(dir)
 	if err != nil {
 		self.logger.Error("unable find or open the groupies config:%s", err)
 		return nil
@@ -54,18 +54,6 @@ func (self *bootstrap) configureSeven5() groupieConfig {
 	return result
 }
 
-// getGroupies is called to read a set of groupie values
-// from json to a config structures. It returns nil if the format is not 
-// satisfactory (plus an error value).  Note that this does not check semantics!
-func getGroupies(jsonBlob string, logger util.SimpleLogger) (groupieConfig, error) {
-	var result groupieConfig
-	var err error
-	if result, err = parseGroupieConfig(jsonBlob); err != nil {
-		logger.Error(err.Error())
-		return nil, err
-	}
-	return result, nil
-}
 
 
 //takeSeven5 generates the pill in a temp directory and compiles it.  It returns

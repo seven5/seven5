@@ -1,0 +1,8 @@
+{
+	"Role" : "ProjectValidator",
+	"Info" : {
+		"TypeName" : "plugin.DefaultProjectValidator",
+		"ImportsNeeded"  : [ "seven5/plugin" ]
+	}
+}
+

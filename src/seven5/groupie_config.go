@@ -86,17 +86,18 @@ func parseGroupieConfig(jsonBlob string) (groupieConfig, error) {
 }
 
 //findGroupieConfigFile returns a String with the contents of the config file
-//in the current directory.
-func findGroupieConfigFile() (string, error){
-	var cwd string
+//in the current directory.  Pass "" to have use current working dir.
+func findGroupieConfigFile(cwd string) (string, error){
 	var err error
 	var file *os.File
 	
 	//get cwd typically of groupie
-	if cwd, err = os.Getwd(); err != nil {
-		return "",err
+	if cwd=="" {
+		if cwd, err = os.Getwd(); err != nil {
+			return "",err
+		}
 	}
-
+	
 	configPath := filepath.Join(cwd, "groupies.json")
 
 	if file, err = os.Open(configPath); err != nil {
@@ -110,4 +111,18 @@ func findGroupieConfigFile() (string, error){
 	
 	return jsonBuffer.String(),nil
 
+}
+
+
+// getGroupies is called to read a set of groupie values
+// from json to a config structures. It returns nil if the format is not 
+// satisfactory (plus an error value).  Note that this does not check semantics!
+func getGroupies(jsonBlob string, logger util.SimpleLogger) (groupieConfig, error) {
+	var result groupieConfig
+	var err error
+	if result, err = parseGroupieConfig(jsonBlob); err != nil {
+		logger.Error(err.Error())
+		return nil, err
+	}
+	return result, nil
 }

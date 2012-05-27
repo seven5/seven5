@@ -1,0 +1,7 @@
+{
+	"Role" : "ProjectValidatrix"
+	"Info" : {
+		"TypeName" : "plugins.DefaultProjectValidator"
+		"ImportsNeeded"  : [ "seven5/plugns" ]
+	}
+}
