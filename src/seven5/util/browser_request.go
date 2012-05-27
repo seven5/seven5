@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"net/url"
 	"net/http"
 	"strings"
 )
@@ -28,14 +29,20 @@ func UnmarshalRequest(reqJson string, logger SimpleLogger) *http.Request {
 	result, err := http.NewRequest(browserReq.Method, browserReq.Url,
 		strings.NewReader(browserReq.Body))
 	if err != nil {
-		logger.Panic("Can't create request!")
+		logger.Panic("Can't create request:%s",err.Error())
 	}
 	for k, l := range browserReq.Header {
 		for _, v := range l {
 			result.Header.Add(k, v)
 		}
 	}
-
+	for _, i := range browserReq.Cookie {
+		result.AddCookie(&i)
+	}
+	result.URL, err = url.Parse(browserReq.Url)
+	if err!=nil {
+		logger.Panic("Can't understand url: %s", err.Error())
+	}
 	return result
 }
 
@@ -56,8 +63,22 @@ func MarshalRequest(request *http.Request, logger SimpleLogger) BrowserRequest {
 	result.Url = request.URL.String()
 	result.Method = request.Method
 	result.UserAgent = request.UserAgent()
-	//for _, c := range request.Cookies() {
-	//	result.Cookie[c.Name] = c.Unparsed
-	//}
+	
+	clist := NewBetterList()
+	for _, c := range(request.Cookies()) {
+		clist.PushBack(c)
+	}
+	count:=0
+	for e := clist.Front(); e != nil; e = e.Next() {
+		count++
+	}
+	result.Cookie = make([]http.Cookie,count,count)
+	count=0
+	for e := clist.Front(); e != nil; e = e.Next() {
+		var tmp *http.Cookie
+		tmp= e.Value.(*http.Cookie)
+		result.Cookie[count]=*tmp
+		count++
+	}
 	return result
 }

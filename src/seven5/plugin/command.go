@@ -40,7 +40,7 @@ func RunCommand(command string, arg string, reqJson string) (ret string) {
 	
 	
 	logger := util.NewHtmlLogger(util.DEBUG, true, &logdata, false)
-
+	
 	req:=util.UnmarshalRequest(reqJson,logger)
 	
 	decoder := json.NewDecoder(strings.NewReader(command))
