@@ -2,6 +2,7 @@ package seven5
 
 import (
 	"seven5/util"
+	"seven5/plugin"
 	"encoding/json"
 	"strings"
 	"io"
@@ -18,12 +19,12 @@ const (
 
 //substitute for constant array
 func MANDATORY_ROLES() []string {
-	return []string{ "ProjectValidator"}
+	return []string{ plugin.VALIDATE_PROJECT}
 }
 
 //substitute for constant array
 func ALL_ROLES() []string {
-	return []string{ "ProjectValidator"}
+	return []string{ plugin.VALIDATE_PROJECT}
 }
 
 // Groupie plays a role in the system. These roles are well defined and

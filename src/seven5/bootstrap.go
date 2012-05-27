@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"seven5/util"
+	"time"
 )
 
 //simulate const array
@@ -22,13 +23,21 @@ type bootstrap struct {
 //Bootstrap is invoked from the roadie to tell us that the user wants to 
 //try to build and run their project.  Normally, this results in a new
 //Seven5 excutabel.
-func Bootstrap(writer  http.ResponseWriter,request *http.Request) {
+func Bootstrap(writer  http.ResponseWriter,request *http.Request) string {
 	logger:= util.NewHtmlLogger(util.DEBUG, true, writer)
+	
+	start := time.Now()
+	
 	b:=&bootstrap{request, logger}	
 	config:=b.configureSeven5("")
 	if config!=nil {
-		b.takeSeven5Pill(config)
+		result:= b.takeSeven5Pill(config)
+		delta:=time.Since(start)
+		logger.Info("Rebuilding seven5 took %s",delta.String())
+		return result		
 	}
+	
+	return ""
 }
 
 //configureSeven5 checks for a goroupie config file and returns a config or
@@ -62,6 +71,7 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 	var cmd string
 	var errText string
 	var imports bytes.Buffer
+	var setStatement bytes.Buffer
 	
 	seen := util.NewBetterList()
 	for _, i := range DEFAULT_IMPORTS() {
@@ -80,9 +90,14 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 		imports.WriteString(fmt.Sprintf("import \"%s\"\n", e.Value))
 	}
 
+	for _, i:=range(ALL_ROLES()) {
+		setStatement.WriteString(
+			fmt.Sprintf("\tplugin.Seven5App.Set%s(&%s{})\n", i, config[i].TypeName))
+	}
+
 	mainCode := fmt.Sprintf(seven5pill,
 		imports.String(),
-		config["ProjectValidator"].TypeName)
+		setStatement.String())
 
 	if cmd, errText = util.CompilePill(mainCode, self.logger); cmd == "" {
 		self.logger.DumpTerminal(mainCode)
@@ -100,10 +115,10 @@ package main
 %s
 
 func main() {
-	plugin.Seven5App.SetProjectValidator(&%s{})
+	%s
 	if len(os.Args)<3 {
 		os.Exit(1)
 	}
-	fmt.Println(plugin.Run(os.Args[1], os.Args[2]))
+	fmt.Println(plugin.RunCommand(os.Args[1], os.Args[2]))
 }
 `

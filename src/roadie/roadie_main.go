@@ -4,17 +4,21 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"seven5"
+	"seven5/plugin"
 	"strings"
 	"time"
-	"path/filepath"
 )
+
+//wire is our connection to the seven5 binary
+var wire *seven5.Wire
 
 func main() {
 	var wd string
 	var err error
 	overrideGOPATH := false
-	
+
 	if len(os.Args) > 3 {
 		fmt.Fprintf(os.Stderr, "%s: usage %s [directory] [GOPATH override?]\n", os.Args[0], os.Args[0])
 		return
@@ -27,28 +31,28 @@ func main() {
 		}
 	}
 
-	if len(os.Args) ==3 {
-		overrideGOPATH=true
+	if len(os.Args) == 3 {
+		overrideGOPATH = true
 	}
 
 	if wd, err = os.Getwd(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unable to get working directory: %s\n", os.Args[0], err)
 		return
 	}
-	
-	gopath:=strings.SplitAfter(os.Getenv("GOPATH"),string(filepath.ListSeparator))
+
+	gopath := strings.SplitAfter(os.Getenv("GOPATH"), string(filepath.ListSeparator))
 	ok := overrideGOPATH
-	for _, pathElem := range(gopath) {
+	for _, pathElem := range gopath {
 		if pathElem == wd {
 			ok = true
-			break;
+			break
 		}
 	}
 
 	if !ok {
-		fmt.Fprintf(os.Stderr,"%s uses other go tools that depend on the GOPATH "+
-			"environment variable.\n",os.Args[0])
-		fmt.Fprintf(os.Stderr,"    please add this to your GOPATH: %s\n",wd)
+		fmt.Fprintf(os.Stderr, "%s uses other go tools that depend on the GOPATH "+
+			"environment variable.\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "    please add this to your GOPATH: %s\n", wd)
 		return
 	}
 
@@ -58,15 +62,21 @@ func main() {
 		WriteTimeout: 2 * time.Second,
 	}
 	http.HandleFunc("/make", makeSeven5)
-	
+	http.HandleFunc("/val", validateProject)
+
 	defer func() {
-		if r:=recover(); r!=nil {
-			fmt.Fprintf(os.Stderr,"internal seven5 err:%s\n",r)
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "internal seven5 err:%s\n", r)
 		}
 	}()
 	s.ListenAndServe()
 }
 
 func makeSeven5(writer http.ResponseWriter, request *http.Request) {
-	seven5.Bootstrap(writer, request)
+	currentSeven5 := seven5.Bootstrap(writer, request)
+	wire = seven5.NewWire(currentSeven5)
+}
+
+func validateProject(writer http.ResponseWriter, request *http.Request) {
+	wire.Dispatch(plugin.VALIDATE_PROJECT, writer, request)
 }
