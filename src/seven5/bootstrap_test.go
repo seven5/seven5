@@ -24,8 +24,8 @@ func (self *S) SetUpSuite(c *C) {
 }
 
 func (self *S) TestGroupieConfig(c *C) {
-	t1 := util.ReadTestData(self.logger, "groupieconfig", "test1.json")
-	ur := util.ReadTestData(self.logger, "groupieconfig", "test-unknown-role.json")
+	t1 := util.ReadTestData(c, "groupieconfig", "test1.json")
+	ur := util.ReadTestData(c, "groupieconfig", "test-unknown-role.json")
 
 	roleName := plugin.VALIDATE_PROJECT
 
@@ -46,7 +46,7 @@ func (self *S) TestBootstrapPill(c *C) {
 	checkNil := []bool{false, true, true}
 
 	for i, check := range checkNil {
-		dir := util.FindTestDataPath(self.logger, "groupieconfig",
+		dir := util.FindTestDataPath(c, "groupieconfig",
 			fmt.Sprintf("bootstraptest%d", i+1))
 		conf := b.configureSeven5(dir)
 		if check {

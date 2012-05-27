@@ -5,3 +5,10 @@
 		"ImportsNeeded"  : [ "seven5/plugin" ]
 	}
 }
+{
+	"Role" : "Echo",
+	"Info" : {
+		"TypeName" : "plugin.DefaultEcho",
+		"ImportsNeeded"  : [ "seven5/plugin" ]
+	}
+}

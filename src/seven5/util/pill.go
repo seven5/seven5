@@ -71,8 +71,6 @@ func CompilePill(mainCode string, logger SimpleLogger) (string, string) {
 	if buf, err = cmd.CombinedOutput(); err != nil {
 		return "", string(buf)+"\n"+ err.Error()
 	}
-	
-
 	slice := strings.SplitAfter(dir, string(filepath.Separator))
 	return filepath.Join(dir, slice[len(slice)-1]), ""
 }

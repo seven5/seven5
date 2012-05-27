@@ -62,7 +62,7 @@ func main() {
 		ReadTimeout:  2 * time.Second,
 		WriteTimeout: 2 * time.Second,
 	}
-	http.HandleFunc("/val", validateProject)
+	http.HandleFunc("/echo", echo)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -74,16 +74,20 @@ func main() {
 		s.ListenAndServe().Error())
 }
 
-
-func validateProject(writer http.ResponseWriter, request *http.Request) {
-	logger:=util.NewHtmlLogger(util.DEBUG, true, writer, true)
-	
+func canVerifyWire(writer http.ResponseWriter, request *http.Request, logger util.SimpleLogger) bool{
 	if wire==nil || !wire.HaveSeven5() {
 		currentSeven5 := seven5.Bootstrap(writer, request, logger)
 		wire = seven5.NewWire(currentSeven5)
 		if !wire.HaveSeven5() {
-			return
+			return false
 		}
 	}
-	wire.Dispatch(plugin.VALIDATE_PROJECT, writer, request, logger)
+	return true
+}
+
+func echo(writer http.ResponseWriter, request *http.Request) {
+	logger:=util.NewHtmlLogger(util.DEBUG, true, writer, true)
+	if canVerifyWire(writer,request,logger) {
+		wire.Dispatch(plugin.ECHO, writer, request, logger)
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"seven5/util"
 	"strings"
 	"time"
+	"fmt"
 )
 
 const MARKER = "@@@+++@@@"
@@ -32,12 +33,16 @@ type Command struct {
 //Run is the equivalent of main for Seven5 when in development mode.  
 //The real main uses a pill. Input should be two json strings and the output 
 //the same.
-func RunCommand(command string, arg string) (ret string) {
+func RunCommand(command string, arg string, reqJson string) (ret string) {
 	var cmd Command
 	var result bytes.Buffer
 	var logdata bytes.Buffer
+	
+	
 	logger := util.NewHtmlLogger(util.DEBUG, true, &logdata, false)
 
+	req:=util.UnmarshalRequest(reqJson,logger)
+	
 	decoder := json.NewDecoder(strings.NewReader(command))
 	encoder := json.NewEncoder(&result)
 	decoder.Decode(&cmd)
@@ -50,7 +55,13 @@ func RunCommand(command string, arg string) (ret string) {
 			r.Error = true
 			r.Panic = true
 			r.ProcessingTime = time.Since(start)
-			logger.Error("Panic was: %s", rec)
+			var b bytes.Buffer 
+			b.WriteString("Trapped a panic in command processing:\n")
+			for _,i := range ([]int{4,5,6,7}) {
+				file, line:=util.GetCallerAndLine(i)
+				b.WriteString(fmt.Sprintf("%s:%d\n",file,line))
+			}
+			logger.DumpTerminal(b.String())
 			encoder.Encode(&result)
 			ret = result.String() + MARKER + logdata.String()
 		}
@@ -65,6 +76,14 @@ func RunCommand(command string, arg string) (ret string) {
 		r.CommandResult.ProcessingTime = time.Since(start)
 		encoder.Encode(&r.CommandResult)
 		break
+	case ECHO:
+		var echoArgs EchoArgs
+		decoder = json.NewDecoder(strings.NewReader(arg))
+		decoder.Decode(&echoArgs)
+		r := Seven5App.Echo.Echo(&cmd, &echoArgs, req, logger)
+		r.CommandResult.ProcessingTime = time.Since(start)
+		encoder.Encode(&r)
+		break
 	default:
 		var myRes CommandResult
 		myRes.Error = true
@@ -75,3 +94,4 @@ func RunCommand(command string, arg string) (ret string) {
 	ret=result.String() + MARKER + logdata.String()
 	return
 }
+

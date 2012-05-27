@@ -26,8 +26,7 @@ func (self *S) TestValidator(c *C) {
 	for i, check := range(checkList) {
 		args := &ValidateProjectArgs{}
 		cmd := &Command{
-			AppDirectory:util.FindTestDataPath(self.logger,
-				"projectvalidator",
+			AppDirectory:util.FindTestDataPath(c,"projectvalidator",
 				fmt.Sprintf("testproj%d",i+1)),
 			Name:  VALIDATE_PROJECT }
 		validator := &DefaultValidateProjectImpl{}

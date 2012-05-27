@@ -119,10 +119,10 @@ package main
 
 func main() {
 	%s
-	if len(os.Args)<3 {
+	if len(os.Args)<4 {
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stdout,"%s\n",plugin.RunCommand(os.Args[1], os.Args[2]))
+	fmt.Fprintf(os.Stdout,"%s\n",plugin.RunCommand(os.Args[1], os.Args[2], os.Args[3]))
 	os.Stdout.Sync()
 }
 `

@@ -166,7 +166,7 @@ func (self *BaseLogger) Panic(fmtString string, obj ...interface{}) {
 
 //Print just prints out a simple text version on the terminal.
 func (self *TerminalLoggerImpl) Print(level int, isProto bool, fmtString string, obj ...interface{}) {
-	lastElement, line := getCallerAndLine()
+	lastElement, line := GetCallerAndLine(3)
 	now := time.Now()
 	hour := now.Hour()
 	minute := now.Minute()
@@ -237,8 +237,8 @@ func levelToString(level int) string {
 
 //getCallerAndLine is a utility for getting the calling file and line number
 //of the log routines.
-func getCallerAndLine() (string, int) {
-	_, file, line, ok := runtime.Caller(3)
+func GetCallerAndLine(level int) (string, int) {
+	_, file, line, ok := runtime.Caller(level)
 	if !ok {
 		log.Panicf("aborting due to failure to understand call stack")
 	}
@@ -256,7 +256,7 @@ func (self *HtmlLoggerImpl) Print(level int, isProto bool, fmtString string, obj
 	hour := now.Hour()
 	minute := now.Minute()
 
-	lastElement, line := getCallerAndLine()
+	lastElement, line := GetCallerAndLine(3)
 
 	typeName := "log"
 	levelName := levelToString(level)
