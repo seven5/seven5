@@ -28,25 +28,26 @@ func ALL_ROLES() []string {
 
 // Groupie plays a role in the system. These roles are well defined and
 // bound to structures that will be passed to the groupie playing that
-// role.
+// role.  Public for json-encoding.
 type Groupie struct {
 	Role string
 	Info GroupieInfo
 }
 
 //GroupieInfo is extra information about a particular groupie. This is 
-//information used/needed at bootstrap time.
+//information used/needed at bootstrap time.  Public for json encoding.
 type GroupieInfo struct {
 	TypeName string
 	ImportsNeeded []string
 }
 
-//GroupieConfig is the result of parsing the json
-type GroupieConfig map[string]*GroupieInfo
+//GroupieConfig is the result of parsing the json.
+type groupieConfig map[string]*GroupieInfo
 
 
-//ParseGroupieConfig takes a bunch of JSON and turns it into a GroupieConfig
-func ParseGroupieConfig(jsonBlob string) (GroupieConfig, error) {
+//parseGroupieConfig takes a bunch of json and turns it into a groupieConfig.
+//It returns an error if you don't supply a sensible configuration.
+func parseGroupieConfig(jsonBlob string) (groupieConfig, error) {
 	result := make(map[string]*GroupieInfo)
 	mandatory := util.NewBetterList()
 	for _,k := range(MANDATORY_ROLES()) {
@@ -84,9 +85,9 @@ func ParseGroupieConfig(jsonBlob string) (GroupieConfig, error) {
     return result,nil
 }
 
-//FindGroupieConfigFile returns a String with the contents of the config file
+//findGroupieConfigFile returns a String with the contents of the config file
 //in the current directory.
-func FindGroupieConfigFile() (string, error){
+func findGroupieConfigFile() (string, error){
 	var cwd string
 	var err error
 	var file *os.File

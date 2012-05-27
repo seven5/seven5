@@ -3,13 +3,14 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
-	"path/filepath"
+	"encoding/json"
 )
 
 //SimpleLogger is an interface representing a logger. There is a need for
@@ -23,24 +24,21 @@ type SimpleLogger interface {
 	Error(fmtString string, obj ...interface{})
 	//Panic is called when the seven5 system itself cannot continue.
 	Panic(fmtString string, obj ...interface{})
-	//Protocol is called to allow a different formatting of protocol dumps.
-	Protocol(fmtString string, obj ...interface{})
 	//Dump out a protocol trace
 	DumpRequest(req *http.Request)
 	//Dump out a blob of Json
 	DumpJson(json string)
 	//Dump out a bunch of terminal data, usually a compile result
 	DumpTerminal(out string)
-	
 }
 
 // LoggerImpl encodes the real difference between the logger types.  The
 // SimpleLogger interface is just sugar around this meat.
 type LoggerImpl interface {
 	//Print something to the output, with log style formatting
- 	Print(level int, isProto bool, fmtString string, obj ...interface{});
- 	//Print something directly to the output (no logger formatting)
- 	Raw(s string);
+	Print(level int, isProto bool, fmtString string, obj ...interface{})
+	//Print something directly to the output (no logger formatting)
+	Raw(s string)
 	//Dump out a protocol trace
 	DumpRequest(req *http.Request)
 	//Dump out a bunch of JSON
@@ -52,23 +50,24 @@ type LoggerImpl interface {
 // BaseLogger is the common portion between the two logging types
 type BaseLogger struct {
 	level int
-	proto bool
-	impl LoggerImpl
+	dumps bool
+	impl  LoggerImpl
 }
 
 // TerminalLoggerImpl is the terminal specific stuff for logging.
 type TerminalLoggerImpl struct {
+	writer io.Writer
 }
 
 // HtmlLoggerImpl is the web specific stuff for logging.
 type HtmlLoggerImpl struct {
-	writer http.ResponseWriter
+	writer        io.Writer
 	emittedHeader bool
 }
 
 //NewHtmlLogger creates a new HTML logger at the given level and protocol
 //setings.  It will output to the given writer.
-func NewHtmlLogger(level int, proto bool, writer http.ResponseWriter) SimpleLogger {
+func NewHtmlLogger(level int, proto bool, writer io.Writer) SimpleLogger {
 	impl := &HtmlLoggerImpl{writer, false}
 	result := &BaseLogger{level, proto, impl}
 	return result
@@ -76,8 +75,8 @@ func NewHtmlLogger(level int, proto bool, writer http.ResponseWriter) SimpleLogg
 
 //NewTerminalLogger creates a new terminal-oriented logger at the given
 //protocol and level settings
-func NewTerminalLogger(level int, proto bool) SimpleLogger {
-	impl := &TerminalLoggerImpl{}
+func NewTerminalLogger(writer io.Writer, level int, proto bool) SimpleLogger {
+	impl := &TerminalLoggerImpl{writer}
 	result := &BaseLogger{level, proto, impl}
 	return result
 }
@@ -93,22 +92,25 @@ const (
 
 //DumpHttpRequest 
 func (self *BaseLogger) DumpRequest(req *http.Request) {
-	if !self.proto {
+	if !self.dumps {
 		return
 	}
 	self.impl.DumpRequest(req)
 }
+
 //DumpJson
-func (self *BaseLogger) DumpJson(json string) {
-	if !self.proto {
+func (self *BaseLogger) DumpJson(blob string) {
+	if !self.dumps {
 		return
 	}
-	self.impl.DumpJson(json)
+	var buffer bytes.Buffer
+	json.Indent(&buffer,[]byte(blob),""," ")
+	self.impl.DumpJson(buffer.String())
 }
 
 //DumpTerminal
 func (self *BaseLogger) DumpTerminal(out string) {
-	if !self.proto {
+	if !self.dumps {
 		return
 	}
 	self.impl.DumpTerminal(out)
@@ -148,13 +150,9 @@ func (self *BaseLogger) Panic(fmtString string, obj ...interface{}) {
 	panic(fmt.Sprintf(fmtString, obj...))
 }
 
-// Protocol allows for a different code path in case you want to dump
-// a bunch of protocol trace information.
-func (self *BaseLogger) Protocol(fmtString string, obj ...interface{}) {
-	if self.proto {
-		self.impl.Print(DEBUG, true, fmtString, obj...)
-	}
-}
+//
+// TERMINAL LOGGER IMPL
+//
 
 //Print just prints out a simple text version on the terminal.
 func (self *TerminalLoggerImpl) Print(level int, isProto bool, fmtString string, obj ...interface{}) {
@@ -163,15 +161,51 @@ func (self *TerminalLoggerImpl) Print(level int, isProto bool, fmtString string,
 	hour := now.Hour()
 	minute := now.Minute()
 	levelName := levelToString(level)
-	self.Raw(fmt.Sprintf("[%s]%02d:%02d(%s:%d)%s",levelName,hour,
-		minute,lastElement,line,fmt.Sprintf(fmtString,obj...)))
+	self.Raw(fmt.Sprintf("[%s]%02d:%02d(%s:%d)%s", levelName, hour,
+		minute, lastElement, line, fmt.Sprintf(fmtString, obj...)))
 }
 
 //Print raw message on the terminal.  Use stdout, not stderr so tests can pass
 //quietly.
 func (self *TerminalLoggerImpl) Raw(s string) {
-	fmt.Fprintln(os.Stdout,s)
+	fmt.Fprintln(self.writer, s)
 }
+
+func (self *TerminalLoggerImpl) DumpJson(json string) {
+	self.Raw("=========JSON START===========")
+	self.Raw(json)
+	self.Raw("=========JSON END===========")
+}
+
+func (self *TerminalLoggerImpl) DumpTerminal(out string) {
+	self.Raw("=========TERMINAL OUTPUT START===========")
+	self.Raw(out)
+	self.Raw("=========TERMINAL OUTPUT END===========")
+}
+
+// Dump prints the protocol message contained in the parameter to the
+// terminal with a bit of framing to make it look different than normal
+// log output.
+func (self *TerminalLoggerImpl) DumpRequest(req *http.Request) {
+	self.Raw("=========REQUEST START===========")
+
+	header := req.Header
+	for k, v := range header {
+		if len(v) > 1 {
+			self.Raw(fmt.Sprintf("%10s:", k))
+			for l := range v {
+				self.Raw(fmt.Sprintf("%20d:", l))
+			}
+		} else if len(v) == 1 {
+			self.Raw(fmt.Sprintf("%s:%s", k, v[0]))
+		} else {
+			self.Raw(fmt.Sprintf("%s", k))
+		}
+	}
+	self.Raw("=========REQUEST END===========")
+}
+
+
 
 //levelToString is a utility function for getting the human readable level name.
 //It's also used for class names in CSS for HTML.
@@ -200,6 +234,9 @@ func getCallerAndLine() (string, int) {
 	split := strings.Split(file, string(filepath.Separator))
 	return split[len(split)-1], line
 }
+
+//
+// HTML LOGGER IMPL
 
 //Print (at the HtmlLogger) prints a nicely formatted Html output message.
 func (self *HtmlLoggerImpl) Print(level int, isProto bool, fmtString string, obj ...interface{}) {
@@ -247,10 +284,6 @@ func (self *HtmlLoggerImpl) Raw(s string) {
 	self.writer.Write([]byte(s))
 }
 
-//TerminalRaw displays output on stdout
-func (self *TerminalLoggerImpl) terminalRaw(s string) {
-	fmt.Fprintln(os.Stdout, s)
-}
 
 // SetupHTML should be called before any output to the result takes place.
 // It can be called any number of times, it only outputs once.  It places
@@ -264,39 +297,6 @@ func (self *HtmlLoggerImpl) SetupHTML() {
 	self.Raw(HTMLHeader)
 }
 
-func (self *TerminalLoggerImpl) DumpJson(json string) {
-	self.Raw("=========JSON START===========")
-	self.Raw(json)
-	self.Raw("=========JSON END===========")
-}
-
-func (self *TerminalLoggerImpl) DumpTerminal(out string) {
-	self.Raw("=========TERMINAL OUTPUT START===========")
-	self.Raw(out)
-	self.Raw("=========TERMINAL OUTPUT END===========")
-}
-
-// Dump prints the protocol message contained in the parameter to the
-// terminal with a bit of framing to make it look different than normal
-// log output.
-func (self *TerminalLoggerImpl) DumpRequest(req *http.Request) {
-	self.Raw("=========REQUEST START===========")
-
-	header := req.Header
-	for k, v := range header {
-		if len(v) > 1 {
-			self.Raw(fmt.Sprintf("%10s:", k))
-			for l := range v {
-				self.Raw(fmt.Sprintf("%20d:", l))
-			}
-		} else if len(v) == 1 {
-			self.Raw(fmt.Sprintf("%s:%s", k, v[0]))
-		} else {
-			self.Raw(fmt.Sprintf("%s", k))
-		}
-	}
-	self.Raw("=========REQUEST END===========")
-}
 
 // Dump prints the protocol message contained in the parameter to the log
 // if the protocol parameter is enabled.
@@ -323,18 +323,17 @@ func (self *HtmlLoggerImpl) DumpRequest(req *http.Request) {
 // Dump prints the protocol message contained in the parameter to the log
 // if the protocol parameter is enabled.
 func (self *HtmlLoggerImpl) DumpJson(json string) {
-	self.Raw("<div class=\"protobox json\">\n")
+	self.Raw("<div class=\"protobox json\"><pre>\n")
 	self.Raw(json)
-	self.Raw("<div>\n")
+	self.Raw("</pre></div>\n")
 }
-
 
 // Dump prints the protocol message contained in the parameter to the log
 // if the protocol parameter is enabled.
 func (self *HtmlLoggerImpl) DumpTerminal(out string) {
-	self.Raw("<div class=\"protobox terminal\">\n")
+	self.Raw("<div class=\"protobox terminal\"><pre>\n")
 	self.Raw(out)
-	self.Raw("<div>\n")
+	self.Raw("</pre></div>\n")
 }
 
 const HTMLHeader = `
@@ -344,7 +343,6 @@ const HTMLHeader = `
 
 .log {
     font-family: Courier;
-    font-size: 1.25em;
 	color: black;
 	margin-left: 10px;
 }
@@ -356,11 +354,10 @@ const HTMLHeader = `
 	border: 1px black solid;
 	padding: 10px;
     font-family: Courier;
-    font-size: 0.7em;
 	margin-left: 40px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space : nowrap;
+	#overflow: hidden;
+	#text-overflow: ellipsis;
+	#white-space : nowrap;
 }
 
 .http {

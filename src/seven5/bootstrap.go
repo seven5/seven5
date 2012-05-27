@@ -2,13 +2,13 @@ package seven5
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"seven5/util"
-	"fmt"
+	"os"
 )
 
-const (
-)
+const ()
 
 // Bootstrap is responsible for two tasks.  First, insuring that the
 // user project can compile as a library.  Second, for building and then
@@ -25,68 +25,93 @@ type Bootstrap struct {
 func (self *Bootstrap) Run() {
 	var groupieJson string
 	var err error
-	
+	var conf groupieConfig
+
 	self.Logger = util.NewHtmlLogger(util.DEBUG, true, self.Writer)
 
 	self.Logger.Debug("checking for groupies config file...")
-	groupieJson, err = FindGroupieConfigFile()	
-	if  err != nil {
+	groupieJson, err = findGroupieConfigFile()
+	if err != nil {
 		self.Logger.Error("unable find or open the groupies config:%s", err)
 		return
 	}
 	self.Logger.Debug("Groupies configuration:")
 	self.Logger.DumpJson(groupieJson)
-	if _, err := getGroupies(groupieJson, self.Logger); err!=nil {
+	if conf, err = getGroupies(groupieJson, self.Logger); err != nil {
 		return
 	}
+
+	bootstrapSeven5(conf, self.Logger)
 }
 
 // bootstrapConfiguration is called to read a set of groupie values
 // from json to a config structures. It returns nil if the format is not 
 // satisfactory.  Note that this does not check semantics!
-func getGroupies(jsonBlob string, logger util.SimpleLogger) (GroupieConfig, error){
-	var result GroupieConfig
+func getGroupies(jsonBlob string, logger util.SimpleLogger) (groupieConfig, error) {
+	var result groupieConfig
 	var err error
-	if result, err = ParseGroupieConfig(jsonBlob); err!=nil {
-		logger.Error(err.Error())		
+	if result, err = parseGroupieConfig(jsonBlob); err != nil {
+		logger.Error(err.Error())
 		return nil, err
-	} 
-	return result,nil
+	}
+	return result, nil
 }
 
+//simulate const array
+func DEFAULT_IMPORTS() []string {
+	return []string{"fmt", "seven5/plugin", "os"}
+}
 
 //pill generates the pill in a temp directory and compiles it.  It returns
 //the name of the seven5 command or "" if it failed.
-func bootstrapSeven5(config GroupieConfig, logger util.SimpleLogger) string {
+func bootstrapSeven5(config groupieConfig, logger util.SimpleLogger) string {
 	var cmd string
 	var errText string
 	var imports bytes.Buffer
+	var cwd string
+	var err error
 	
+	seen := util.NewBetterList()
+	for _, i := range DEFAULT_IMPORTS() {
+		seen.PushBack(i)
+	}
 	//gather all includes
-	for _,v := range(config) {
-		for _, i:= range(v.ImportsNeeded) {
-			imports.WriteString(fmt.Sprintf("include \"%s\"\n",i))
+	for _, v := range config {
+		for _, i := range v.ImportsNeeded {
+			if seen.Contains(i) {
+				continue
+			}
+			seen.PushBack(i)
 		}
 	}
-	mainCode := fmt.Sprintf(bootstrapTemplate,
-		imports, 
-		config["ProjectValidator"].TypeName)
+	for e := seen.Front(); e != nil; e = e.Next() {
+		imports.WriteString(fmt.Sprintf("import \"%s\"\n", e.Value))
+	}
 
-	if cmd,errText = util.CompilePill(mainCode, logger); cmd=="" {
+	if cwd, err = os.Getwd(); err!=nil {
+		logger.Panic("Unable to get the current working directory!")
+	}
+	mainCode := fmt.Sprintf(seven5pill,
+		imports.String(),
+		config["ProjectValidator"].TypeName,cwd)
+
+	if cmd, errText = util.CompilePill(mainCode, logger); cmd == "" {
 		logger.DumpTerminal(errText)
-		logger.Panic("Unable to compile the seven5pill! Aborting!")
-	}	
-	logger.Info("Seven5 is now %s",cmd)	
+		logger.Warn("Unable to compile the seven5pill! Aborting!")
+	}
+	logger.Info("Seven5 is now %s", cmd)
 	return cmd
 }
 
-const bootstrapTemplate =
-`
+const seven5pill = `
 package main
 %s
 
 func main() {
-	plugins.Seven5PillConfig(&%s{}/*ProjecValidator*/)
-	plugins.Seven5PillGo(os.Args...)
+	plugin.Seven5App.SetProjectValidator(&%s{})
+	if len(os.Args)<3 {
+		os.Exit(1)
+	}
+	fmt.Println(plugin.Run("%s",os.Args[1], os.Args[2]))
 }
 `

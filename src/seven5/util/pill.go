@@ -37,6 +37,7 @@ func MakePillDir(logger SimpleLogger) string {
 func CompilePill(mainCode string, logger SimpleLogger) (string, string) {
 	var file *os.File
 	var err error
+	var previousCwd string
 
 	dir:=MakePillDir(logger)
 	mainName := filepath.Join(dir,"main.go")
@@ -48,10 +49,17 @@ func CompilePill(mainCode string, logger SimpleLogger) (string, string) {
 	if _,err = file.WriteString(mainCode); err!=nil {
 		logger.Panic("Unable to write to main file in bootstrap pill: %s",err)
 	}
-		
+	
+	logger.DumpTerminal(mainCode)
+	
 	if err=file.Close(); err!=nil {
 		logger.Panic("Unable to close main file in bootstrap pill: %s",err)
 	}
+	
+	if previousCwd, err = os.Getwd(); err!=nil {
+		logger.Panic("Unable get working dir before chdir: %s",err)
+	}
+	
 	if err = os.Chdir(dir); err!=nil {
 		logger.Panic("Unable to change to bootstrap pill dir: %s",err)
 	}
@@ -61,6 +69,12 @@ func CompilePill(mainCode string, logger SimpleLogger) (string, string) {
 	if buf, err = cmd.CombinedOutput(); err!=nil {
 		return "", string(buf)
 	} 
+	
+	if err = os.Chdir(previousCwd); err!=nil {
+		logger.Panic("Unable to change back to previous dir after creating pill: %s",err)
+	}
+	
+	
 	slice := strings.SplitAfter(dir,string(filepath.Separator))
-	return slice[len(slice)-1],""
+	return filepath.Join(dir,slice[len(slice)-1]),""
 }

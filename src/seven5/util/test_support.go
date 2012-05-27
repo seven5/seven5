@@ -7,6 +7,9 @@ import (
 	"bytes"
 )
 
+//FindTestDataPath looks for the "testdata" directory inside the GOPATH 
+//environment variable components and then tries to locate the 
+//insideTestData directory within that.
 func FindTestDataPath(insideTestData string, logger SimpleLogger) string {
 	dirs:= strings.Split(os.Getenv("GOPATH"),string(filepath.ListSeparator))
 	for _,candidate:= range(dirs) {
@@ -22,13 +25,14 @@ of GOPATH should include testdata as its direct child.`
 	return "" //wont happen
 }
 
-func ReadTestData(insideTestData string, testfilename string, logger SimpleLogger) string {
+//ReadTestData reads a test data file into a string.
+func ReadTestData(logger SimpleLogger, insideTestData string, pathcomponent... string,) string {
 	var buffer bytes.Buffer
 	var err error
 	var file *os.File
 	parent:=FindTestDataPath(insideTestData,logger) 
-	fullPath:=filepath.Join(parent,testfilename)
-	
+	components:=filepath.Join(pathcomponent...)
+	fullPath:=filepath.Join(parent,components)
 	file, err = os.Open(fullPath)
 	if err!=nil {
 		logger.Panic("Unable to read file %s:%s",fullPath,err)
