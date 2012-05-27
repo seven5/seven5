@@ -18,15 +18,17 @@ type Result struct {
 	ProcessingTime time.Duration
 }
 
-//Command is sent to Seven5 first, so it knows how to parse the rest.
+// Command is sent to Seven5 first, so it knows how to parse the rest.
+// Must be public for json encoding.
 type Command struct {
 	Name string
+	AppDirectory string
 }
 
 //Run is the equivalent of main for Seven5 when in development mode.  
 //The real main uses a pill. Input should be two json strings and the output 
 //the same.
-func Run(cwd string, command string, arg string) (ret string) {
+func Run(command string, arg string) (ret string) {
 	var cmd Command
 	var result bytes.Buffer
 	var logdata bytes.Buffer
@@ -55,7 +57,7 @@ func Run(cwd string, command string, arg string) (ret string) {
 		var pvArgs ProjectValidatorArgs
 		decoder = json.NewDecoder(strings.NewReader(arg))
 		decoder.Decode(&pvArgs)
-		r := Seven5App.Validator.Validate(pvArgs, logger)
+		r := Seven5App.Validator.Validate(&cmd,&pvArgs, logger)
 		r.Result.ProcessingTime = time.Since(start)
 		encoder.Encode(&r)
 	default:

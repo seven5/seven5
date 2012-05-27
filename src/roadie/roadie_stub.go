@@ -68,6 +68,5 @@ func main() {
 }
 
 func makeSeven5(writer http.ResponseWriter, request *http.Request) {
-	bootstrapper := &seven5.Bootstrap{Writer: writer, Request: request}
-	bootstrapper.Run()
+	seven5.Bootstrap(writer, request)
 }

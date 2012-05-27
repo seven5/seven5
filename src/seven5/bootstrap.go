@@ -5,48 +5,58 @@ import (
 	"fmt"
 	"net/http"
 	"seven5/util"
-	"os"
 )
 
-const ()
-
-// Bootstrap is responsible for two tasks.  First, insuring that the
-// user project can compile as a library.  Second, for building and then
-// invoking a working Seven5Drumkit
-type Bootstrap struct {
-	Writer  http.ResponseWriter
-	Request *http.Request
-	Logger  util.SimpleLogger
+//simulate const array
+func DEFAULT_IMPORTS() []string {
+	return []string{"fmt", "seven5/plugin", "os"}
 }
 
-//Run is invoked from the webserver to tell us that the user wants to 
-//try to build and run their project.  It kicks-off all the processing
-//that Bootstrap is responsible for.  
-func (self *Bootstrap) Run() {
+// Bootstrap is responsible for buliding the current seven5 executable
+// based on the groupie configuration.
+type bootstrap struct {
+	request *http.Request
+	logger  util.SimpleLogger
+}
+
+//Bootstrap is invoked from the roadie to tell us that the user wants to 
+//try to build and run their project.  Normally, this results in a new
+//Seven5 excutabel.
+func Bootstrap(writer  http.ResponseWriter,request *http.Request) {
+	logger:= util.NewHtmlLogger(util.DEBUG, true, writer)
+	b:=&bootstrap{request, logger}	
+	config:=b.configureSeven5()
+	if config!=nil {
+		b.takeSeven5Pill(config)
+	}
+}
+
+//configureSeven5 checks for a goroupie config file and returns a config or
+//nil in the error case.
+func (self *bootstrap) configureSeven5() groupieConfig {
+
 	var groupieJson string
 	var err error
-	var conf groupieConfig
+	var result groupieConfig
 
-	self.Logger = util.NewHtmlLogger(util.DEBUG, true, self.Writer)
-
-	self.Logger.Debug("checking for groupies config file...")
+	self.logger.Debug("checking for groupies config file...")
 	groupieJson, err = findGroupieConfigFile()
 	if err != nil {
-		self.Logger.Error("unable find or open the groupies config:%s", err)
-		return
+		self.logger.Error("unable find or open the groupies config:%s", err)
+		return nil
 	}
-	self.Logger.Debug("Groupies configuration:")
-	self.Logger.DumpJson(groupieJson)
-	if conf, err = getGroupies(groupieJson, self.Logger); err != nil {
-		return
+	self.logger.Debug("Groupies configuration:")
+	self.logger.DumpJson(groupieJson)
+	if result, err = getGroupies(groupieJson, self.logger); err != nil {
+		return nil
 	}
 
-	bootstrapSeven5(conf, self.Logger)
+	return result
 }
 
-// bootstrapConfiguration is called to read a set of groupie values
+// getGroupies is called to read a set of groupie values
 // from json to a config structures. It returns nil if the format is not 
-// satisfactory.  Note that this does not check semantics!
+// satisfactory (plus an error value).  Note that this does not check semantics!
 func getGroupies(jsonBlob string, logger util.SimpleLogger) (groupieConfig, error) {
 	var result groupieConfig
 	var err error
@@ -57,19 +67,13 @@ func getGroupies(jsonBlob string, logger util.SimpleLogger) (groupieConfig, erro
 	return result, nil
 }
 
-//simulate const array
-func DEFAULT_IMPORTS() []string {
-	return []string{"fmt", "seven5/plugin", "os"}
-}
 
-//pill generates the pill in a temp directory and compiles it.  It returns
-//the name of the seven5 command or "" if it failed.
-func bootstrapSeven5(config groupieConfig, logger util.SimpleLogger) string {
+//takeSeven5 generates the pill in a temp directory and compiles it.  It returns
+//the name of the new seven5 command or "" if it failed.
+func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 	var cmd string
 	var errText string
 	var imports bytes.Buffer
-	var cwd string
-	var err error
 	
 	seen := util.NewBetterList()
 	for _, i := range DEFAULT_IMPORTS() {
@@ -88,21 +92,21 @@ func bootstrapSeven5(config groupieConfig, logger util.SimpleLogger) string {
 		imports.WriteString(fmt.Sprintf("import \"%s\"\n", e.Value))
 	}
 
-	if cwd, err = os.Getwd(); err!=nil {
-		logger.Panic("Unable to get the current working directory!")
-	}
 	mainCode := fmt.Sprintf(seven5pill,
 		imports.String(),
-		config["ProjectValidator"].TypeName,cwd)
+		config["ProjectValidator"].TypeName)
 
-	if cmd, errText = util.CompilePill(mainCode, logger); cmd == "" {
-		logger.DumpTerminal(errText)
-		logger.Warn("Unable to compile the seven5pill! Aborting!")
+	if cmd, errText = util.CompilePill(mainCode, self.logger); cmd == "" {
+		self.logger.DumpTerminal(mainCode)
+		self.logger.DumpTerminal(errText)
+		self.logger.Error("Unable to compile the seven5pill! Your plugins must be bogus!")
+		return ""
 	}
-	logger.Info("Seven5 is now %s", cmd)
+	self.logger.Info("Seven5 is now %s", cmd)
 	return cmd
 }
 
+//seven5pill is the text of the pill
 const seven5pill = `
 package main
 %s
@@ -112,6 +116,6 @@ func main() {
 	if len(os.Args)<3 {
 		os.Exit(1)
 	}
-	fmt.Println(plugin.Run("%s",os.Args[1], os.Args[2]))
+	fmt.Println(plugin.Run(os.Args[1], os.Args[2]))
 }
 `
