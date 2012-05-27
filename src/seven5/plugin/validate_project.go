@@ -4,6 +4,7 @@ import (
 	"os"
 	"seven5/util"
 	"path/filepath"
+	"strings"
 )
 
 //ValidateProjectArgs is passed to the ProjectValidator to do its
@@ -53,8 +54,14 @@ func (self *DefaultValidateProjectImpl) verifyFSEntry(log util.SimpleLogger,
 
 func (self *DefaultValidateProjectImpl) Validate(cmd *Command, args *ValidateProjectArgs, 
 log util.SimpleLogger) *ValidateProjectResult {
-
-	log.Debug("Using DefaultProjectValidator in %s", cmd.AppDirectory)
+	
+	dirForHuman := cmd.AppDirectory
+	parts := strings.SplitAfter(cmd.AppDirectory, string(filepath.Separator))
+	if len(parts) > 3 {
+		parts=parts[len(parts)-3:]
+		dirForHuman = filepath.Join(parts...)
+	}
+	log.Debug("Using DefaultProjectValidator in %s", dirForHuman)
 	names := []string{"client","public","src","app.json"}
 	dir := []bool{true, true ,true,false}
 	for i, n := range(names) {

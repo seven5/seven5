@@ -36,7 +36,7 @@ func RunCommand(command string, arg string) (ret string) {
 	var cmd Command
 	var result bytes.Buffer
 	var logdata bytes.Buffer
-	logger := util.NewHtmlLogger(util.DEBUG, true, &logdata)
+	logger := util.NewHtmlLogger(util.DEBUG, true, &logdata, false)
 
 	decoder := json.NewDecoder(strings.NewReader(command))
 	encoder := json.NewEncoder(&result)
@@ -63,13 +63,15 @@ func RunCommand(command string, arg string) (ret string) {
 		decoder.Decode(&pvArgs)
 		r := Seven5App.Validator.Validate(&cmd, &pvArgs, logger)
 		r.CommandResult.ProcessingTime = time.Since(start)
-		encoder.Encode(&r)
+		encoder.Encode(&r.CommandResult)
+		break
 	default:
-		var result CommandResult
-		result.Error = true
-		result.ProcessingTime = time.Since(start)
+		var myRes CommandResult
+		myRes.Error = true
+		myRes.ProcessingTime = time.Since(start)
 		logger.Error("unknown command to seven5:%s", cmd.Name)
-		encoder.Encode(&result)
+		encoder.Encode(&myRes)
 	}
-	return result.String() + MARKER + logdata.String()
+	ret=result.String() + MARKER + logdata.String()
+	return
 }

@@ -30,6 +30,8 @@ type SimpleLogger interface {
 	DumpJson(json string)
 	//Dump out a bunch of terminal data, usually a compile result
 	DumpTerminal(out string)
+	//Print string to terminal without formatting help
+	Raw(s string)
 }
 
 // LoggerImpl encodes the real difference between the logger types.  The
@@ -62,21 +64,23 @@ type TerminalLoggerImpl struct {
 // HtmlLoggerImpl is the web specific stuff for logging.
 type HtmlLoggerImpl struct {
 	writer        io.Writer
-	emittedHeader bool
 }
 
 //NewHtmlLogger creates a new HTML logger at the given level and protocol
 //setings.  It will output to the given writer.
-func NewHtmlLogger(level int, proto bool, writer io.Writer) SimpleLogger {
-	impl := &HtmlLoggerImpl{writer, false}
+func NewHtmlLogger(level int, proto bool, writer io.Writer, header bool) SimpleLogger {
+	impl := &HtmlLoggerImpl{writer}
 	result := &BaseLogger{level, proto, impl}
+	if header {
+		impl.Start()
+	}
 	return result
 }
 
 //NewTerminalLogger creates a new terminal-oriented logger at the given
 //protocol and level settings
 func NewTerminalLogger(writer io.Writer, level int, proto bool) SimpleLogger {
-	impl := &TerminalLoggerImpl{writer}
+	impl := &TerminalLoggerImpl{writer: writer}
 	result := &BaseLogger{level, proto, impl}
 	return result
 }
@@ -97,6 +101,12 @@ func (self *BaseLogger) DumpRequest(req *http.Request) {
 	}
 	self.impl.DumpRequest(req)
 }
+
+//Raw 
+func (self *BaseLogger) Raw(s string) {
+	self.impl.Raw(s)
+}
+
 
 //DumpJson
 func (self *BaseLogger) DumpJson(blob string) {
@@ -164,6 +174,7 @@ func (self *TerminalLoggerImpl) Print(level int, isProto bool, fmtString string,
 	self.Raw(fmt.Sprintf("[%s]%02d:%02d(%s:%d)%s", levelName, hour,
 		minute, lastElement, line, fmt.Sprintf(fmtString, obj...)))
 }
+
 
 //Print raw message on the terminal.  Use stdout, not stderr so tests can pass
 //quietly.
@@ -245,7 +256,6 @@ func (self *HtmlLoggerImpl) Print(level int, isProto bool, fmtString string, obj
 	hour := now.Hour()
 	minute := now.Minute()
 
-	self.SetupHTML()
 	lastElement, line := getCallerAndLine()
 
 	typeName := "log"
@@ -268,7 +278,7 @@ func (self *HtmlLoggerImpl) Print(level int, isProto bool, fmtString string, obj
 	buffer.WriteString(fmt.Sprintf("<span class=\"%s %s\">", typeName, levelName))
 
 	if !isProto {
-		prefix := fmt.Sprintf("[%02d:%02d]%s:%-4d|", hour, minute, lastElement, line)
+		prefix := fmt.Sprintf("[%02d:%02d]%s:%-4d", hour, minute, lastElement, line)
 		buffer.WriteString(prefix)
 	}
 
@@ -285,15 +295,10 @@ func (self *HtmlLoggerImpl) Raw(s string) {
 }
 
 
-// SetupHTML should be called before any output to the result takes place.
-// It can be called any number of times, it only outputs once.  It places
-// the necessary CSS cruft on the stream to allow future log messages to
+// Start should be called before any output to the result takes place.
+// It places the necessary CSS cruft on the stream to allow future log messages to
 // look purty.
-func (self *HtmlLoggerImpl) SetupHTML() {
-	if self.emittedHeader {
-		return
-	}
-	self.emittedHeader = true
+func (self *HtmlLoggerImpl) Start() {
 	self.Raw(HTMLHeader)
 }
 
@@ -344,7 +349,7 @@ const HTMLHeader = `
 .log {
     font-family: Courier;
 	color: black;
-	margin-left: 10px;
+	margin-left: 20px;
 }
 .proto {
 }
@@ -354,7 +359,7 @@ const HTMLHeader = `
 	border: 1px black solid;
 	padding: 10px;
     font-family: Courier;
-	margin-left: 40px;
+	margin-left: 20px;
 	#overflow: hidden;
 	#text-overflow: ellipsis;
 	#white-space : nowrap;

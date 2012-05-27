@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"seven5"
 	"seven5/plugin"
+	"seven5/util"
 	"strings"
 	"time"
 )
@@ -61,7 +62,6 @@ func main() {
 		ReadTimeout:  2 * time.Second,
 		WriteTimeout: 2 * time.Second,
 	}
-	http.HandleFunc("/make", makeSeven5)
 	http.HandleFunc("/val", validateProject)
 
 	defer func() {
@@ -69,14 +69,21 @@ func main() {
 			fmt.Fprintf(os.Stderr, "internal seven5 err:%s\n", r)
 		}
 	}()
-	s.ListenAndServe()
+	
+	fmt.Fprintf(os.Stderr,"roadie error waiting on connections: %s",
+		s.ListenAndServe().Error())
 }
 
-func makeSeven5(writer http.ResponseWriter, request *http.Request) {
-	currentSeven5 := seven5.Bootstrap(writer, request)
-	wire = seven5.NewWire(currentSeven5)
-}
 
 func validateProject(writer http.ResponseWriter, request *http.Request) {
-	wire.Dispatch(plugin.VALIDATE_PROJECT, writer, request)
+	logger:=util.NewHtmlLogger(util.DEBUG, true, writer, true)
+	
+	if wire==nil || !wire.HaveSeven5() {
+		currentSeven5 := seven5.Bootstrap(writer, request, logger)
+		wire = seven5.NewWire(currentSeven5)
+		if !wire.HaveSeven5() {
+			return
+		}
+	}
+	wire.Dispatch(plugin.VALIDATE_PROJECT, writer, request, logger)
 }

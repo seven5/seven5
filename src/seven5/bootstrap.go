@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"seven5/util"
 	"time"
+	"strings"
+	"path/filepath"
 )
 
 //simulate const array
@@ -23,8 +25,8 @@ type bootstrap struct {
 //Bootstrap is invoked from the roadie to tell us that the user wants to 
 //try to build and run their project.  Normally, this results in a new
 //Seven5 excutabel.
-func Bootstrap(writer  http.ResponseWriter,request *http.Request) string {
-	logger:= util.NewHtmlLogger(util.DEBUG, true, writer)
+func Bootstrap(writer  http.ResponseWriter,request *http.Request,
+	logger util.SimpleLogger) string {
 	
 	start := time.Now()
 	
@@ -48,15 +50,15 @@ func (self *bootstrap) configureSeven5(dir string) groupieConfig {
 	var err error
 	var result groupieConfig
 
-	self.logger.Debug("checking for groupies config file...")
 	groupieJson, err = findGroupieConfigFile(dir)
 	if err != nil {
 		self.logger.Error("unable find or open the groupies config:%s", err)
 		return nil
 	}
-	self.logger.Debug("Groupies configuration:")
-	self.logger.DumpJson(groupieJson)
 	if result, err = getGroupies(groupieJson, self.logger); err != nil {
+		self.logger.Debug("Groupies configuration:")
+		self.logger.DumpJson(groupieJson)
+		self.logger.Error("could not understand groupies.json! aborting!")
 		return nil
 	}
 
@@ -105,7 +107,8 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 		self.logger.Error("Unable to compile the seven5pill! Your plugins must be bogus!")
 		return ""
 	}
-	self.logger.Info("Seven5 is now %s", cmd)
+	path := strings.Split(cmd,string(filepath.Separator))
+	self.logger.Info("Seven5 is now [tmpdir]/%s", path[len(path)-1])
 	return cmd
 }
 
@@ -119,6 +122,7 @@ func main() {
 	if len(os.Args)<3 {
 		os.Exit(1)
 	}
-	fmt.Println(plugin.RunCommand(os.Args[1], os.Args[2]))
+	fmt.Fprintf(os.Stdout,"%s\n",plugin.RunCommand(os.Args[1], os.Args[2]))
+	os.Stdout.Sync()
 }
 `
