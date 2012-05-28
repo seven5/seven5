@@ -12,7 +12,7 @@ import (
 
 //simulate const array
 func DEFAULT_IMPORTS() []string {
-	return []string{"fmt", "seven5/plugin", "os"}
+	return []string{"fmt", "seven5/groupie", "os"}
 }
 
 // Bootstrap is responsible for buliding the current seven5 executable
@@ -92,11 +92,13 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 		imports.WriteString(fmt.Sprintf("import \"%s\"\n", e.Value))
 	}
 
-	for _, i:=range(ALL_ROLES()) {
-		setStatement.WriteString(
-			fmt.Sprintf("\tplugin.Seven5App.Set%s(&%s{})\n", i, config[i].TypeName))
+	//walk all the configed groupies
+	for k,v := range config {
+		setStatement.WriteString(fmt.Sprintf(
+			"\tgroupie.Seven5app[groupie.%s]=&%s{}\n",
+			strings.ToUpper(k),v.TypeName))
 	}
-
+	
 	mainCode := fmt.Sprintf(seven5pill,
 		imports.String(),
 		setStatement.String())
@@ -119,10 +121,11 @@ package main
 
 func main() {
 	%s
-	if len(os.Args)<4 {
+	if len(os.Args)<5 {
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stdout,"%s\n",plugin.RunCommand(os.Args[1], os.Args[2], os.Args[3]))
+	fmt.Fprintf(os.Stdout,"%s\n",groupie.RunCommand(os.Args[1], 
+		os.Args[2], os.Args[3], os.Args[4]))
 	os.Stdout.Sync()
 }
 `

@@ -48,7 +48,7 @@ func UnmarshalRequest(reqJson string, logger SimpleLogger) *http.Request {
 
 //MarshalRequest is the routine that converts a "Real" http requset into
 //something more suitable for our use over the json connection.
-func MarshalRequest(request *http.Request, logger SimpleLogger) BrowserRequest {
+func MarshalRequest(request *http.Request, logger SimpleLogger) *BrowserRequest {
 	var result BrowserRequest
 	var buffer bytes.Buffer
 	if _, err := buffer.ReadFrom(request.Body); err != nil {
@@ -80,5 +80,5 @@ func MarshalRequest(request *http.Request, logger SimpleLogger) BrowserRequest {
 		result.Cookie[count]=*tmp
 		count++
 	}
-	return result
+	return &result
 }

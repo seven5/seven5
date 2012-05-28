@@ -1,4 +1,4 @@
-package plugin
+package groupie
 
 import (
 	. "launchpad.net/gocheck"
@@ -28,7 +28,7 @@ func (self *S) TestValidator(c *C) {
 		cmd := &Command{
 			AppDirectory:util.FindTestDataPath(c,"projectvalidator",
 				fmt.Sprintf("testproj%d",i+1)),
-			Name:  VALIDATE_PROJECT }
+			Name:  VALIDATEPROJECT }
 		validator := &DefaultValidateProjectImpl{}
 		result:=validator.Validate(cmd,args,self.logger)
 		

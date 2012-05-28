@@ -1,8 +1,16 @@
 {
 	"Role" : "ValidateProject",
 	"Info" : {
-		"TypeName" : "plugin.DefaultValidateProjectImpl",
-		"ImportsNeeded"  : [ "seven5/plugin" ]
+		"TypeName" : "groupie.DefaultValidateProject",
+		"ImportsNeeded"  : [ "seven5/groupie" ]
+	}
+}
+
+{
+	"Role" : "ProcessController",
+	"Info" : {
+		"TypeName" : "groupie.DefaultProcessController",
+		"ImportsNeeded"  : [ "seven5/groupie" ]
 	}
 }
 

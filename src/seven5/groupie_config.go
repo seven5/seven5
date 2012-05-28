@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"seven5/plugin"
+	"seven5/groupie"
 	"seven5/util"
 	"strings"
 )
@@ -19,12 +19,19 @@ const (
 
 //substitute for constant array
 func MANDATORY_ROLES() []string {
-	return []string{plugin.VALIDATE_PROJECT}
+	return []string{
+		groupie.VALIDATEPROJECT,
+		groupie.PROCESSCONTROLLER,
+	}
 }
 
 //substitute for constant array
 func ALL_ROLES() []string {
-	return []string{plugin.VALIDATE_PROJECT, plugin.ECHO}
+	return []string{
+		groupie.VALIDATEPROJECT,
+		groupie.ECHO,
+		groupie.PROCESSCONTROLLER,
+	}
 }
 
 // Groupie plays a role in the system. These roles are well defined and

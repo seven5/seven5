@@ -1,0 +1,13 @@
+{
+	"AppName"               : "hellorest"
+	
+	"UserDataTypeName"      : "MyStruct"
+	"DartCompiler"          : "frogc"      
+}
+
+{
+/* user data section goes here... see hellorest.go, MyStruct */
+	"Foo" : -42
+	"Bar" : "The speed of non-working program is irrelevant."
+	"Baz" : 0.333
+}

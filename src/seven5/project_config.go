@@ -6,6 +6,6 @@ import (
 
 //Information that the USER supplies to Seven5
 type ProjectConfig struct {
-	Name string 
+	AppName string 
 }
 

@@ -1,4 +1,11 @@
 {
+	"Role" : "ProcessController",
+	"Info" : {
+		"TypeName" : "groupie.DefaultProcessController",
+		"ImportsNeeded"  : [ "seven5/groupie" ]
+	}
+}
+{
 	"Role" : "ProjectValidatrix"
 	"Info" : {
 		"TypeName" : "plugins.DefaultValidateProjectImpl"
