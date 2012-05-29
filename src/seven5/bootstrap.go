@@ -111,6 +111,7 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 	}
 	path := strings.Split(cmd,string(filepath.Separator))
 	self.logger.Info("Seven5 is now [tmpdir]/%s", path[len(path)-1])
+	
 	return cmd
 }
 
@@ -124,7 +125,8 @@ func main() {
 	if len(os.Args)<5 {
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stdout,"%s\n",groupie.RunCommand(os.Args[1], 
+	//double percent bceause run through sprintf twice
+	fmt.Fprintf(os.Stdout,"%%s\n",groupie.RunCommand(os.Args[1], 
 		os.Args[2], os.Args[3], os.Args[4]))
 	os.Stdout.Sync()
 }

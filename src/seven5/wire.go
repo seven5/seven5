@@ -49,7 +49,7 @@ func (self *Wire) Dispatch(cmd string, writer http.ResponseWriter,
 	
 	//calculate response, if any
 	cfgBlob, reqBlob := self.marshal(cfg, req, logger)
-	if jsonBlob = self.runProcess(groupie.ECHO, "", cfgBlob, reqBlob, logger); jsonBlob == "" {
+	if jsonBlob = self.runSeven5(cmd, "", cfgBlob, reqBlob, logger); jsonBlob == "" {
 		return nil
 	}
 	
@@ -110,15 +110,16 @@ func validateProjectStub(writer http.ResponseWriter,
 //runProcess is called to take the two bunches of json arguments and invoke
 //the process of Seven5 with those. It captures the output of the process
 //and returns the marshalled result that it got from stdout.
-func (self *Wire) runProcess(name string, dir string, config string,
+func (self *Wire) runSeven5(name string, dir string, config string,
 	browserReq string, logger util.SimpleLogger) string {
 	var err error
-	
+
 	if dir == "" {
 		if dir, err = os.Getwd(); err != nil {
 			logger.Panic("unable to get the current working dir: %s", err)
 		}
 	}
+	
 	shellCommand := exec.Command(self.path, name, dir, config, browserReq)
 	out, err := shellCommand.CombinedOutput()
 	allOutput := string(out)
