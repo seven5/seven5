@@ -84,8 +84,9 @@ func parseGroupieConfig(jsonBlob string) (groupieConfig, error) {
 		}
 		result[groupie.Role] = &groupie.Info
 		possible.RemoveValue(groupie.Role)
+		mandatory.RemoveValue(groupie.Role)
 	}
-	if possible.Len() != 0 {
+	if mandatory.Len() != 0 {
 		return nil, errors.New(fmt.Sprintf("Reading %s did not find all mandatory roles: %s",
 			GROUPIE_CONFIG_FILE, possible.AllValues()))
 	}

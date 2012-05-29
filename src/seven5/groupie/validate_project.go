@@ -30,7 +30,6 @@ func (self *DefaultValidateProject) verifyFSEntry(log util.SimpleLogger,
 
 	proposed := filepath.Join(path, filepath.Join(candidate...))
 	if stat, err = os.Stat(proposed); err != nil {
-		log.Error("failed to find fs entry: %s", err)
 		return false
 	}
 
@@ -40,13 +39,10 @@ func (self *DefaultValidateProject) verifyFSEntry(log util.SimpleLogger,
 	return !stat.IsDir()
 
 }
-func (self *DefaultValidateProject) Exec(config *ApplicationConfig,
-	request *http.Request, log util.SimpleLogger) interface{} {
+func (self *DefaultValidateProject) Exec(ignored1 string, 
+	dir string, ignored2 *ApplicationConfig,
+	ignored3 *http.Request, log util.SimpleLogger) interface{} {
 
-	dir, err := os.Getwd()
-	if err!=nil {
-		log.Panic("Unable to get current directory!");
-	}
 	dirForHuman := dir
 	parts := strings.SplitAfter(dir, string(filepath.Separator))
 	if len(parts) > 3 {
@@ -54,9 +50,10 @@ func (self *DefaultValidateProject) Exec(config *ApplicationConfig,
 		dirForHuman = filepath.Join(parts...)
 	}
 	log.Debug("Using DefaultProjectValidator in %s", dirForHuman)
-	names := []string{"client", "public", "src"}
-	for _, n := range names {
-		if !self.verifyFSEntry(log, true, dir, n) {
+	names := []string{"client", "public", "src", "app.json"}
+	directory := []bool{true, true, true, false}
+	for i, n := range names {
+		if !self.verifyFSEntry(log, directory[i], dir, n) {
 			log.Error("failed to find %s/%s: invalid project", dir, n)
 			return &ValidateProjectResult{ErrorResult()}
 		}

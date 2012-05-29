@@ -5,7 +5,6 @@ import (
 	"strings"
 	"path/filepath"
 	"bytes"
-	"fmt"
 	"launchpad.net/gocheck"
 )
 
@@ -16,10 +15,8 @@ func FindTestDataPath(c *gocheck.C, comp...string) string {
 	dirs:= strings.Split(os.Getenv("GOPATH"),string(filepath.ListSeparator))
 	userPart:=filepath.Join(comp...)
 	path := filepath.Join("testdata",userPart)
-	fmt.Printf("looking for path: %s\n",path)
 	for _,d:= range(dirs) {
 		candidate := filepath.Join(d,path)
-		fmt.Printf("candidate: %s\n",candidate)
 		if _,err:=os.Stat(candidate); err==nil {
 			return candidate
 		}

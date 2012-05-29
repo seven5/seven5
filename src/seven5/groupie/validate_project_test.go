@@ -23,15 +23,13 @@ func (self *S) SetUpSuite(c *C) {
 
 func (self *S) TestValidator(c *C) {
 	checkList := []bool{ true, false, false, false}
+	vp := &DefaultValidateProject{}
+	
 	for i, check := range(checkList) {
-		args := &ValidateProjectArgs{}
-		cmd := &Command{
-			AppDirectory:util.FindTestDataPath(c,"projectvalidator",
+		raw := vp.Exec("ignored", util.FindTestDataPath(c,"projectvalidator",
 				fmt.Sprintf("testproj%d",i+1)),
-			Name:  VALIDATEPROJECT }
-		validator := &DefaultValidateProjectImpl{}
-		result:=validator.Validate(cmd,args,self.logger)
-		
+				nil, nil, self.logger)
+		result := raw.(*ValidateProjectResult)	
 		//we reverse the logic because we are checking for the *error* flag
 		if check {
 			c.Check(result.Error, Equals, false)

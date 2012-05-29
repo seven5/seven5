@@ -15,8 +15,9 @@ type ProcessControllerResult struct {
 type DefaultProcessController struct {
 }
 
-func (self *DefaultProcessController) Exec(config *ApplicationConfig,
-	request *http.Request, log util.SimpleLogger) interface{} {
+func (self *DefaultProcessController) Exec(name string, dir string,
+	config *ApplicationConfig, request *http.Request, 
+	log util.SimpleLogger) interface{} {
 
 	return &ProcessControllerResult{ErrorResult()}
 }

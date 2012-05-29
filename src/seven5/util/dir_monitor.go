@@ -3,7 +3,6 @@ package util
 import (
 	"os"
 	"strings"
-	"fmt"
 )
 
 //Receiver for directory change events
@@ -42,7 +41,6 @@ func (dirMon *DirectoryMonitor) changed(file os.FileInfo, poll []os.FileInfo) bo
 
 func (dirMon *DirectoryMonitor) Poll() (changed bool, err error) {
 	var dir *os.File
-	fmt.Printf("POLL!\n")
 	dir, err = os.Open(dirMon.Path)
 	if err != nil {
 		return

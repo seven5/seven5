@@ -21,8 +21,9 @@ type EchoResult struct {
 type DefaultEcho struct {
 }
 
-func (self *DefaultEcho) Exec(config *ApplicationConfig, request *http.Request, 
-		log util.SimpleLogger) interface{} { 
+func (self *DefaultEcho) Exec(ignored1 string, ignored2 string,
+	config *ApplicationConfig, request *http.Request, 
+	log util.SimpleLogger) interface{} { 
 
 	log.Info("this is a log message from the echo groupie");
 	
