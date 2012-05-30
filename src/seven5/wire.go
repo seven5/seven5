@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"seven5/groupie"
 	"seven5/util"
 	"strings"
 )
@@ -25,9 +24,9 @@ type wireStub func(http.ResponseWriter, string,
 //simulate const map
 func STUBS() map[string]wireStub {
 	return map[string]wireStub{
-		groupie.ECHO: echoStub,
-		groupie.VALIDATEPROJECT: validateProjectStub,
-		groupie.PROCESSCONTROLLER: processControllerStub,
+		ECHO: echoStub,
+		VALIDATEPROJECT: validateProjectStub,
+		PROCESSCONTROLLER: processControllerStub,
 	}
 }
 
@@ -42,7 +41,7 @@ func NewWire(path string) *Wire {
 //puts errors in the log connected to this response writer.
 func (self *Wire) Dispatch(cmd string, writer http.ResponseWriter,
 	request *http.Request, logger util.SimpleLogger) *http.Response {
-	var cfg *groupie.ApplicationConfig
+	var cfg *ApplicationConfig
 	var jsonBlob string
 	//marshalling for requset is special, not using standard json path
 	req := util.MarshalRequest(request, logger)
@@ -66,7 +65,7 @@ func echoStub(writer http.ResponseWriter,jsonBlob string, logger util.SimpleLogg
 	// 
 	// RESULTS
 	//
-	result := groupie.EchoResult{}
+	result := EchoResult{}
 	dec := json.NewDecoder(strings.NewReader(jsonBlob))
 	dec.Decode(&result)
 	if result.Error {
@@ -97,7 +96,7 @@ func validateProjectStub(writer http.ResponseWriter,
 	// 
 	// RESULTS
 	//
-	result := groupie.ValidateProjectResult{}
+	result := ValidateProjectResult{}
 	dec := json.NewDecoder(strings.NewReader(jsonBlob))
 	dec.Decode(&result)
 	if result.Error {
@@ -123,13 +122,13 @@ func (self *Wire) runSeven5(name string, dir string, config string,
 	shellCommand := exec.Command(self.path, name, dir, config, browserReq)
 	out, err := shellCommand.CombinedOutput()
 	allOutput := string(out)
-	index := strings.Index(allOutput, groupie.MARKER)
+	index := strings.Index(allOutput, MARKER)
 	if index < 0 {
 		logger.Error("got some bad out putfrom seven5:")
 		logger.DumpTerminal(allOutput)
 		return ""
 	}
-	pos := len(groupie.MARKER) + index
+	pos := len(MARKER) + index
 	logMsg := allOutput[pos:]
 	marshalledText := allOutput[:index]
 
@@ -156,7 +155,7 @@ func (self *Wire) HaveSeven5() bool {
 
 //marshal is called to create the two bunches of json that we need to
 //talk to seven5
-func (self *Wire) marshal(cfg *groupie.ApplicationConfig,
+func (self *Wire) marshal(cfg *ApplicationConfig,
 	req *util.BrowserRequest, logger util.SimpleLogger) (string, string) {
 	var cfgBuffer bytes.Buffer
 	var reqBuffer bytes.Buffer

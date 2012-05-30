@@ -1,13 +1,11 @@
 {
 	"AppName"               : "hellorest"
-	
-	"UserDataTypeName"      : "MyStruct"
-	"DartCompiler"          : "frogc"      
+	"DartCompilerPath"      : "frogc"      
 }
 
+/* No more than one copy of the UserConfig struct will be read.*/
 {
-/* user data section goes here... see hellorest.go, MyStruct */
-	"Foo" : -42
-	"Bar" : "The speed of non-working program is irrelevant."
-	"Baz" : 0.333
+	"Foo" : 7,
+	"Bar" : "I wish the world was flat the old days...",
+	"Baz" : 3.14159
 }

@@ -1,4 +1,4 @@
-package groupie
+package seven5
 
 import (
 	"os"
@@ -59,6 +59,42 @@ func (self *DefaultValidateProject) Exec(ignored1 string,
 		}
 	}
 
+	//ok, top level passed ok, let's ready in the app.json
+	cfg, err := decodeAppConfig(dir)
+	if err!=nil {
+		log.Error("Error reading app configuration file %s: %s",
+			dir,err.Error())
+		return &ValidateProjectResult{ErrorResult()}
+	}
+	
+	//check the parent dir, src subdir, and .go entry point based on config
+	parent:=filepath.Dir(dir)
+	if !self.verifyFSEntry(log, true, parent, cfg.AppName) {
+		log.Error("cant find expected app root directory %s/%s",parent,cfg.AppName) 
+		return &ValidateProjectResult{ErrorResult()}
+	}
+
+	if filepath.Base(dir)!=cfg.AppName {
+		log.Error("root directory is %s but expected %s", filepath.Base(dir),
+			cfg.AppName);
+		return &ValidateProjectResult{ErrorResult()}
+	}
+	
+	src:=filepath.Join(dir,"src")
+	if !self.verifyFSEntry(log, true, src, cfg.AppName) {
+		log.Error("to build properly with go tools, src should have subdirectory %s",
+			cfg.AppName)
+		return &ValidateProjectResult{ErrorResult()}
+	}
+	
+	codeDir := filepath.Join(src,cfg.AppName)
+	goFile := cfg.AppName + ".go"
+	if !self.verifyFSEntry(log, false, codeDir, goFile) {
+		log.Error("can't find app main entry point, expected it to be %s",
+			filepath.Join(codeDir,goFile))
+		return &ValidateProjectResult{ErrorResult()}
+	}	
+	
 	//everything is ok so we return no error
 	return &ValidateProjectResult{}
 }

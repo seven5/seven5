@@ -1,4 +1,4 @@
-package groupie
+package seven5
 
 import (
 	"bytes"
@@ -22,13 +22,6 @@ type CommandResult struct {
 	ProcessingTime time.Duration
 }
 
-//ApplicationConfig is read from the app.json file and passed to every 
-//command.
-type ApplicationConfig struct {
-	AppName          string
-	DartCompiler     string
-	UserDataTypeName string
-}
 
 //ErrorResult cerates a result that has an error in it.
 func ErrorResult() CommandResult {

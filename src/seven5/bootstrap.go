@@ -12,7 +12,7 @@ import (
 
 //simulate const array
 func DEFAULT_IMPORTS() []string {
-	return []string{"fmt", "seven5/groupie", "os"}
+	return []string{"fmt", "seven5", "os"}
 }
 
 // Bootstrap is responsible for buliding the current seven5 executable
@@ -50,7 +50,7 @@ func (self *bootstrap) configureSeven5(dir string) groupieConfig {
 	var err error
 	var result groupieConfig
 
-	groupieJson, err = findGroupieConfigFile(dir)
+	groupieJson, err = util.ReadIntoString(dir, GROUPIE_CONFIG_FILE)
 	if err != nil {
 		self.logger.Error("unable find or open the groupies config:%s", err)
 		return nil
@@ -95,7 +95,7 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 	//walk all the configed groupies
 	for k,v := range config {
 		setStatement.WriteString(fmt.Sprintf(
-			"\tgroupie.Seven5app[groupie.%s]=&%s{}\n",
+			"\tseven5.Seven5app[seven5.%s]=&seven5.%s{}\n",
 			strings.ToUpper(k),v.TypeName))
 	}
 	
@@ -126,7 +126,7 @@ func main() {
 		os.Exit(1)
 	}
 	//double percent bceause run through sprintf twice
-	fmt.Fprintf(os.Stdout,"%%s\n",groupie.RunCommand(os.Args[1], 
+	fmt.Fprintf(os.Stdout,"%%s\n",seven5.RunCommand(os.Args[1], 
 		os.Args[2], os.Args[3], os.Args[4]))
 	os.Stdout.Sync()
 }

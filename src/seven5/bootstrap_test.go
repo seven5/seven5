@@ -4,7 +4,6 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"os"
-	"seven5/groupie"
 	"seven5/util"
 	"strings"
 	"testing"
@@ -28,7 +27,7 @@ func (self *S) TestGroupieConfig(c *C) {
 	t1 := util.ReadTestData(c, "groupieconfig", "test1.json")
 	ur := util.ReadTestData(c, "groupieconfig", "test-unknown-role.json")
 
-	roleName := groupie.VALIDATEPROJECT
+	roleName := VALIDATEPROJECT
 
 	conf, err := parseGroupieConfig(t1)
 	c.Assert(err, IsNil)

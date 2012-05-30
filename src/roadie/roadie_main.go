@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"seven5"
-	"seven5/groupie"
 	"seven5/util"
 	"time"
 )
@@ -108,7 +107,7 @@ func checkListeners(writer http.ResponseWriter, request *http.Request, logger ut
 	}
 	if cfg.appConfig {
 		logger.Debug("app.json has been changed, validating your app...")
-		wire.Dispatch(groupie.VALIDATEPROJECT, writer, request, logger)
+		wire.Dispatch(seven5.VALIDATEPROJECT, writer, request, logger)
 		
 		//verify that the new layout and application config are ok
 		//read in application config
@@ -136,7 +135,7 @@ func canVerifyWire(force bool, writer http.ResponseWriter, request *http.Request
 func echo(writer http.ResponseWriter, request *http.Request) {
 	logger:=util.NewHtmlLogger(util.DEBUG, true, writer, true)
 	if canVerifyWire(false, writer,request,logger) {
-		wire.Dispatch(groupie.ECHO, writer, request, logger)
+		wire.Dispatch(seven5.ECHO, writer, request, logger)
 	}
 }
 

@@ -1,14 +1,10 @@
 package seven5
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"seven5/groupie"
 	"seven5/util"
 	"strings"
 )
@@ -20,17 +16,17 @@ const (
 //substitute for constant array
 func MANDATORY_ROLES() []string {
 	return []string{
-		groupie.VALIDATEPROJECT,
-		groupie.PROCESSCONTROLLER,
+		VALIDATEPROJECT,
+		PROCESSCONTROLLER,
 	}
 }
 
 //substitute for constant array
 func ALL_ROLES() []string {
 	return []string{
-		groupie.VALIDATEPROJECT,
-		groupie.ECHO,
-		groupie.PROCESSCONTROLLER,
+		VALIDATEPROJECT,
+		ECHO,
+		PROCESSCONTROLLER,
 	}
 }
 
@@ -91,34 +87,6 @@ func parseGroupieConfig(jsonBlob string) (groupieConfig, error) {
 			GROUPIE_CONFIG_FILE, possible.AllValues()))
 	}
 	return result, nil
-}
-
-//findGroupieConfigFile returns a String with the contents of the config file
-//in the current directory.  Pass "" to have use current working dir.
-func findGroupieConfigFile(cwd string) (string, error) {
-	var err error
-	var file *os.File
-
-	//get cwd typically of groupie
-	if cwd == "" {
-		if cwd, err = os.Getwd(); err != nil {
-			return "", err
-		}
-	}
-
-	configPath := filepath.Join(cwd, "groupies.json")
-
-	if file, err = os.Open(configPath); err != nil {
-		return "", err
-	}
-
-	var jsonBuffer bytes.Buffer
-	if _, err = jsonBuffer.ReadFrom(file); err != nil {
-		return "", err
-	}
-
-	return jsonBuffer.String(), nil
-
 }
 
 // getGroupies is called to read a set of groupie values

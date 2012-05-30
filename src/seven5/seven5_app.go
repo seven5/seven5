@@ -1,4 +1,4 @@
-package groupie
+package seven5
 
 //all commands
 const (
