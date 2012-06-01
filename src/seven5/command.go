@@ -4,28 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"seven5/util"
 	"strings"
-	"net/http"
-	"time"
 )
 
 const MARKER = "@@@+++@@@"
 
-//CommandResult is the shared portion of all results coming back from Seven5.
-//All results from Seven5 are either CommandResult or a struct that includes
-//it.
-type CommandResult struct {
+//CommandResult is returned only when there has been a trapped panic.
+type PanicResult struct {
 	Error          bool
 	Panic          bool
-	TipMsg         string
-	ProcessingTime time.Duration
-}
-
-
-//ErrorResult cerates a result that has an error in it.
-func ErrorResult() CommandResult {
-	return CommandResult{Error: true}
 }
 
 //Command represents the way to talk to command inside seven5.  The
@@ -38,7 +27,7 @@ type Command interface {
 	//parameters will have be unmarshallled and the return value
 	//will be marshalled for transmission back to roadie.
 	Exec(name string, cwd string,
-		config *ApplicationConfig, request *http.Request, 
+		config *ApplicationConfig, request *http.Request,
 		log util.SimpleLogger) interface{}
 }
 
@@ -51,51 +40,68 @@ func RunCommand(commandName string, dir string, configJson string, reqJson strin
 	var resultBuffer bytes.Buffer
 	var logdataBuffer bytes.Buffer
 
-	logger := util.NewHtmlLogger(util.DEBUG, true, &logdataBuffer, false)
+	logger := util.NewHtmlLogger(util.DEBUG, &logdataBuffer, false)
 
 	//requests have to be treated specilaly, not using the "normal" path
 	//of json decoding
-	req := util.UnmarshalRequest(reqJson, logger)
+	req, err := util.UnmarshalRequest(reqJson, logger)
+	if err!=nil {
+		logger.Error("Error decoding request structure inside seven5!")
+		ret = createResultString(nil,logdataBuffer)
+		return
+	}
 
 	//decode the app config
 	decoder := json.NewDecoder(strings.NewReader(configJson))
-	decoder.Decode(&config)
+	err=decoder.Decode(&config)
+	if err!=nil {
+		logger.Error("Error decoding application config inside seven5!")
+		ret = createResultString(nil,logdataBuffer)
+		return
+	}
 
 	//prep encoder
 	encoder := json.NewEncoder(&resultBuffer)
 
-	//time the processing
-	start := time.Now()
-
 	defer func() {
 		if rec := recover(); rec != nil {
-			var r CommandResult
-			r.Error = true
-			r.Panic = true
-			r.ProcessingTime = time.Since(start)
 			var b bytes.Buffer
-			b.WriteString("Trapped a panic in command processing:\n")
 			for _, i := range []int{4, 5, 6, 7} {
 				file, line := util.GetCallerAndLine(i)
 				b.WriteString(fmt.Sprintf("%s:%d\n", file, line))
 			}
-			logger.DumpTerminal(b.String())
-			encoder.Encode(&r)
-			ret = resultBuffer.String() + MARKER + logdataBuffer.String()
+			logger.DumpTerminal(util.ERROR, "Trapped 'Panic' processing command",
+				b.String())
+			ret = createResultString(nil, logdataBuffer)
 		}
 	}()
 
 	cmd, ok := Seven5app[commandName]
 	if ok {
 		resultStruct := cmd.Exec(commandName, dir, &config, req, logger)
-		encoder.Encode(resultStruct)
+		err := encoder.Encode(resultStruct)
+		if err != nil {
+			logger.Error("Error encoding result: %s", err)
+			ret = createResultString(nil, logdataBuffer)
+			return
+		}
 	} else {
-		var myRes CommandResult
-		myRes.Error = true
-		myRes.ProcessingTime = time.Since(start)
-		logger.Error("unknown command to seven5:%s", commandName)
-		encoder.Encode(&myRes)
+		logger.Error("unknown command to seven5:'%s'", commandName)
+		ret = createResultString(nil, logdataBuffer)
+		return
 	}
-	ret = resultBuffer.String() + MARKER + logdataBuffer.String()
+	logger.Debug("command '%s' ran to completion, size of marshalled result %d bytes", 
+		commandName, resultBuffer.Len())
+	ret = createResultString(&resultBuffer,logdataBuffer)
 	return
+}
+
+func createResultString(resultBuffer *bytes.Buffer, logDataBuffer bytes.Buffer) string {
+	logData := logDataBuffer.String()
+	result := ""
+	if resultBuffer!=nil {
+		result = resultBuffer.String()
+	}
+	return result + MARKER + logData
+	
 }

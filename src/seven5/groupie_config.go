@@ -2,9 +2,6 @@ package seven5
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
 	"seven5/util"
 	"strings"
 )
@@ -12,23 +9,6 @@ import (
 const (
 	GROUPIE_CONFIG_FILE = "groupie.json"
 )
-
-//substitute for constant array
-func MANDATORY_ROLES() []string {
-	return []string{
-		VALIDATEPROJECT,
-		PROCESSCONTROLLER,
-	}
-}
-
-//substitute for constant array
-func ALL_ROLES() []string {
-	return []string{
-		VALIDATEPROJECT,
-		ECHO,
-		PROCESSCONTROLLER,
-	}
-}
 
 // Groupie plays a role in the system. These roles are well defined and
 // bound to structures that will be passed to the groupie playing that
@@ -45,6 +25,10 @@ type GroupieInfo struct {
 	ImportsNeeded []string
 }
 
+type GroupieWrapper struct {
+	GroupieConfig []Groupie
+}
+
 //GroupieConfig is the result of parsing the json.
 type groupieConfig map[string]*GroupieInfo
 
@@ -52,39 +36,13 @@ type groupieConfig map[string]*GroupieInfo
 //It returns an error if you don't supply a sensible configuration.
 func parseGroupieConfig(jsonBlob string) (groupieConfig, error) {
 	result := make(map[string]*GroupieInfo)
-	mandatory := util.NewBetterList()
-	for _, k := range MANDATORY_ROLES() {
-		mandatory.PushBack(k)
-	}
-	possible := util.NewBetterList()
-	for _, k := range ALL_ROLES() {
-		possible.PushBack(k)
-	}
 	dec := json.NewDecoder(strings.NewReader(jsonBlob))
-	for {
-		var groupie Groupie
-		if err := dec.Decode(&groupie); err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, errors.New(fmt.Sprintf("Cannot understand JSON in %s",
-				GROUPIE_CONFIG_FILE))
-		}
-		//basic sanity check
-		if !possible.Contains(groupie.Role) {
-			return nil, errors.New(fmt.Sprintf("Reading %s and found unknown groupie role: %s",
-				GROUPIE_CONFIG_FILE, groupie.Role))
-		}
-		if !possible.Contains(groupie.Role) {
-			return nil, errors.New(fmt.Sprintf("Reading %s and found groupie role multiple times: %s",
-				GROUPIE_CONFIG_FILE, groupie.Role))
-		}
-		result[groupie.Role] = &groupie.Info
-		possible.RemoveValue(groupie.Role)
-		mandatory.RemoveValue(groupie.Role)
-	}
-	if mandatory.Len() != 0 {
-		return nil, errors.New(fmt.Sprintf("Reading %s did not find all mandatory roles: %s",
-			GROUPIE_CONFIG_FILE, possible.AllValues()))
+	var wrapper GroupieWrapper
+	if err := dec.Decode(&wrapper); err != nil {
+		return nil, err
+	} 
+	for _, raw := range wrapper.GroupieConfig {
+		result[raw.Role] = &GroupieInfo{raw.Info.TypeName, raw.Info.ImportsNeeded}
 	}
 	return result, nil
 }

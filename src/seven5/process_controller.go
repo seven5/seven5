@@ -8,7 +8,7 @@ import (
 //ProcessControllerResult is the result type of a call on the ProcessController plugin.
 //Must be public for json encoding.
 type ProcessControllerResult struct {
-	CommandResult
+	Error bool
 }
 
 // Default echo plugin just prints unformatted version of what you sent
@@ -19,5 +19,5 @@ func (self *DefaultProcessController) Exec(name string, dir string,
 	config *ApplicationConfig, request *http.Request, 
 	log util.SimpleLogger) interface{} {
 
-	return &ProcessControllerResult{ErrorResult()}
+	return &ProcessControllerResult{Error: true}
 }

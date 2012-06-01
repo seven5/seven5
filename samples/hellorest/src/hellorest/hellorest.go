@@ -1,7 +1,7 @@
 package hellorest
 
 import (
-
+	"seven5"
 )
 
 //This will be detected and filled as a parameter to your start func.
@@ -15,5 +15,5 @@ type UserConfig struct {
 
 //Start is called by seven5 to intialize your app. The second parameter
 //will be of type *UserConfigStruct if you have one.
-func start(app *AppConfig, user *UserConfig) {
+func start(app *seven5.ApplicationConfig, user *UserConfig) {
 }

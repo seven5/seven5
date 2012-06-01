@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"seven5/util"
-	"time"
-	"strings"
 	"path/filepath"
+	"seven5/util"
+	"strings"
+	"time"
 )
 
 //simulate const array
@@ -25,20 +25,20 @@ type bootstrap struct {
 //Bootstrap is invoked from the roadie to tell us that the user wants to 
 //try to build and run their project.  Normally, this results in a new
 //Seven5 excutabel.
-func Bootstrap(writer  http.ResponseWriter,request *http.Request,
+func Bootstrap(writer http.ResponseWriter, request *http.Request,
 	logger util.SimpleLogger) string {
-	
+
 	start := time.Now()
-	
-	b:=&bootstrap{request, logger}	
-	config:=b.configureSeven5("")
-	if config!=nil {
-		result:= b.takeSeven5Pill(config)
-		delta:=time.Since(start)
-		logger.Info("Rebuilding seven5 took %s",delta.String())
-		return result		
+
+	b := &bootstrap{request, logger}
+	config := b.configureSeven5("")
+	if config != nil {
+		result := b.takeSeven5Pill(config)
+		delta := time.Since(start)
+		logger.Info("Rebuilding seven5 took %s", delta.String())
+		return result
 	}
-	
+
 	return ""
 }
 
@@ -51,21 +51,21 @@ func (self *bootstrap) configureSeven5(dir string) groupieConfig {
 	var result groupieConfig
 
 	groupieJson, err = util.ReadIntoString(dir, GROUPIE_CONFIG_FILE)
+		
 	if err != nil {
 		self.logger.Error("unable find or open the groupies config:%s", err)
 		return nil
 	}
+	self.logger.DumpJson(util.DEBUG, "Groupie configuration", groupieJson)
+
 	if result, err = getGroupies(groupieJson, self.logger); err != nil {
-		self.logger.Debug("Groupies configuration:")
-		self.logger.DumpJson(groupieJson)
-		self.logger.Error("could not understand groupies.json! aborting!")
+		self.logger.DumpJson(util.ERROR,"Groupie configuration", groupieJson)
+		self.logger.Error("could not understand groupie.json! aborting!")
 		return nil
 	}
 
 	return result
 }
-
-
 
 //takeSeven5 generates the pill in a temp directory and compiles it.  It returns
 //the name of the new seven5 command or "" if it failed.
@@ -74,6 +74,7 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 	var errText string
 	var imports bytes.Buffer
 	var setStatement bytes.Buffer
+	var err error
 	
 	seen := util.NewBetterList()
 	for _, i := range DEFAULT_IMPORTS() {
@@ -93,25 +94,32 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 	}
 
 	//walk all the configed groupies
-	for k,v := range config {
+	for k, v := range config {
 		setStatement.WriteString(fmt.Sprintf(
-			"\tseven5.Seven5app[seven5.%s]=&seven5.%s{}\n",
-			strings.ToUpper(k),v.TypeName))
+			"\tseven5.Seven5app[seven5.%s]=&%s{}\n",
+			strings.ToUpper(k), v.TypeName))
 	}
-	
+
 	mainCode := fmt.Sprintf(seven5pill,
 		imports.String(),
 		setStatement.String())
 
-	if cmd, errText = util.CompilePill(mainCode, self.logger); cmd == "" {
-		self.logger.DumpTerminal(mainCode)
-		self.logger.DumpTerminal(errText)
-		self.logger.Error("Unable to compile the seven5pill! Your plugins must be bogus!")
+	self.logger.DumpTerminal(util.DEBUG, "Main code for seven5 pill", mainCode)
+
+	if cmd, errText, err = util.CompilePill(mainCode, self.logger); cmd == "" {
+		self.logger.DumpTerminal(util.ERROR, "Bogus seven5 pill code", mainCode)
+		if errText!="" {
+			self.logger.DumpTerminal(util.ERROR, "Unable to compile the seven5pill!",
+				errText)
+		}
+		if err!=nil {
+			self.logger.Error("Internal seven5 error: %s",err)
+		}
 		return ""
 	}
-	path := strings.Split(cmd,string(filepath.Separator))
+	path := strings.Split(cmd, string(filepath.Separator))
 	self.logger.Info("Seven5 is now [tmpdir]/%s", path[len(path)-1])
-	
+
 	return cmd
 }
 
@@ -121,7 +129,7 @@ package main
 %s
 
 func main() {
-	%s
+%s
 	if len(os.Args)<5 {
 		os.Exit(1)
 	}

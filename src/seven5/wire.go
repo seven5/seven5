@@ -3,12 +3,14 @@ package seven5
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"seven5/util"
 	"strings"
+	"time"
 )
 
 //Wire represents the way to talk to a seven5 program. It handles marshalling
@@ -17,18 +19,41 @@ type Wire struct {
 	path string
 }
 
-//wireStubs are the proxies for various commands
-type wireStub func(http.ResponseWriter, string, 
-	util.SimpleLogger) *http.Response
-
-//simulate const map
-func STUBS() map[string]wireStub {
-	return map[string]wireStub{
-		ECHO: echoStub,
-		VALIDATEPROJECT: validateProjectStub,
-		PROCESSCONTROLLER: processControllerStub,
-	}
+//wireStubs are the proxies for various commands that will run in the other
+//process
+type wireStub struct {
+	result         func() interface{}
+	resultHasError func(interface{}) bool
+	resultBody     func(interface{}) string
 }
+
+//stubs is a constant map that just does some type conversions.  This is here
+//primarily to isolate the one necessary checked conversion for each type of
+//result.
+var (
+	STUBS = map[string]*wireStub{
+		ECHO: &wireStub{func() interface{} { return &EchoResult{} },
+			func(v interface{}) bool { return v.(*EchoResult).Error },
+			func(v interface{}) string { return v.(*EchoResult).Body }},
+		VALIDATEPROJECT: &wireStub{func() interface{} { return &ValidateProjectResult{} },
+			func(v interface{}) bool { return v.(*ValidateProjectResult).Error }, 
+			nil},
+		PROCESSCONTROLLER: &wireStub{func() interface{} { return &ProcessControllerResult{} },
+			func(v interface{}) bool { return v.(*ProcessControllerResult).Error }, 
+			nil},
+		PROCESSVOCAB: &wireStub{func() interface{} { return &ProcessVocabResult{} },
+			func(v interface{}) bool { return v.(*ProcessVocabResult).Error }, 
+			nil},
+		BUILDUSERLIB: &wireStub{func() interface{} { return &BuildUserLibResult{} },
+			func(v interface{}) bool { return v.(*BuildUserLibResult).Error }, 
+			nil},
+		EXPLODETYPE: &wireStub{func() interface{} { return &ExplodeTypeResult{} },
+			func(v interface{}) bool { return v.(*ExplodeTypeResult).Error }, 
+			nil},
+	}
+	WIRE_SEMANTIC_ERROR = errors.New("Semantic error in seven5 command")
+	WIRE_PROCESS_ERROR  = errors.New("Unable to run the seven5 command")
+)
 
 //NewWire creates a new Wire instance.  It is ok to pass it "" as the path
 //to the seven5 executable because it understands how to generate errors in
@@ -37,120 +62,108 @@ func NewWire(path string) *Wire {
 	return &Wire{path}
 }
 
-//Dispatch is called to invoke a command.  It returns nothing because it
-//puts errors in the log connected to this response writer.
-func (self *Wire) Dispatch(cmd string, writer http.ResponseWriter,
-	request *http.Request, logger util.SimpleLogger) *http.Response {
+//Dispatch is called to invoke a command.  It is called to run a stub
+//then decode the results.
+func (self *Wire) Dispatch(cmd string, dir string, writer http.ResponseWriter,
+	request *http.Request, logger util.SimpleLogger) error {
 	var cfg *ApplicationConfig
+	var req *util.BrowserRequest
 	var jsonBlob string
-	//marshalling for requset is special, not using standard json path
-	req := util.MarshalRequest(request, logger)
+	var err error
+
+	start:=time.Now()
 	
-	//calculate response, if any
-	cfgBlob, reqBlob := self.marshal(cfg, req, logger)
-	if jsonBlob = self.runSeven5(cmd, "", cfgBlob, reqBlob, logger); jsonBlob == "" {
-		return nil
+	//figure out app config... don't really need this but it is better for
+	//safety to check it again here
+	cfg, err = decodeAppConfig(dir)
+
+	//marshalling for requset is special, not using standard json path
+	if req, err = util.MarshalRequest(request, logger); err!=nil {
+		return err
 	}
 	
+	//marshal the BrowserRequest and config to json
+	cfgBlob, reqBlob := self.marshal(cfg, req, logger)
+	
+	msg:=fmt.Sprintf("Configuration blob for '%s'", cmd)
+	logger.DumpJson(util.DEBUG, msg, cfgBlob)
+	msg=fmt.Sprintf("Request blob for '%s'", cmd)
+	logger.DumpJson(util.DEBUG, msg, reqBlob)
+	logger.Debug("Working directory for '%s': %s", cmd, dir)
+
+	defer func() {
+		diff:=time.Since(start)
+		logger.Info("Command '%s' took %s", cmd,diff)
+	}()
+		
+	if jsonBlob = self.runSeven5(cmd, dir, cfgBlob, reqBlob, logger); jsonBlob == "" {
+		return WIRE_PROCESS_ERROR
+	}
 	//need to handle the custom results
-	stub := STUBS()[cmd]
-	response := stub(writer, jsonBlob, logger)
-
-	return response
-}
-
-//echo does the marshal/unmarshal pir for echo plugin
-func echoStub(writer http.ResponseWriter,jsonBlob string, logger util.SimpleLogger) *http.Response {
-	var err error
-	// 
-	// RESULTS
-	//
-	result := EchoResult{}
+	result := STUBS[cmd].result()
 	dec := json.NewDecoder(strings.NewReader(jsonBlob))
-	dec.Decode(&result)
-	if result.Error {
-		logger.Debug("here is marshalled result from seven5:")
-		logger.DumpJson(jsonBlob)
+	if err = dec.Decode(result); err != nil {
+		msg= fmt.Sprintf("unable to understand json from seven5:%s", err)
+		logger.DumpTerminal(util.ERROR, msg, jsonBlob)
+		return err
+	}
+	logger.DumpJson(util.DEBUG, "Json result from seven5", jsonBlob)
+	if STUBS[cmd].resultHasError(result) {
+		msg = fmt.Sprintf("failure reported by seven5 in command '%s'", cmd)
+		logger.DumpJson(util.ERROR, msg, jsonBlob)
+		return WIRE_SEMANTIC_ERROR
 	} else {
-		_, err = writer.Write([]byte(result.Body))
-		if err != nil {
-			//not sure what to do here
-			fmt.Fprintf(os.Stdout, "Problems with writing to HTTP output: %s\n",
-				err.Error())
+		if STUBS[cmd].resultBody != nil {
+			body := STUBS[cmd].resultBody(result)
+			_, err = writer.Write([]byte(body))
+			if err != nil {
+				//not sure what to do here
+				fmt.Fprintf(os.Stdout, "Problems with writing to HTTP output: %s\n",
+					err.Error())
+				return err
+			}
 		}
 	}
-	return &result.Response
 
-}
-
-//processController gets the response to a rpocess controller
-func processControllerStub(writer http.ResponseWriter,
-	jsonBlob string, logger util.SimpleLogger) *http.Response {
 	return nil
 }
 
-//validateProject handles the response to to validate proj
-func validateProjectStub(writer http.ResponseWriter,
-	jsonBlob string, logger util.SimpleLogger) *http.Response {
-
-	// 
-	// RESULTS
-	//
-	result := ValidateProjectResult{}
-	dec := json.NewDecoder(strings.NewReader(jsonBlob))
-	dec.Decode(&result)
-	if result.Error {
-		logger.Debug("here is marshalled result from seven5:")
-		logger.DumpJson(jsonBlob)
-	}
-	return nil
-}
-
-//runProcess is called to take the two bunches of json arguments and invoke
+//runSeven5 is called to take the two bunches of json arguments and invoke
 //the process of Seven5 with those. It captures the output of the process
 //and returns the marshalled result that it got from stdout.
 func (self *Wire) runSeven5(name string, dir string, config string,
 	browserReq string, logger util.SimpleLogger) string {
 	var err error
 
-	if dir == "" {
-		if dir, err = os.Getwd(); err != nil {
-			logger.Panic("unable to get the current working dir: %s", err)
-		}
-	}
-	
 	shellCommand := exec.Command(self.path, name, dir, config, browserReq)
 	out, err := shellCommand.CombinedOutput()
 	allOutput := string(out)
 	index := strings.Index(allOutput, MARKER)
 	if index < 0 {
-		logger.Error("got some bad out putfrom seven5:")
-		logger.DumpTerminal(allOutput)
+		logger.DumpTerminal(util.ERROR, "Bad output received from seven5",allOutput)
 		return ""
 	}
 	pos := len(MARKER) + index
 	logMsg := allOutput[pos:]
 	marshalledText := allOutput[:index]
-
-	if err != nil {
-		logger.Debug("Error running seven5! here are the arguments we sent after '%s' and '%s'",
-			name,dir)
-		logger.DumpJson(config)
-		logger.DumpJson(browserReq)
+	if err != nil || badMarshalledText(marshalledText) {
 		logger.Raw(logMsg)
-		logger.Error("error running command %s was %s", name, err.Error())
+		if badMarshalledText(marshalledText) {
+			logger.Error("internal seven5 error running command %s (no result from command)", name)
+		} else {
+			logger.Error("error running command %s was %s", name, err.Error())
+		}
 		return ""
 	}
-
 	logger.Raw(logMsg)
+
 	return marshalledText
 
 }
 
-//HaveSeven5 returns true if it currently has a seven5 binary to talk to.
-//This is false when there is a problem building seven5 itself.
-func (self *Wire) HaveSeven5() bool {
-	return self.path != ""
+func badMarshalledText(s string) bool {
+	blob := strings.Trim(s," \t\n")
+	return blob=="" || blob=="{}"
 }
 
 //marshal is called to create the two bunches of json that we need to

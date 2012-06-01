@@ -5,24 +5,22 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"seven5"
 	"seven5/util"
 	"time"
 )
 
 //wire is our connection to the seven5 binary
-var wire *seven5.Wire
-var cfg *configWatcher
-var monitor *util.BetterList
+type roadieState struct {
+	cfg *configWatcher
+	src *sourceWatcher
+	haveLibrary bool
+	action *roadieAction //includes the wire
+}
+
+
 var workingDirectory string
 
-
-//this is the object used to watch the configuration files
-type configWatcher struct {
-	watched []string
-	appConfig bool
-	groupiesConfig bool
-}
+var state = &roadieState{}
 
 //main is the entry point of the roadie 
 func main() {
@@ -44,7 +42,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s: unable to get working directory: %s\n", os.Args[0], err)
 		return
 	}
+	
+	state.cfg, err = newConfigWatcher(workingDirectory)
+	if err!=nil {
+		fmt.Fprintf(os.Stderr, "%s: unable to create directory monitor on %s\n",
+			workingDirectory)
+		return
+	}
 
+	state.src, err = newSourceWatcher(workingDirectory)
+	if err!=nil {
+		fmt.Fprintf(os.Stderr, "%s: unable to create directory monitor on app source\n",
+			os.Args[0])
+		return
+	}
+	
+	state.action = &roadieAction{}
+	
 	modifiedGoPath := os.Getenv("GOPATH")+string(filepath.ListSeparator)+workingDirectory
 	if err = os.Setenv("GOPATH", modifiedGoPath); err!=nil {
 		fmt.Fprintf(os.Stderr, "%s: unable to set GOPATH: %s\n", os.Args[0], err)
@@ -70,123 +84,71 @@ func main() {
 		s.ListenAndServe().Error())
 }
 
-//checkListeners looks at all the listeners and if any of them indicate
-//something changed, takes action
-func checkListeners(writer http.ResponseWriter, request *http.Request, logger util.SimpleLogger) {
-	var err error
-	
-	if cfg==nil {
-		//setup the listeners for config files	
-		base := filepath.Base(workingDirectory)
-		cfg = newConfigWatcher(base)
-		var d *util.DirectoryMonitor
-		if d, err = util.NewDirectoryMonitor(workingDirectory,"json"); err!=nil {
-			fmt.Fprintf(os.Stderr, "%s: unable to create directory monitor: %s\n", os.Args[0], err)
-			return
-		}
-		fmt.Printf("----about to start listening\n")
-		d.Listen(cfg)
-		monitor= util.NewBetterList()
-		monitor.PushBack(d)
-		
-		//first time through, force a build
-		cfg.groupiesConfig = true
-		cfg.appConfig = true
-	} else {
-		cfg.groupiesConfig = false
-		cfg.appConfig = false
-		pollAllDirectories()
-	}
-			
-	//rebuild seven5 itself?
-	if cfg.groupiesConfig {
-		logger.Debug("groupies.json has been changed, rebuilding seven5...")
-		if !canVerifyWire(true, writer, request, logger) {
-			return
-		}
-	}
-	if cfg.appConfig {
-		logger.Debug("app.json has been changed, validating your app...")
-		wire.Dispatch(seven5.VALIDATEPROJECT, writer, request, logger)
-		
-		//verify that the new layout and application config are ok
-		//read in application config
-		//verify the app is ok
-	}
-}
-
-// canVerifyWire checks to see if we can connect to seven5.  we will fail
-// this if the seven5 execute is not or cannot be built.  returns true
-// if everything is ok for communication to the seven5 excutable.  You can
-// use force to be sure of an attempt to build--useful if you know things
-// are out of date.
-func canVerifyWire(force bool, writer http.ResponseWriter, request *http.Request, logger util.SimpleLogger) bool{
-	if force || wire==nil || !wire.HaveSeven5() {
-		currentSeven5 := seven5.Bootstrap(writer, request, logger)
-		wire = seven5.NewWire(currentSeven5)
-		if !wire.HaveSeven5() {
-			return false
-		}
-	}
-	return true
-}
-
-// echo is a simple groupie to be used an example
-func echo(writer http.ResponseWriter, request *http.Request) {
-	logger:=util.NewHtmlLogger(util.DEBUG, true, writer, true)
-	if canVerifyWire(false, writer,request,logger) {
-		wire.Dispatch(seven5.ECHO, writer, request, logger)
-	}
-}
 
 // called to build seven5 bythe roadie or by the user
 func build(writer http.ResponseWriter, request *http.Request) {
-	logger:=util.NewHtmlLogger(util.DEBUG, true, writer, true) 
-	fmt.Printf("hitting the listeners")
-	checkListeners(writer, request, logger)
-}
-
-
-//Ping all the monitors we have running right now so we can force updates
-func pollAllDirectories() {
-	for e := monitor.Front(); e != nil; e = e.Next() {
-		m := e.Value.(*util.DirectoryMonitor)
-		m.Poll()
+	firstPass:=false
+	builtSeven5:=false
+	
+	logger:=util.NewHtmlLogger(util.DEBUG, writer, true) 
+	//do we have a wire?
+	if state.action.wire==nil {
+		logger.Info("No seven5 built yet, building now")
+		firstPass=true
+		if !state.action.buildSeven5(writer, request, logger) {
+			return //can't build seven5
+		}
+		builtSeven5=true
 	}
-}
-
-
-//
-// configWatcher implementation for roadie
-//
-func newConfigWatcher(appName string) *configWatcher {
-	r:= &configWatcher{watched : []string{ "app.json", "groupies.json"}}
-	return r
-}
-
-func (self *configWatcher) checkChangeName(fileInfo os.FileInfo) {
-	fmt.Printf("filename is %s\n",fileInfo.Name())
-	for _, i := range self.watched {
-		if i == fileInfo.Name() {
-			switch i {
-				case "app.json":
-					self.appConfig=true
-				case "groupies.json":
-					self.groupiesConfig=true
-			}
+	//we now have a wire, do we need to rebuild anything because of config
+	//changes
+	appChanged, groupieChanged, err := state.cfg.poll(writer,request,logger)
+	if err!=nil {
+		return //some kind of io problem
+	}
+	//maybe they changed the seven5 app groupies?
+	if groupieChanged && !builtSeven5 {
+		logger.Info("Groupie.json configuration files changed, rebuilding seven5")
+		if !state.action.buildSeven5(writer,request,logger) {
+			return //can't build seven5
 		}
 	}
+	//at this point, seven5 has been updated if needed and we have a wire
+	//capable of actually reaching our executable
+	if appChanged || firstPass{
+		logger.Info("Validating that the project has the right project structure.")
+		if state.action.validateProject(workingDirectory, writer, request, logger)!=nil{
+			return //app does not check out abandon hope
+		}
+	}
+	//app in now in a sensible state, did the source code change?
+	source, err := state.src.pollAllSource(writer, request, logger)
+	if err!=nil {
+		return // can't read source dir or other IO problem
+	}
+	//loop until source has stopped changing
+	for source || !state.haveLibrary {
+		if !state.haveLibrary {
+			logger.Info("No library present, rebuilding")
+		}
+		if source {
+			logger.Info("Detected change to source code, building user library in %s", 
+				workingDirectory)
+		}
+		if state.action.buildUserLib(workingDirectory, writer, request, logger)!=nil {
+			return // can't build .a for user code
+		}
+		state.haveLibrary = true
+		//check again, might be another change
+		source, err = state.src.pollAllSource(writer, request, logger)
+		if err!=nil {
+			return // can't read source dir or other IO problem
+		}		
+	}
+	
+	if state.haveLibrary {
+		logger.Info("User library is ok.")
+	}
 }
 
-//
-// These three fns are for the API to the DirectoryMonitor
-//
-func (self *configWatcher) FileChanged(fileInfo os.FileInfo) {
-	self.checkChangeName(fileInfo)
-}
-func (self *configWatcher) FileRemoved(fileInfo os.FileInfo) {
-	self.checkChangeName(fileInfo)
-}
-func (self *configWatcher) FileAdded(fileInfo os.FileInfo) {
-	self.checkChangeName(fileInfo)
-}
+

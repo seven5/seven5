@@ -11,7 +11,7 @@ import (
 //ProjectValidatorResult is the result type of a call on the ProjectValidator.
 //Must be public for json encoding.
 type ValidateProjectResult struct {
-	CommandResult
+	Error bool
 }
 
 // Default project validator looks for the directory structure
@@ -55,7 +55,7 @@ func (self *DefaultValidateProject) Exec(ignored1 string,
 	for i, n := range names {
 		if !self.verifyFSEntry(log, directory[i], dir, n) {
 			log.Error("failed to find %s/%s: invalid project", dir, n)
-			return &ValidateProjectResult{ErrorResult()}
+			return ValidateProjectResult{Error: true}
 		}
 	}
 
@@ -64,27 +64,27 @@ func (self *DefaultValidateProject) Exec(ignored1 string,
 	if err!=nil {
 		log.Error("Error reading app configuration file %s: %s",
 			dir,err.Error())
-		return &ValidateProjectResult{ErrorResult()}
+		return ValidateProjectResult{Error:true}
 	}
 	
 	//check the parent dir, src subdir, and .go entry point based on config
 	parent:=filepath.Dir(dir)
 	if !self.verifyFSEntry(log, true, parent, cfg.AppName) {
 		log.Error("cant find expected app root directory %s/%s",parent,cfg.AppName) 
-		return &ValidateProjectResult{ErrorResult()}
+		return ValidateProjectResult{Error:true}
 	}
 
 	if filepath.Base(dir)!=cfg.AppName {
 		log.Error("root directory is %s but expected %s", filepath.Base(dir),
 			cfg.AppName);
-		return &ValidateProjectResult{ErrorResult()}
+		return ValidateProjectResult{Error: true}
 	}
 	
 	src:=filepath.Join(dir,"src")
 	if !self.verifyFSEntry(log, true, src, cfg.AppName) {
 		log.Error("to build properly with go tools, src should have subdirectory %s",
 			cfg.AppName)
-		return &ValidateProjectResult{ErrorResult()}
+		return ValidateProjectResult{Error: true}
 	}
 	
 	codeDir := filepath.Join(src,cfg.AppName)
@@ -92,9 +92,9 @@ func (self *DefaultValidateProject) Exec(ignored1 string,
 	if !self.verifyFSEntry(log, false, codeDir, goFile) {
 		log.Error("can't find app main entry point, expected it to be %s",
 			filepath.Join(codeDir,goFile))
-		return &ValidateProjectResult{ErrorResult()}
+		return ValidateProjectResult{Error:true}
 	}	
 	
 	//everything is ok so we return no error
-	return &ValidateProjectResult{}
+	return ValidateProjectResult{Error:false}
 }

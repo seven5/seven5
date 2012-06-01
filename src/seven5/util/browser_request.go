@@ -22,14 +22,14 @@ type BrowserRequest struct {
 
 //UnmarshalRequest converts a blob of json into an http.Request via
 //our BrowserRequet intermediate type
-func UnmarshalRequest(reqJson string, logger SimpleLogger) *http.Request {
+func UnmarshalRequest(reqJson string, logger SimpleLogger) (*http.Request, error) {
 	var browserReq BrowserRequest
 	decoder := json.NewDecoder(strings.NewReader(reqJson))
 	decoder.Decode(&browserReq)
 	result, err := http.NewRequest(browserReq.Method, browserReq.Url,
 		strings.NewReader(browserReq.Body))
 	if err != nil {
-		logger.Panic("Can't create request:%s",err.Error())
+		return nil,err
 	}
 	for k, l := range browserReq.Header {
 		for _, v := range l {
@@ -41,19 +41,20 @@ func UnmarshalRequest(reqJson string, logger SimpleLogger) *http.Request {
 	}
 	result.URL, err = url.Parse(browserReq.Url)
 	if err!=nil {
-		logger.Panic("Can't understand url: %s", err.Error())
+		return nil, err
 	}
-	return result
+	return result, nil
 }
 
 //MarshalRequest is the routine that converts a "Real" http requset into
 //something more suitable for our use over the json connection.
-func MarshalRequest(request *http.Request, logger SimpleLogger) *BrowserRequest {
+func MarshalRequest(request *http.Request, logger SimpleLogger) (*BrowserRequest, error) {
 	var result BrowserRequest
 	var buffer bytes.Buffer
 	if _, err := buffer.ReadFrom(request.Body); err != nil {
-		logger.Panic("could not read contents of HTTP requset body:%s",
+		logger.Error("could not read contents of HTTP requset body:%s",
 			err.Error())
+		return nil, err
 	}
 	result.Header = make(map[string][]string)
 	result.Cookie = []http.Cookie{}
@@ -80,5 +81,5 @@ func MarshalRequest(request *http.Request, logger SimpleLogger) *BrowserRequest 
 		result.Cookie[count]=*tmp
 		count++
 	}
-	return &result
+	return &result, nil
 }
