@@ -35,12 +35,12 @@ type Command interface {
 //The real main uses a pill. The first arg is the command name, the
 //second the directory to operate on, plus two json blobs for the
 //application config and the request.
-func RunCommand(commandName string, dir string, configJson string, reqJson string) (ret string) {
+func RunCommand(commandName string, dir string, logLevel string, configJson string, reqJson string) (ret string) {
 	var config ApplicationConfig
 	var resultBuffer bytes.Buffer
 	var logdataBuffer bytes.Buffer
 
-	logger := util.NewHtmlLogger(util.DEBUG, &logdataBuffer, false)
+	logger := util.NewHtmlLogger(util.LogLevelStringToLevel(logLevel), &logdataBuffer, false)
 
 	//requests have to be treated specilaly, not using the "normal" path
 	//of json decoding

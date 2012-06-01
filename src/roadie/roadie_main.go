@@ -90,7 +90,7 @@ func build(writer http.ResponseWriter, request *http.Request) {
 	firstPass:=false
 	builtSeven5:=false
 	
-	logger:=util.NewHtmlLogger(util.DEBUG, writer, true) 
+	logger:=util.NewHtmlLogger(util.INFO, writer, true) 
 	//do we have a wire?
 	if state.action.wire==nil {
 		logger.Info("No seven5 built yet, building now")

@@ -14,6 +14,18 @@ import (
 	"time"
 )
 
+//number of lines above and below to show
+const FILE_ERROR_CONTEXT = 3
+
+
+//FileErrorLogItem represents what will show to the user when we display an error
+//message in the browser.
+type FileErrorLogItem struct {
+	Path string
+	Msg string
+	Line int
+}
+
 //SimpleLogger is an interface representing a logger. There is a need for
 //different types of loggers in the system so we can run tests on the
 //console but "normally" run against a http response.
@@ -31,6 +43,11 @@ type SimpleLogger interface {
 	DumpTerminal(level int, title string, out string)
 	//Print string to terminal without formatting help
 	Raw(s string)
+	//Get the current log level
+	GetLogLevel() string
+	//FileError displays a list of errors to the terminal based on compiler
+	//output. The parameter is a list of seven5.FileErrorLogInfo
+	FileError(*BetterList) 
 }
 
 // LoggerImpl encodes the real difference between the logger types.  The
@@ -44,8 +61,10 @@ type LoggerImpl interface {
 	DumpRequest(level int, title string, req *http.Request)
 	//Dump out a bunch of JSON
 	DumpJson(level int, title string, json string)
-	//Dump out a bunch of terminal data, usually a compile result
+	//Dump out a bunch of terminal data, usually a result from cmd line program
 	DumpTerminal(level int, title string, out string)
+	//Display an error in a program file
+	DumpFile(path string, msg string, currLine int, targetLine int, file *os.File)
 }
 
 // BaseLogger is the common portion between the two logging types
@@ -126,7 +145,9 @@ func (self *BaseLogger) DumpTerminal(level int, title string, out string) {
 
 // Debug prints a message at DEBUG level.
 func (self *BaseLogger) Debug(fmtString string, obj ...interface{}) {
-	self.impl.Print(DEBUG, false, fmtString, obj...) // no sense in doing a comparison
+	if self.level <= DEBUG {
+		self.impl.Print(DEBUG, false, fmtString, obj...) // no sense in doing a comparison
+	}
 }
 
 // Info prints a message at INFO level.
@@ -149,6 +170,43 @@ func (self *BaseLogger) Error(fmtString string, obj ...interface{}) {
 	if self.level <= ERROR {
 		self.impl.Print(ERROR, false, fmtString, obj...)
 	}
+}
+// GetLogLevel is used to transfer log levels "over the wire"
+func (self *BaseLogger) GetLogLevel() string {
+	return levelToString(self.level)
+}
+
+//FileError shows a list of nicely formatted error messages
+func (self *BaseLogger) FileError(list *BetterList) {
+	if self.level > ERROR {
+		return //not sure this is useful or meaningful
+	}
+
+	for e := list.Front(); e != nil; e = e.Next() {
+		item := e.Value.(*FileErrorLogItem)
+		min := 0
+		if item.Line > FILE_ERROR_CONTEXT{
+			min = item.Line - FILE_ERROR_CONTEXT
+		}
+		rd, err := os.Open(item.Path)
+		if err!=nil {
+			self.Error("Internal error reading file with error %+v:%s",item,err)
+			return
+		}
+		
+		//read min lines
+		var i int
+		for i=0; i<min; i++ {
+			_, err := ReadLine(rd)
+			if err!=nil {
+				self.Error("Internal error reading file for error message %+v:%s",item,err)
+				return
+			}
+		}
+		
+		self.impl.DumpFile(item.Path,item.Msg,i+1,item.Line, rd)
+		rd.Close()
+	}	
 }
 
 //
@@ -209,6 +267,32 @@ func (self *TerminalLoggerImpl) DumpRequest(level int, title string, req *http.R
 	self.Raw("=========REQUEST END===========")
 }
 
+func (self *TerminalLoggerImpl) DumpFile(path string, msg string, currLine int, 
+	targetLine int, file *os.File) {
+	
+	self.Raw(fmt.Sprintf("ERROR: %s:%s:%s",filepath.Base(path),targetLine,msg))
+	self.Raw(fmt.Sprintf("========= %s ===========",filepath.Base(path)))
+	
+	for i:=currLine; i<targetLine+FILE_ERROR_CONTEXT;i++ {
+		l, err:= ReadLine(file)
+		if err==io.EOF {
+			break
+		}
+		if err!=nil {
+			self.Print(ERROR,false,"internal error reading %s:%s",filepath.Base(path),err)
+			break
+		}
+		val:=fmt.Sprintf("%5d",i)
+		if i==targetLine {
+			val=">>>>>"
+		}
+		self.Raw(fmt.Sprintf("%s%s\n",val,l))
+	}
+	self.Raw(fmt.Sprintf("========= %s ===========",filepath.Base(path)))
+	return
+}
+
+
 //levelToString is a utility function for getting the human readable level name.
 //It's also used for class names in CSS for HTML.
 func levelToString(level int) string {
@@ -222,6 +306,19 @@ func levelToString(level int) string {
 		levelName = "error"
 	}
 	return levelName
+}
+
+
+func LogLevelStringToLevel(levelString string) int {
+	switch levelString {
+	case "info":
+		return INFO
+	case "warn":
+		return WARN
+	case "error":
+		return ERROR
+	}
+	return DEBUG
 }
 
 //getCallerAndLine is a utility for getting the calling file and line number
@@ -342,6 +439,35 @@ func (self *HtmlLoggerImpl) DumpTerminal(level int, title string, out string) {
 	self.Raw("</pre></div>\n")
 }
 
+func (self *HtmlLoggerImpl) DumpFile(path string, msg string, currLine int, 
+	targetLine int, file *os.File) {
+	
+	self.Raw("<div class=\"protobox file\"><pre>\n")
+	tag := "H2"
+	self.Raw(fmt.Sprintf("<%s>%s: %s</%s>", tag, filepath.Base(path), msg, tag))
+	
+	for i:=currLine; i<targetLine+FILE_ERROR_CONTEXT;i++ {
+		l, err:= ReadLine(file)
+		if err==io.EOF {
+			break
+		}
+		if err!=nil {
+			self.Print(ERROR,false,"internal error reading %s:%s",filepath.Base(path),err)
+			break
+		}
+		val:=fmt.Sprintf("%5d",i)
+		if i==targetLine {
+			self.Raw("<span class=\"errorline\">")
+		}
+		self.Raw(fmt.Sprintf("%s %s\n",val,l))
+		if i==targetLine {
+			self.Raw("</span>\n")
+		}
+	}
+	
+	self.Raw("</pre></div>\n")
+	return
+}
 const HTMLHeader = `
 <html>
 <head>
@@ -368,6 +494,15 @@ const HTMLHeader = `
 
 .http {
 	color: green;
+}
+
+.file {
+	color: black;
+}
+
+.file .errorline {
+	color: red;
+	border: 1px solid red;
 }
 
 .json {

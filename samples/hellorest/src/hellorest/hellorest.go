@@ -15,5 +15,5 @@ type UserConfig struct {
 
 //Start is called by seven5 to intialize your app. The second parameter
 //will be of type *UserConfigStruct if you have one.
-func start(app *seven5.ApplicationConfig, user *UserConfig) {
+func start(app *ApplicationConfig, user *UserConfig) {
 }

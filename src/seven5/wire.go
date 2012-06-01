@@ -109,8 +109,6 @@ func (self *Wire) Dispatch(cmd string, dir string, writer http.ResponseWriter,
 	}
 	logger.DumpJson(util.DEBUG, "Json result from seven5", jsonBlob)
 	if STUBS[cmd].resultHasError(result) {
-		msg = fmt.Sprintf("failure reported by seven5 in command '%s'", cmd)
-		logger.DumpJson(util.ERROR, msg, jsonBlob)
 		return WIRE_SEMANTIC_ERROR
 	} else {
 		if STUBS[cmd].resultBody != nil {
@@ -135,7 +133,7 @@ func (self *Wire) runSeven5(name string, dir string, config string,
 	browserReq string, logger util.SimpleLogger) string {
 	var err error
 
-	shellCommand := exec.Command(self.path, name, dir, config, browserReq)
+	shellCommand := exec.Command(self.path, name, dir, logger.GetLogLevel(), config, browserReq)
 	out, err := shellCommand.CombinedOutput()
 	allOutput := string(out)
 	index := strings.Index(allOutput, MARKER)
