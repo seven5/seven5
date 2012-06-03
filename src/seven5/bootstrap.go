@@ -130,12 +130,12 @@ package main
 
 func main() {
 %s
-	if len(os.Args)<6 {
+	if len(os.Args)<7 {
 		os.Exit(1)
 	}
 	//double percent bceause run through sprintf twice
 	fmt.Fprintf(os.Stdout,"%%s\n",seven5.RunCommand(os.Args[1], 
-		os.Args[2], os.Args[3], os.Args[4], os.Args[5]))
+		os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6]))
 	os.Stdout.Sync()
 }
 `

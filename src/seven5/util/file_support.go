@@ -7,8 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
+//ReadIntoString reads a whole file into a string.  This is probably in the
+//standard library.
 func ReadIntoString(dir string, filename string) (string, error) {
 	var file *os.File
 	var info os.FileInfo
@@ -35,6 +38,11 @@ func ReadIntoString(dir string, filename string) (string, error) {
 	return buffer.String(), nil
 }
 
+//ReadLine reads a single line, at current position, from a file and leaves
+//the file pointed at the next line unless io.EOF is reached in which case
+//the file pointer position is undefined.  It returns the string read and
+//the error, both of which may be non-zero-valued if the error is io.EOF.
+//Isn't this in the standard library?
 func ReadLine(file *os.File) (string, error) {
 	buff := make([]byte, 256)
 	final :=[]byte{}
@@ -87,7 +95,7 @@ func ReadLine(file *os.File) (string, error) {
 		final = append(final, buff[0:targ]...)
 		break
 	}
-	//we have the line in final but we may need to rest file pointer
+	//we have the line in final but we may need to reset file pointer
 	if !done {
 		fmt.Fprintf(x,"seeking %d\n",pos+int64(len(final)))
 	
@@ -99,4 +107,56 @@ func ReadLine(file *os.File) (string, error) {
 		return string(final), io.EOF
 	}
 	return string(final), nil
+}
+
+//FilenameToTypeName is our algorithm for taking suffixed filenames and turning
+//them into mixed case, exported type names.
+func FilenameToTypeName(filename string) string {
+	if !strings.HasSuffix(filename,".go") {
+		panic("called FilenameToTypeName with a non-go filename")
+	}
+	f := strings.Replace(filename, ".go", "", 1)
+	piece := strings.Split(f, "_")
+	if len(piece) == 1 {
+		panic("called FilenameToTypeName with a non underscored filename")
+	}
+	if len(piece) == 2 {
+		return CapFirstLetter(piece[0])
+	}
+	result := []string{}
+	
+	for _, p:= range piece {
+		result = append(result, CapFirstLetter(p))
+	}
+	return strings.Join(result, "")
+	
+}
+
+//TypenameToFilename reverses the action of FilenameToTypename but doesn't
+//deal with suffixes, just embedded underscores.
+func TypeNameToFilename(filename string) string {
+	var buffer bytes.Buffer
+	
+	inLowerSequence := true;
+	let:=strings.Split(filename, "")
+	for i, letter:= range let {
+		if inLowerSequence && (strings.ToUpper(letter)==letter) {
+			if i!=0 {
+				buffer.WriteString("_")
+			}
+			buffer.WriteString(strings.ToLower(letter))
+			inLowerSequence=false
+			continue
+		} 
+		inLowerSequence = true
+		buffer.WriteString(letter)
+	}
+	return buffer.String()
+}
+
+//CapFirstLetter makes sure the first letter of a string is capitalized.
+func CapFirstLetter(s string) string {
+	letter:=strings.Split(s,"")
+	letter[0]= strings.ToUpper(letter[0])
+	return strings.Join(letter,"")
 }

@@ -19,8 +19,12 @@ type BuildUserLibResult struct {
 type DefaultBuildUserLib struct {
 }
 
+func (self *DefaultBuildUserLib) GetArg() interface{} {
+	return nil
+}
+
 func (self *DefaultBuildUserLib) Exec(command string, dir string,
-	config *ApplicationConfig, request *http.Request,
+	config *ApplicationConfig, request *http.Request, ignored interface{},
 	log util.SimpleLogger) interface{} {
 
 	cmd := exec.Command("go", "install", config.AppName)
@@ -50,7 +54,7 @@ func compilerErrorsToList(compErr string, dir string, logger util.SimpleLogger) 
 			logger.Error("cant understand compiler output: %s\n!",line)
 			continue
 		}
-		line, err:= strconv.Atoi(msg[1])
+		lineNum, err:= strconv.Atoi(msg[1])
 		if err!=nil {
 			logger.Error("cant understand compiler output (line#): %s\n",line)
 			continue
@@ -60,7 +64,7 @@ func compilerErrorsToList(compErr string, dir string, logger util.SimpleLogger) 
 			longMessage = longMessage + msg[i]
 		}
 		item:=&util.FileErrorLogItem{Path:filepath.Join(dir,msg[0]), Msg:longMessage,
-			Line: line}
+			Line: lineNum}
 		result.PushBack(item)
 	}	
 	return result

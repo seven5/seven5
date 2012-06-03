@@ -41,7 +41,7 @@ func (self *DefaultValidateProject) verifyFSEntry(log util.SimpleLogger,
 }
 func (self *DefaultValidateProject) Exec(ignored1 string, 
 	dir string, ignored2 *ApplicationConfig,
-	ignored3 *http.Request, log util.SimpleLogger) interface{} {
+	ignored3 *http.Request, ignored4 interface{}, log util.SimpleLogger) interface{} {
 
 	dirForHuman := dir
 	parts := strings.SplitAfter(dir, string(filepath.Separator))
@@ -98,3 +98,8 @@ func (self *DefaultValidateProject) Exec(ignored1 string,
 	//everything is ok so we return no error
 	return ValidateProjectResult{Error:false}
 }
+
+func (self *DefaultValidateProject) GetArg() interface{} {
+	return nil
+}
+

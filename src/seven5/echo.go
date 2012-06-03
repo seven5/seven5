@@ -19,8 +19,13 @@ type EchoResult struct {
 type DefaultEcho struct {
 }
 
+func (self *DefaultEcho) GetArg() interface{} {
+	return nil
+}
+
+
 func (self *DefaultEcho) Exec(ignored1 string, ignored2 string,
-	config *ApplicationConfig, request *http.Request,
+	config *ApplicationConfig, request *http.Request, ignored interface{},
 	log util.SimpleLogger) interface{} {
 
 	log.Info("this is a log message from the echo groupie")
