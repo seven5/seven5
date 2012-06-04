@@ -10,12 +10,13 @@ import (
 
 //all commands
 const (
-	VALIDATEPROJECT   = "ValidateProject"
-	ECHO              = "Echo"
-	PROCESSCONTROLLER = "ProcessController"
-	PROCESSVOCAB      = "ProcessVocab"
-	BUILDUSERLIB      = "BuildUserLib"
-	EXPLODETYPE       = "ExplodeType"
+	VALIDATEPROJECT      = "ValidateProject"
+	ECHO                 = "Echo"
+	PROCESSCONTROLLER    = "ProcessController"
+	PROCESSVOCAB         = "ProcessVocab"
+	BUILDUSERLIB         = "BuildUserLib"
+	EXPLODETYPE          = "ExplodeType"
+	DESTROYGENERATEDFILE = "DestroyGeneratedFile"
 )
 
 //seven5app this is the "application" that is seven5.
@@ -34,7 +35,7 @@ func RunCommand(commandName string, dir string, logLevel string, configJson stri
 	var config ApplicationConfig
 	var resultBuffer bytes.Buffer
 	var logdataBuffer bytes.Buffer
-	
+
 	logger := util.NewHtmlLogger(util.LogLevelStringToLevel(logLevel), &logdataBuffer, false)
 
 	//requests have to be treated specilaly, not using the "normal" path
@@ -54,26 +55,26 @@ func RunCommand(commandName string, dir string, logLevel string, configJson stri
 		ret = createResultString(nil, logdataBuffer)
 		return
 	}
-	
+
 	//arg?
-	arg:=Seven5app[commandName].GetArg()
-	if argJson=="" {
-		if arg!=nil {
+	arg := Seven5app[commandName].GetArg()
+	if argJson == "" {
+		if arg != nil {
 			logger.Error("Stubs and implementation out of sync for command '%s': "+
-				"no arg supplied, but one expected!",commandName)
+				"no arg supplied, but one expected!", commandName)
 			ret = createResultString(nil, logdataBuffer)
 			return
 		}
 	} else {
 		argDec := json.NewDecoder(strings.NewReader(argJson))
-		if arg==nil {
+		if arg == nil {
 			logger.Error("Stubs and implementation out of sync for command '%s': "+
-				"arg supplied but it was not expected!",commandName)
+				"arg supplied but it was not expected!", commandName)
 			ret = createResultString(nil, logdataBuffer)
 			return
 		}
 		err = argDec.Decode(arg)
-		if err!=nil {
+		if err != nil {
 			logger.Error("Error decoding the argument for command '%s': %s",
 				commandName, err)
 			ret = createResultString(nil, logdataBuffer)

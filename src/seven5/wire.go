@@ -56,6 +56,10 @@ var (
 			func() interface{} { return &ExplodeTypeResult{} },
 			func(v interface{}) bool { return v.(*ExplodeTypeResult).Error},
 			nil},
+		DESTROYGENERATEDFILE: &wireStub{
+			func() interface{} { return &DestroyGeneratedFileResult{} },
+			func(v interface{}) bool { return v.(*DestroyGeneratedFileResult).Error},
+			nil},
 	}
 	WIRE_SEMANTIC_ERROR = errors.New("Semantic error in seven5 command")
 	WIRE_PROCESS_ERROR  = errors.New("Unable to run the seven5 command")

@@ -93,7 +93,13 @@ func buildPhase1(writer http.ResponseWriter, request *http.Request) {
 	firstPass:=false
 	builtSeven5:=false
 	
-	logger:=util.NewHtmlLogger(util.DEBUG, writer, true) 
+	
+	logger:=util.NewHtmlLogger(util.INFO, writer, true) 
+	fullStart := time.Now();
+	defer func() {
+		diff:=time.Since(fullStart)
+		logger.Info("Complete build sequence too %s", diff)
+	}();
 	//do we have a wire?
 	if state.action.Wire==nil {
 		logger.Info("No seven5 built yet, building now")
@@ -132,8 +138,12 @@ func buildPhase1(writer http.ResponseWriter, request *http.Request) {
 	//loop until source has stopped changing
 	for source || !state.haveLibrary {
 		state.types = nil //signal that we need help from types later
+		
+		if state.action.DestroyGeneratedFile(workingDirectory,writer,request,logger)!=nil {
+			return
+		}
 		if !state.haveLibrary {
-			logger.Info("No library present, rebuilding")
+			logger.Info("No user library present, rebuilding")
 		}
 		if source {
 			logger.Info("Detected change to source code, building user library in %s", 

@@ -30,7 +30,16 @@ func (self *BuildAction) BuildSeven5(writer http.ResponseWriter,
 //happened in the process
 func (self *BuildAction) BuildUserLib(cwd string, writer http.ResponseWriter,
 	request *http.Request, logger util.SimpleLogger) error {
-	_, err:=self.dispatchAny(BUILDUSERLIB, cwd, writer, request, nil, logger)
+	_, err:=self.dispatchAny(BUILDUSERLIB, cwd, writer, request, 
+		nil, logger)
+	return err
+}
+
+//Destroy all the generated files in the user's app directory.
+func (self *BuildAction) DestroyGeneratedFile(cwd string, writer http.ResponseWriter,
+	request *http.Request, logger util.SimpleLogger) error {
+	_, err:=self.dispatchAny(DESTROYGENERATEDFILE, cwd, writer, request, 
+		nil, logger)
 	return err
 }
 

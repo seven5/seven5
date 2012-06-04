@@ -4,11 +4,14 @@ import (
 	"net/http"
 	"path/filepath"
 	"seven5/util"
+	"strings"
+	"fmt"
 )
 
 type sourceWatcher struct {
 	workingDir string
-	allSource  *util.DirectoryMonitor
+	allSourceMon  *util.DirectoryMonitor
+	allSource  *fileCollector
 	vocabMon   *util.DirectoryMonitor
 	vocab      *fileCollector
 }
@@ -23,13 +26,21 @@ func newSourceWatcher(cwd string) (*sourceWatcher, error) {
 	parent := filepath.Base(cwd)
 	srcpath := filepath.Join(cwd, "src", parent)
 	self := &sourceWatcher{}
-	if self.allSource, err = util.NewDirectoryMonitor(srcpath, ".go"); err != nil {
+	
+	if self.allSourceMon, err = util.NewDirectoryMonitor(srcpath, ".go"); err != nil {
 		return nil, err
 	}
+	if self.allSource, err = newFileCollector("UserCode", self.allSourceMon, nil,
+		func(x string) bool { fmt.Printf("checking on string (EX):%s\n",x); return strings.HasSuffix(x,"_generated.go") }); err!=nil {
+		return nil, err
+	}
+	
 	if self.vocabMon, err = util.NewDirectoryMonitor(srcpath, VOCAB_SUFFIX); err != nil {
 		return nil, err
 	}
-	if self.vocab ,err = newFileCollector(VOCAB_SUFFIX, self.vocabMon); err!=nil {
+	
+	if self.vocab ,err = newFileCollector("VocabDeclarations", self.vocabMon, 
+		nil, nil); err!=nil {
 		return nil, err
 	}
 	
@@ -41,13 +52,13 @@ func newSourceWatcher(cwd string) (*sourceWatcher, error) {
 func (self *sourceWatcher) pollAllSource(writer http.ResponseWriter, request *http.Request,
 	logger util.SimpleLogger) (bool, error) {
 
-	changed, err := self.allSource.Poll()
+	changed, err := self.allSourceMon.Poll()
 	if err != nil {
 		logger.Error("Unable to read the source directory for the project: %s",
 			err.Error())
 		return false, err
 	}
-	return changed, nil
+	return changed && len(self.allSource.GetFileList())!=0, nil
 }
 
 //pollVocab checks to see if vocab's have changed.  if anything changed, it

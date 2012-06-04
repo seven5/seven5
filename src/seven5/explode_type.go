@@ -50,7 +50,9 @@ type ExplodeTypeArg struct {
 type DefaultExplodeType struct {
 }
 
-//ProbeVocabAll is the driver routine for the pill.
+//ProbeVocabAll is the driver routine for the pill. Input is all the named
+//vocabs and it returns the json output for this command after repeatedly
+//calling ProbeVocab.
 func ProbeVocabAll(vocabs...interface{}) string {
 	result := &PillVocabWrapper{}
 	
@@ -77,13 +79,24 @@ func ProbeVocab(candidate interface{}) (*VocabInfo, string) {
 
 	result := &VocabInfo{Name: t.Name()}
 	
+	hasId := false
+	
 	for i:=0; i<t.NumField(); i++ {
 		field := t.Field(i)
+		if ((field.Name == "Id") && (field.Type.Kind()==reflect.Int64)) {
+			hasId=true;
+			continue;
+		}
 		vocabInfo, errorResult := fieldToFieldInfo(field)
 		if errorResult!="" {
 			return nil, errorResult
 		}
 		result.Field = append(result.Field, vocabInfo)
+	}
+	
+	if !hasId {
+		return nil, sendErrorMessageAsPillResult("all structs that represent a dictionary "+
+			"must have an 'Id int64' field: %s does not", t.Name())
 	}
 	return result, ""
 }

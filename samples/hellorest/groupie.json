@@ -42,6 +42,14 @@
 				"TypeName" : "seven5.DefaultBuildUserLib",
 				"ImportsNeeded"  : [ "seven5" ]
 			}
+		},
+		{
+			"Role" :"DestroyGeneratedFile",
+			"Info" : {
+				"TypeName" : "seven5.DefaultDestroyGeneratedFile",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
 		}
+		
 	]
 }
