@@ -46,19 +46,18 @@ type ExplodeTypeResult struct {
 var ExplodeType = &CommandDecl{
 	Arg: []*CommandArgPair{
 		ClientSideWd, //need the working directory to read the app config
-		VocabListArgPair, //list of the vocabulary files
+		vocabTypeListArg, //list of the vocabulary files
 	},
 	Ret: ExplodeTypeReturn,
 	Impl: defaultExplodeType,
 }
-//ExplodeTypeArgPair is the two functions needed to handle using our own
-//argument type for a list of strings representing the names of the vocabularies
-//that we should interrogate.
-var VocabListArgPair = &CommandArgPair{
+//vocabTypeListArg is the cruft to allow to receive the list of types that are
+//indicated by the names of the files in the client source code.
+var vocabTypeListArg = &CommandArgPair{
 	func()interface{}{
 		return ([]string{})
 	}, 
-	clientSideVocabListGenerator,
+	func() (interface{}, error) { return clientSideCollectFiles("_vocab",true)},
 }
 
 //ExplodeTypeReturn is the necessary cruft to tell the unmarshalling code on
@@ -68,14 +67,6 @@ var ExplodeTypeReturn =  &CommandReturn {
 	func() interface{} { return &ExplodeTypeResult{}},
 	func(v interface{}) bool { return v.(*ExplodeTypeResult).Error },
 	nil,
-}
-
-
-
-//This runs on the _side_ to generate a list of the known names of vocabularies
-//derived completely from the names of the files.
-func clientSideVocabListGenerator() (interface{}, error) {
-		typeName := strings.TrimRight(util.FilenameToTypeName(v),"Vocab")
 }
 
 

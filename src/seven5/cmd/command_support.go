@@ -90,3 +90,10 @@ type CommandArgPair struct {
 	Unmarshalled func() interface{}
 	Generator func() (interface{}, error)
 }
+
+//clientSideCollectFiles returns a slice of names that are either filenames
+//or type names based on a particular suffix.  it only works on .go files so
+//the suffix should not include this.  if the second param is true, it will
+//convert the filenames to type names.
+func clientSideCollectFiles(suffix string, wantTypeNames bool) (interface{},error) {
+}

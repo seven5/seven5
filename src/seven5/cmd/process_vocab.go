@@ -15,9 +15,19 @@ import (
 var ProcessVocab = &CommandDecl{
 	Arg: []*CommandArgPair{
 		ClientSideWd, //root of the user project
+		vocabFileListArg,
 	},
 	Ret: BuiltinSimpleReturn,
 	Impl: defaultProcessVocab,
+}
+
+//VocabListArg is the cruft to allow to receive the list of files have
+// _vocab.go as their suffix in the client code.
+var vocabFileListArg = &CommandArgPair{
+	func()interface{}{
+		return ([]string{})
+	}, 
+	func() (interface{}, error) { return clientSideCollectFiles("_vocab",false)},
 }
 
 
