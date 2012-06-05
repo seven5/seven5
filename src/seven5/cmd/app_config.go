@@ -1,9 +1,10 @@
-package seven5
+package cmd
 
 import (
 	"strings"
 	"encoding/json"
 	"seven5/util"
+	"path/filepath"
 )
 
 const (
@@ -12,6 +13,7 @@ const (
 	DARTCOMPILERPATH = "DartCompilerPath"
 )
 
+
 //ApplicationConfig is read from the app.json file and passed to every 
 //command.
 type ApplicationConfig struct {
@@ -19,21 +21,10 @@ type ApplicationConfig struct {
 	DartCompiler     string
 }
 
-//substitute for constant array
-func MANDATORY_PARAMS() []string {
-	return []string{
-		APPNAME,
-	}
-}
 
-//substitute for constant array
-func ALL_PARAMS() []string {
-	return []string{
-		APPNAME,
-		DARTCOMPILERPATH,
-	}
-}
-
+//decodeAppConfig is a convienence routine for reading in the application
+//configuration file.  typically it is used on the seven5 side by commands
+//that need configuration information.
 func decodeAppConfig(dir string) (*ApplicationConfig, error) {
 	var app ApplicationConfig
 	var err error
@@ -50,4 +41,14 @@ func decodeAppConfig(dir string) (*ApplicationConfig, error) {
 		return nil, err
 	}
 	return &app, nil
+}
+
+//getAppPath is used by application's that need to know where the source code
+//is for the target application.
+func getAppSourceDir(dir string) (string, error) {
+	cfg, err:=decodeAppConfig(dir)
+	if err!=nil {
+		return "",err
+	}
+	return filepath.Join(dir, "src", cfg.AppName), nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"seven5/util"
 	"strings"
+	"seven5/cmd"
 )
 
 //all commands
@@ -20,71 +21,47 @@ const (
 )
 
 //seven5app this is the "application" that is seven5.
-var Seven5app = make(map[string]Command)
+var Seven5app = make(map[string]*cmd.CommandDecl)
 
 //RunCommand is the equivalent of main for Seven5 when in development mode.  
 //The real main uses a pill. The command name is the name the other side of
-//the wire supplied as our name.  The dir is the application's root dir.
-//The logLevel is the current roadie log level as a string.  The configJson
-//is a blob that represents a *seven5.ApplicationConfig.  The reqJson is
-//represents a *util.BrowserRequest which is later converted a real 
-//*http.Request.  The last argument are specific arguments for this command,
-//and may be empty ("").
-func RunCommand(commandName string, dir string, logLevel string, configJson string,
-	reqJson string, argJson string) (ret string) {
-	var config ApplicationConfig
+//the wire supplied as our name. 
+func RunCommand(logLevel string, commandName string, param ... string) (ret string) {
 	var resultBuffer bytes.Buffer
 	var logdataBuffer bytes.Buffer
 
-	logger := util.NewHtmlLogger(util.LogLevelStringToLevel(logLevel), &logdataBuffer, false)
+	log := util.NewHtmlLogger(util.LogLevelStringToLevel(logLevel), &logdataBuffer, false)
+	command:=Seven5app[commandName]
 
-	//requests have to be treated specilaly, not using the "normal" path
-	//of json decoding
-	req, err := util.UnmarshalRequest(reqJson, logger)
-	if err != nil {
-		logger.Error("Error decoding request structure inside seven5!")
-		ret = createResultString(nil, logdataBuffer)
-		return
-	}
-
-	//decode the app config
-	decoder := json.NewDecoder(strings.NewReader(configJson))
-	err = decoder.Decode(&config)
-	if err != nil {
-		logger.Error("Error decoding application config inside seven5!")
-		ret = createResultString(nil, logdataBuffer)
-		return
-	}
-
-	//arg?
-	arg := Seven5app[commandName].GetArg()
-	if argJson == "" {
-		if arg != nil {
-			logger.Error("Stubs and implementation out of sync for command '%s': "+
-				"no arg supplied, but one expected!", commandName)
-			ret = createResultString(nil, logdataBuffer)
-			return
+	//
+	// DECODE PARAMS
+	//
+	toPass:=[]interface{}{}
+	count:=0
+	for _,argDefn:=range command.Arg {
+		raw := param[count]
+		count++
+		if argDefn.Unmarshalled == nil {
+			toPass=append(toPass,raw/*the implementations should expect a string*/)
+			continue
 		}
-	} else {
-		argDec := json.NewDecoder(strings.NewReader(argJson))
-		if arg == nil {
-			logger.Error("Stubs and implementation out of sync for command '%s': "+
-				"arg supplied but it was not expected!", commandName)
+		enc:=json.NewDecoder(strings.NewReader(raw))
+		arg:=argDefn.Unmarshalled();
+		if err:=enc.Decode(arg); err!=nil {
+			log.DumpJson(util.ERROR, "Raw parameter with problem",raw);
+			log.Error("Unable to decode into %+v inside seven5",arg)
 			ret = createResultString(nil, logdataBuffer)
-			return
+			return 
 		}
-		err = argDec.Decode(arg)
-		if err != nil {
-			logger.Error("Error decoding the argument for command '%s': %s",
-				commandName, err)
-			ret = createResultString(nil, logdataBuffer)
-			return
-		}
+		toPass = append(toPass,arg)
 	}
+	//we have now encoded all the args into toPass
 
 	//prep encoder
 	encoder := json.NewEncoder(&resultBuffer)
 
+	//in case there is a panic, we want to have some hope of seeing what
+	//happened in this address space
 	defer func() {
 		if rec := recover(); rec != nil {
 			var b bytes.Buffer
@@ -92,28 +69,20 @@ func RunCommand(commandName string, dir string, logLevel string, configJson stri
 				file, line := util.GetCallerAndLine(i)
 				b.WriteString(fmt.Sprintf("%s:%d\n", file, line))
 			}
-			logger.DumpTerminal(util.ERROR, "Trapped 'Panic' processing command",
+			log.DumpTerminal(util.ERROR, "Trapped 'Panic' processing command",
 				b.String())
 			ret = createResultString(nil, logdataBuffer)
 		}
 	}()
 
-	cmd, ok := Seven5app[commandName]
-	if ok {
-		resultStruct := cmd.Exec(commandName, dir, &config, req, arg, logger)
-		err := encoder.Encode(resultStruct)
-		if err != nil {
-			logger.Error("Error encoding result: %s", err)
-			ret = createResultString(nil, logdataBuffer)
-			return
-		}
-	} else {
-		logger.Error("unknown command to seven5:'%s'", commandName)
+	//invoke command and run it
+	rawResult := command.Impl(log,toPass...)
+	if err:=encoder.Encode(rawResult); err!=nil {
+		log.Error("Unable to encode %+v inside seven5",rawResult)
 		ret = createResultString(nil, logdataBuffer)
-		return
+		return 
 	}
-	logger.Debug("command '%s' ran to completion, size of marshalled result %d bytes",
-		commandName, resultBuffer.Len())
+	//everything encoded ok
 	ret = createResultString(&resultBuffer, logdataBuffer)
 	return
 }

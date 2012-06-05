@@ -1,10 +1,9 @@
-package seven5
+package cmd
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os/exec"
 	"seven5/util"
 	"strings"
@@ -36,19 +35,49 @@ type PillVocabWrapper struct {
 // Return type of the explode type object
 type ExplodeTypeResult struct {
 	Error bool
-	ErrorMsg string
 	Vocab []*VocabInfo
 }
 
-//ExlpodeTypeArg is the arguments to the Explode type command.
-type ExplodeTypeArg struct {
-	Vocab []string
+//
+// ExplodeTypes is used to display back determine key information about types in
+// the client application. It is also interesting if you want to implement
+// a command that uses a pill or has custom argument/return value marshalling.
+//
+var ExplodeType = &CommandDecl{
+	Arg: []*CommandArgPair{
+		ClientSideWd, //need the working directory to read the app config
+		VocabListArgPair, //list of the vocabulary files
+	},
+	Ret: ExplodeTypeReturn,
+	Impl: defaultExplodeType,
+}
+//ExplodeTypeArgPair is the two functions needed to handle using our own
+//argument type for a list of strings representing the names of the vocabularies
+//that we should interrogate.
+var VocabListArgPair = &CommandArgPair{
+	func()interface{}{
+		return ([]string{})
+	}, 
+	clientSideVocabListGenerator,
 }
 
-// DefaultExplodeType dumps out all the info it can find about types that
-// may be interesting to the larger application.
-type DefaultExplodeType struct {
+//ExplodeTypeReturn is the necessary cruft to tell the unmarshalling code on
+//the client side how to handle our return value.  We don't return a body
+//so the last field is nil.
+var ExplodeTypeReturn =  &CommandReturn {
+	func() interface{} { return &ExplodeTypeResult{}},
+	func(v interface{}) bool { return v.(*ExplodeTypeResult).Error },
+	nil,
 }
+
+
+
+//This runs on the _side_ to generate a list of the known names of vocabularies
+//derived completely from the names of the files.
+func clientSideVocabListGenerator() (interface{}, error) {
+		typeName := strings.TrimRight(util.FilenameToTypeName(v),"Vocab")
+}
+
 
 //ProbeVocabAll is the driver routine for the pill. Input is all the named
 //vocabs and it returns the json output for this command after repeatedly
@@ -143,33 +172,31 @@ func formatProbeVocabResult(result *PillVocabWrapper) string {
 	return buffer.String()
 }
 
-func (self *DefaultExplodeType) GetArg() interface{} {
-	return &ExplodeTypeArg{}
-}
-
-func (self *DefaultExplodeType) Exec(command string, dir string,
-	config *ApplicationConfig, request *http.Request, arg interface{},
-	log util.SimpleLogger) interface{} {
+func defaultExplodeType(log util.SimpleLogger, v...interface{}) interface{} { 
+	dir := v[0].(string)
+	vocab := v[1].([]string)
+	config, err := decodeAppConfig(dir)
+	if err!=nil {
+		return &ExplodeTypeResult{Error:true}
+	}
 	
+	//construct a function call that has all the names of the vocabs
 	var expectedList bytes.Buffer
-	
-	param := arg.(*ExplodeTypeArg)
 	var probeBuffer bytes.Buffer
 	probeBuffer.WriteString("\tseven5.ProbeVocabAll(")
-	for _, v := range param.Vocab {
-		typeName := strings.TrimRight(util.FilenameToTypeName(v),"Vocab")
+	for _, v := range vocab {
 		if expectedList.Len()>0 {
 			expectedList.WriteString(", ");
 		}
-		expectedList.WriteString(typeName)
-		call := fmt.Sprintf("%s.%s{},",config.AppName, typeName)
+		expectedList.WriteString(v)
+		call := fmt.Sprintf("%s.%s{},",config.AppName, v)
 		probeBuffer.WriteString(call)
 	}
 	probeBuffer.WriteString(")")
 	
+	//construct the pill
 	pill:=fmt.Sprintf(EXPLODE_TYPE_PILL, config.AppName, probeBuffer.String())
 	p, compileMessage,err :=util.CompilePill(pill,log)
-	result:=&ExplodeTypeResult{}
 	if err!=nil {
 		log.DumpTerminal(util.DEBUG, "Failed To Compile Type Exploder Pill",
 			err.Error());
@@ -181,8 +208,7 @@ func (self *DefaultExplodeType) Exec(command string, dir string,
 	if err!=nil || compileMessage!="" {
 		log.Error("Failed to understand vocabulary type: expecting to see these types: %s",
 			expectedList.String())
-		result.Error=true
-		return result
+		return &ExplodeTypeResult{Error:true}
 	}
 	//we got a pill, lets run it
 	cmd:=exec.Command(p)
@@ -190,8 +216,7 @@ func (self *DefaultExplodeType) Exec(command string, dir string,
 	if err!=nil {
 		log.DumpTerminal(util.ERROR, "Failed To Run Type Exploder Pill",
 			err.Error());
-		result.Error = true
-		return result
+		return &ExplodeTypeResult{Error:true}
 	}
 	output:=string(out)
 	log.DumpJson(util.DEBUG, "Type Exploder Pill Output", output)
@@ -200,15 +225,15 @@ func (self *DefaultExplodeType) Exec(command string, dir string,
 	err=dec.Decode(wrapper)
 	if err!=nil {
 		log.Error("Unable to decode into VocabWrapper: %s", err)
-		result.Error = true
-		return result
+		return &ExplodeTypeResult{Error:true}
 	}
 	if wrapper.Error {
-		result.Error = true
-		result.ErrorMsg = wrapper.ErrorMsg
 		log.Error(wrapper.ErrorMsg)
-		return result
+		return &ExplodeTypeResult{Error:true}
 	}
+	
+	//everything went ok
+	result:=&ExplodeTypeResult{Error:false}
 	result.Vocab=wrapper.Vocab
 	return result
 }

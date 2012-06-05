@@ -1,7 +1,6 @@
-package seven5
+package cmd
 
 import (
-	"net/http"
 	"os/exec"
 	"path/filepath"
 	"seven5/util"
@@ -9,33 +8,39 @@ import (
 	"strings"
 )
 
-// Return type of build is a yes/no
-type BuildUserLibResult struct {
-	Error bool
+//
+// BuildUserLib is a command to build the user's library.  It dosen't care
+// at all what is in the library, it just tries to build it.  If you need
+// to perform special operations on teh source, do them before calling
+// this command.  BuildUserLib goes to some trouble to display nice error
+// messages if the build fails.
+//
+var BuildUserLib = &CommandDecl{
+	Arg: []*CommandArgPair{
+		ClientSideWd, //root of the user project
+	},
+	Ret: BuiltinSimpleReturn,
+	Impl: defaultBuildUserLib,
 }
 
-// DefaultBuildUser lib uses go build to test that the library is buildable. If
-// it builds, it installs into your gopath as .a file.
-type DefaultBuildUserLib struct {
-}
-func (self *DefaultBuildUserLib) GetArg() interface{} {
-	return nil
-}
 
-func (self *DefaultBuildUserLib) Exec(command string, dir string,
-	config *ApplicationConfig, request *http.Request, ignored interface{},
-	log util.SimpleLogger) interface{} {
-
+func defaultBuildUserLib(log util.SimpleLogger, v...interface{}) interface{} {
+	dir:=v[0].(string)
+	config,err :=decodeAppConfig(dir)
+	if err!=nil {
+		log.Error("Couldn't understand the configuration for the app: %s",err)
+		return &SimpleErrorReturn{Error:true}
+	}
 	cmd := exec.Command("go", "install", config.AppName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//msg := fmt.Sprintf("Unable to compile %s:%s", config.AppName, err.Error())
 		//log.DumpTerminal(util.ERROR, msg, string(out))
 		log.FileError(compilerErrorsToList(string(out), dir, log))
-		return &BuildUserLibResult{Error: true}
+		return &SimpleErrorReturn{Error: true}
 	}
 
-	return &BuildUserLibResult{Error: false}
+	return &SimpleErrorReturn{Error: false}
 }
 
 //compilerErrorToList returns a list of the FilErrorLogItem structs for use

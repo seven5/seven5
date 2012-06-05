@@ -8,6 +8,7 @@ import (
 	"seven5"
 	"seven5/util"
 	"time"
+	"seven5/cmd"
 )
 
 //wire is our connection to the seven5 binary
@@ -15,8 +16,8 @@ type roadieState struct {
 	cfg *configWatcher
 	src *sourceWatcher
 	haveLibrary bool
-	types *seven5.ExplodeTypeResult
-	action *seven5.BuildAction //includes the wire
+	types *cmd.ExplodeTypeResult
+	Wire *seven5.Wire
 }
 
 

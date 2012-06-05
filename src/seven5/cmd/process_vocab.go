@@ -1,43 +1,27 @@
-package seven5
+package cmd
 
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"encoding/json"
 	"seven5/util"
 )
 
-//ProcessVocabResult is the return value after we execute this seven5
-//command.
-type ProcessVocabResult struct {
-	Error bool
+//
+//  Process a vocab is responsible for taking 
+//
+var ProcessVocab = &CommandDecl{
+	Arg: []*CommandArgPair{
+		ClientSideWd, //root of the user project
+	},
+	Ret: BuiltinSimpleReturn,
+	Impl: defaultProcessVocab,
 }
 
-//ProcessVocabArg is the argument that gets called to tell us what code
-//to generate.
-type ProcessVocabArg struct {
-	Info []*VocabInfo
-}
 
-// DefaultProcessVocab looks for vocabulary definitions in the source,
-// ending in _vocab.go, and builds a package level initalizer that will
-// initalize that vocabulary.  It needs to be supplied with the names
-// of the files and if they have itializers.
-type DefaultProcessVocab struct {
-}
-
-//GetArg returns  an instance of our argument type
-func (self *DefaultProcessVocab) GetArg() interface{} {
-	return &ProcessVocabArg{}
-}
-
-func (self *DefaultProcessVocab) Exec(command string, dir string,
-	config *ApplicationConfig, request *http.Request, raw interface{},
-	log util.SimpleLogger) interface{} {
-
+func defaultProcessVocab(log util.SimpleLogger, v...interface{}) interface{} {
 	arg := raw.(*ProcessVocabArg)
 	result := &ProcessVocabResult{}
 

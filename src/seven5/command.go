@@ -2,8 +2,6 @@ package seven5
 
 import (
 	"bytes"
-	"net/http"
-	"seven5/util"
 )
 
 const MARKER = "@@@+++@@@"
@@ -13,19 +11,6 @@ const MARKER = "@@@+++@@@"
 type PanicResult struct {
 	Error bool
 	Panic bool
-}
-
-//Command represents the way to talk to command inside seven5.  This interface
-//is used after json unmarshalling is completed in RunCommand().
-type Command interface {
-	//Exec is called to run the command inside seven5.  All the
-	//parameters will have be unmarshallled and the return value
-	//will be marshalled for transmission back to roadie.
-	Exec(name string, cwd string,
-		config *ApplicationConfig, request *http.Request, arg interface{},
-		log util.SimpleLogger) interface{}
-	//Return nil if you don't need any extra arg love
-	GetArg() interface{}
 }
 
 //createResultString is used for putting together the STDOUT for a comand.
