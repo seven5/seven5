@@ -7,18 +7,22 @@ import (
 	"strings"
 )
 
+//Validate project checks out the structure of a project. It is public because
+//it is referenced from the Seven5 pill.
 var ValidateProject = &CommandDecl{
 	Arg: []*CommandArgPair{
-		ClientSideWd, //root of the user project
+		ProjectRootDir, //root of the user project
+		ProjectConfiguration, //contents of project.json
 	},
-	Ret: BuiltinSimpleReturn,
+	Ret: SimpleReturn,
 	Impl: defaultValidateProject,
 }
 
 
 func defaultValidateProject(log util.SimpleLogger, v...interface{}) interface{} {
 	dir := v[0].(string)
-
+	cfg := v[1].(*ProjectConfig)
+	
 	dirForHuman := dir
 	parts := strings.SplitAfter(dir, string(filepath.Separator))
 	if len(parts) > 3 {
@@ -35,14 +39,6 @@ func defaultValidateProject(log util.SimpleLogger, v...interface{}) interface{} 
 		}
 	}
 
-	//ok, top level passed ok, let's ready in the app.json
-	cfg, err := decodeAppConfig(dir)
-	if err!=nil {
-		log.Error("Error reading app configuration file %s: %s",
-			dir,err.Error())
-		return &SimpleErrorReturn{Error:true}
-	}
-	
 	//check the parent dir, src subdir, and .go entry point based on config
 	parent:=filepath.Dir(dir)
 	if !verifyFSEntry(log, true, parent, cfg.AppName) {

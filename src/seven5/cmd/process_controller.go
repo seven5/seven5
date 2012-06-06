@@ -9,9 +9,9 @@ import (
 //
 var ProcessController = &CommandDecl{
 	Arg: []*CommandArgPair{
-		ClientSideWd, //root of the user project
+		ProjectRootDir, //root of the user project
 	},
-	Ret: BuiltinSimpleReturn,
+	Ret: SimpleReturn,
 	Impl: defaultProcessController,
 }
 

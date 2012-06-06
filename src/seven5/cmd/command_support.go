@@ -5,34 +5,30 @@ import (
 )
 
 //CommandDecl is the structure for a declaration of a command.  Use a literal
-//with named fields for clarity.
+//with named fields for clarity.  Public so others can write commands.
 type CommandDecl struct {
 	Arg []*CommandArgPair
 	Ret *CommandReturn
 	Impl func(logger util.SimpleLogger,v...interface{}) interface{}
 }
 
-//
-// BUILTINS
-//
-var BuiltinSimpleReturn = &CommandReturn {
+//SimpleReturn is the most common return type for a command, just a boolean
+//that indicates if the command ran correctly or not.  This contains all
+//the necessary parts of a CommandReturn structure to be used in a command
+//declaration. Public so others can write commands.
+var SimpleReturn = &CommandReturn {
 	Unmarshalled: func() interface{} {return &SimpleErrorReturn{}},
 	ErrorTest: simpleErrorTest,
 	GetBody: nil,
 }
-
-var BuiltinReturnWithBody = &CommandReturn {
+//SimpleBodyReturn is used for commands who want to display output into the 
+//web browser (html).  This contains all the necessary parts for a CommandReturn
+//to be used in a command declaration.  Public so others can write commands.
+var SimpleBodyReturn = &CommandReturn {
 	Unmarshalled: func() interface{} {return &BodyReturn{}},
 	ErrorTest: bodyErrorTest,
 	GetBody: bodyGetBody,
 }
-//ClientSideWd just a marker to tell the client side to pass the working
-//directory.
-var ClientSideWd = &CommandArgPair{nil, nil}
-//ClientSideRequest is a marker to tell the client to send us the contents
-//of the HTTP request that caused this as a BrowserRequest object.
-var ClientSideRequest = &CommandArgPair{nil, nil}
-
 
 //CommandReturn is the structure of a return value from a command. The 
 //Unmarshalled function returns an instance of the correct type for use
@@ -48,6 +44,7 @@ var ClientSideRequest = &CommandArgPair{nil, nil}
 //seven5) because it always returns a structure for marshalling.  That
 //structure may indicate that there is a problem but that isn't tested
 //until the value reaches the client (calling) side.
+//Public so others can write commands.
 type CommandReturn struct {
 	Unmarshalled func() interface{}
 	ErrorTest func(interface{}) bool
@@ -55,12 +52,12 @@ type CommandReturn struct {
 }
 
 // SimpleErrorReturn is suitable as a return type for commands that just signal
-// an error or not.
+// an error or not. Public so others can write commands.
 type SimpleErrorReturn struct {
 	Error bool
 }
 //BodyReturn is suitable as a return type for commands that needs to write
-//data to the browser.
+//data to the browser. Public so others can write commands.
 type BodyReturn struct {
 	Error bool
 	Body string
@@ -86,14 +83,9 @@ func bodyGetBody(v interface{}) string {
 //should be the nil func as there is no encoding.
 //Unmarshalled is used on the server side to get an instance of the correct
 //type that we can unmarshal the parameter into.
+//Public so others can write commands.
 type CommandArgPair struct {
 	Unmarshalled func() interface{}
-	Generator func() (interface{}, error)
+	Generator func(ClientSideCapability,util.SimpleLogger) (interface{}, error)
 }
 
-//clientSideCollectFiles returns a slice of names that are either filenames
-//or type names based on a particular suffix.  it only works on .go files so
-//the suffix should not include this.  if the second param is true, it will
-//convert the filenames to type names.
-func clientSideCollectFiles(suffix string, wantTypeNames bool) (interface{},error) {
-}

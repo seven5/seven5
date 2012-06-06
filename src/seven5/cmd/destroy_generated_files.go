@@ -10,27 +10,23 @@ import (
 //
 // Destroy generated files is used to clean up before generating a new set of
 // generated files.  This is useful in case the names of the "key" files change,
-// we don't want to leave files dangling.
+// we don't want to leave files dangling.  Public because it is referenced by
+// the Seven5 pill.
 //
 var DestroyGeneratedFiles = &CommandDecl{
 	Arg: []*CommandArgPair{
-		ClientSideWd, //root of the user project
+		ProjectSrcDir, //project source code dir
 	},
-	Ret: BuiltinSimpleReturn,
+	Ret: SimpleReturn,
 	Impl: defaultDestroyGeneratedFiles,
 }
 
 
 func defaultDestroyGeneratedFiles(log util.SimpleLogger, v...interface{}) interface{} {
 
-	dir := v[0].(string)
+	appPath := v[0].(string)
 	
 	log.Info("Destroying Seven5 generated files.")
-	appPath, err := getAppSourceDir(dir)
-	if err!=nil {
-		log.Error("Unable to figure out app source directory from cwd: %s", dir)
-		return &SimpleErrorReturn{Error: true}
-	}
 	f, err := os.Open(appPath)
 	if err != nil {
 		log.Error("Unable to read directory contents: %s", appPath)

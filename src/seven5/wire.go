@@ -13,10 +13,29 @@ import (
 	"seven5/cmd"
 )
 
+//WireStrategy is used to encode the particular marshalling/unmarshalling
+//strategy used by the system.  It is only interesting if you want to
+//implement new ways to talk to commands.
+type WireStrategy interface {
+	//Call does the work of calling the command (fn) with the arguments
+	//supplied. All the params have been encoded by MarshalArgument. 
+	//The first return value is log data from the invoked code.  The second
+	//is the (encoded) result of running the command.
+	Call(fn func(util.SimpleLogger,...interface{}) interface{},
+		log util.SimpleLogger, param ... interface{}) (string, interface{})
+	//MarshalArgument does an encoding the particluar argument
+	//supplied (arg) and returning the encoded value.
+	MarshalArgument(arg *cmd.CommandArgPair, commandName string, count int, 
+		log util.SimpleLogger, cl cmd.ClientSideCapability) (interface{}, error)
+	//Unmarshal result does decoding of the result of a command and returns
+	//the result.  
+	UnmarshalResult(rez *cmd.CommandReturn, log util.SimpleLogger) (interface{}, error)
+}
+	
 //Wire represents the way to talk to a seven5 program.  It is, in some sense,
 //the client side of the RPC system. It handles marshalling
-//calling commands on the other side (invoking seven5), and unmarshalling.
-//It holds a reference to the current Seven5 executable.
+//calling commands on the other side (invoking seven5 as a program), and 
+//unmarshalling the result. It holds a reference to the current Seven5 executable.
 type Wire struct {
 	path string
 }
@@ -64,32 +83,12 @@ func (self *Wire) Dispatch(commandName string, dir string, writer http.ResponseW
 	count := 2;
 	command:=Seven5app[commandName]
 	argDefn := command.Arg
+	cap := cmd.NewDefaultClientCapability(request)
+	
 	for _,arg:=range argDefn {
 		encodedArg := ""
 		var err error
-		
-		//there are some special arguments that we process on this side of the
-		//wire in a special way
-		switch arg {
-		case cmd.ClientSideWd:
-			encodedArg = dir
-			err = nil
-		case cmd.ClientSideRequest:
-			browserReq, err:= util.MarshalRequest(request, log)
-			if err!=nil {
-				return nil, err
-			}
-			var buffer bytes.Buffer
-			enc:=json.NewEncoder(&buffer)
-			err=enc.Encode(browserReq)
-			if err!=nil {
-				log.Error("Unable to encode BrowserRequest on client side: %s",err)
-				return nil, err
-			}
-			encodedArg = buffer.String()
-		default:
-			encodedArg, err = marshalUserArgument(arg, commandName, count, log)
-		}
+		encodedArg, err = marshalUserArgument(arg, commandName, count, log, cap)
 		//check for marshalling error
 		if err!=nil {
 			return nil, err
@@ -174,9 +173,16 @@ func (self *Wire) runSeven5(log util.SimpleLogger, param ... string) string {
 
 }
 
+//marshalUserArgument does the work of figuring out how to take a particular
+//argument and convert it to a json string suitable for sending to the 
+//Seven5 application.  The commandName and count parameters are just for
+//producing nicer error messages.  The arg has the necessary information about
+//the parameter and the cl has functions that may be needed to create the
+//_value_ of the parameter to be encoded.
 func marshalUserArgument(arg *cmd.CommandArgPair, commandName string, count int, 
-	log util.SimpleLogger) (string, error){
-	generated, err:= arg.Generator()
+	log util.SimpleLogger, cl cmd.ClientSideCapability) (string, error){
+		
+	generated, err:= arg.Generator(cl,log)
 	if err!=nil {
 		log.Error("Error trying to generate arg %d for command %s",count,commandName)
 		return "", err

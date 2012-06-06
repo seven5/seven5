@@ -10,62 +10,54 @@ import (
 )
 
 //
-//  Process a vocab is responsible for taking 
+// Process a vocab is responsible for taking a collection of types that have
+// been verified to be vocabularies and generating the necessary code to allow
+// them to be used as such in a user project.  Public because it is referenced
+// from the Seven5 pill.
 //
 var ProcessVocab = &CommandDecl{
 	Arg: []*CommandArgPair{
-		ClientSideWd, //root of the user project
-		vocabFileListArg,
+		ProjectConfiguration, // project config file contents
+		ProjectSrcDir, // project config file contents
+		ParamFromFiles("_vocab",false),
 	},
-	Ret: BuiltinSimpleReturn,
+	Ret: SimpleReturn,
 	Impl: defaultProcessVocab,
-}
-
-//VocabListArg is the cruft to allow to receive the list of files have
-// _vocab.go as their suffix in the client code.
-var vocabFileListArg = &CommandArgPair{
-	func()interface{}{
-		return ([]string{})
-	}, 
-	func() (interface{}, error) { return clientSideCollectFiles("_vocab",false)},
 }
 
 
 func defaultProcessVocab(log util.SimpleLogger, v...interface{}) interface{} {
-	arg := raw.(*ProcessVocabArg)
-	result := &ProcessVocabResult{}
+	config:=v[0].(*ProjectConfig)
+	srcDir:=v[1].(string)
+	arg := v[2].([]string)
 
-	for _, vocab := range arg.Info {
-		filename := util.TypeNameToFilename(vocab.Name)
-		log.Debug("filename conversion %s", filename)
-		srcDir := filepath.Join(dir, "src", config.AppName)
-		p :=  filepath.Join(srcDir, filename+"_generated.go")
+	for _, vocab := range arg {
+		typeName := util.FilenameToTypeName(vocab)
+		log.Debug("filename conversion %s", typeName)
+		p :=  filepath.Join(srcDir, typeName+"_generated.go")
 		log.Debug("path %s", p)
 		file, err := os.Create(p)
 		if err != nil {
-			log.Error("Unable to write file %s:%s", p, err.Error())
-			result.Error = true
-			return result
+			return &SimpleErrorReturn{Error:true}
 		}
-		err = generate(file, srcDir, vocab.Name, config)
+		err = generate(file, srcDir, typeName, config)
 		if err != nil {
 			log.Error("Unable to generate code in %s:%s", p, err.Error())
-			result.Error = true
-			return result
+			return &SimpleErrorReturn{Error:true}
 		}
 		err = file.Close()
 		if err != nil {
 			log.Error("Unable to close file %s:%s", p, err.Error())
-			result.Error = true
-			return result
+			return &SimpleErrorReturn{Error:true}
 		}
 	}
 
-	return result
+	return &SimpleErrorReturn{Error:false}
+
 }
 
 func generate(file *os.File, dirName string, vocabName string, 
-	config *ApplicationConfig) error {
+	config *ProjectConfig) error {
 
 	load := fmt.Sprintf(LOAD_DATA_CODE,config.AppName, vocabName, vocabName, 
 		filepath.Join(dirName,util.TypeNameToFilename(vocabName)+".json"), 

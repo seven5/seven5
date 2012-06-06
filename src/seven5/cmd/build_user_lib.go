@@ -13,24 +13,23 @@ import (
 // at all what is in the library, it just tries to build it.  If you need
 // to perform special operations on teh source, do them before calling
 // this command.  BuildUserLib goes to some trouble to display nice error
-// messages if the build fails.
+// messages if the build fails.   Public because it is referenced from the
+// Seven5 pill.
 //
 var BuildUserLib = &CommandDecl{
 	Arg: []*CommandArgPair{
-		ClientSideWd, //root of the user project
+		ProjectRootDir, //root of the user project
+		ProjectConfiguration, //application configuration
 	},
-	Ret: BuiltinSimpleReturn,
+	Ret: SimpleReturn,
 	Impl: defaultBuildUserLib,
 }
 
 
 func defaultBuildUserLib(log util.SimpleLogger, v...interface{}) interface{} {
 	dir:=v[0].(string)
-	config,err :=decodeAppConfig(dir)
-	if err!=nil {
-		log.Error("Couldn't understand the configuration for the app: %s",err)
-		return &SimpleErrorReturn{Error:true}
-	}
+	config:=v[1].(*ProjectConfig)
+	
 	cmd := exec.Command("go", "install", config.AppName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

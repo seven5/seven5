@@ -39,30 +39,24 @@ type ExplodeTypeResult struct {
 }
 
 //
-// ExplodeTypes is used to display back determine key information about types in
+// ExplodeTypes is used to send back determine key information about types in
 // the client application. It is also interesting if you want to implement
 // a command that uses a pill or has custom argument/return value marshalling.
-//
+// Public because it is referenced by the Seven5 pill.
 var ExplodeType = &CommandDecl{
 	Arg: []*CommandArgPair{
-		ClientSideWd, //need the working directory to read the app config
-		vocabTypeListArg, //list of the vocabulary files
+		ProjectConfiguration, // project config
+		ParamFromFiles("vocab",true), //list of the vocabulary files
 	},
 	Ret: ExplodeTypeReturn,
 	Impl: defaultExplodeType,
 }
-//vocabTypeListArg is the cruft to allow to receive the list of types that are
-//indicated by the names of the files in the client source code.
-var vocabTypeListArg = &CommandArgPair{
-	func()interface{}{
-		return ([]string{})
-	}, 
-	func() (interface{}, error) { return clientSideCollectFiles("_vocab",true)},
-}
+
 
 //ExplodeTypeReturn is the necessary cruft to tell the unmarshalling code on
 //the client side how to handle our return value.  We don't return a body
-//so the last field is nil.
+//so the last field is nil.  Marshalling code is not in our package so this
+//must be public.
 var ExplodeTypeReturn =  &CommandReturn {
 	func() interface{} { return &ExplodeTypeResult{}},
 	func(v interface{}) bool { return v.(*ExplodeTypeResult).Error },
@@ -72,12 +66,12 @@ var ExplodeTypeReturn =  &CommandReturn {
 
 //ProbeVocabAll is the driver routine for the pill. Input is all the named
 //vocabs and it returns the json output for this command after repeatedly
-//calling ProbeVocab.
+//calling ProbeVocab.  Referenced by the pill, so must be public.
 func ProbeVocabAll(vocabs...interface{}) string {
 	result := &PillVocabWrapper{}
 	
 	for _, v := range vocabs {
-		info, err := ProbeVocab(v)
+		info, err := probeVocab(v)
 		if err!="" {
 			return err
 		}
@@ -86,10 +80,10 @@ func ProbeVocabAll(vocabs...interface{}) string {
 	return formatProbeVocabResult(result)
 }
 
-//ProbeVocab runs _inside_ the pill that determines the type information about
+//probeVocab runs _inside_ the pill that determines the type information about
 //a user library.  It returns json that represents the result of it's work,
 //even if that is an error message.
-func ProbeVocab(candidate interface{}) (*VocabInfo, string) {
+func probeVocab(candidate interface{}) (*VocabInfo, string) {
 	
 	t:=reflect.TypeOf(candidate)
 	if t.Kind()!=reflect.Struct {
@@ -164,12 +158,8 @@ func formatProbeVocabResult(result *PillVocabWrapper) string {
 }
 
 func defaultExplodeType(log util.SimpleLogger, v...interface{}) interface{} { 
-	dir := v[0].(string)
+	config := v[0].(*ProjectConfig)
 	vocab := v[1].([]string)
-	config, err := decodeAppConfig(dir)
-	if err!=nil {
-		return &ExplodeTypeResult{Error:true}
-	}
 	
 	//construct a function call that has all the names of the vocabs
 	var expectedList bytes.Buffer

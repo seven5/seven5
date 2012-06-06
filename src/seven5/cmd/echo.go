@@ -10,13 +10,14 @@ import (
 //
 // Echo is used to display back to the browser what the command received.  This
 // can be useful for either debugging or for understanding how to implement a command
-// that has browser output.
+// that has browser output.  Public because it might be referenced by the Seven5
+// pill.
 //
 var Echo = &CommandDecl{
 	Arg: []*CommandArgPair{
-		ClientSideRequest, //need the request so we can do output
+		CurrentWebRequest, //need the request so we can do output
 	},
-	Ret: BuiltinReturnWithBody,
+	Ret: SimpleBodyReturn, //we have output for the browser
 	Impl: defaultEcho,
 }
 
