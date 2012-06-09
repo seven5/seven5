@@ -3,12 +3,39 @@ package seven5
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"path/filepath"
 	"seven5/util"
 	"strings"
-	"time"
+	"encoding/json"
 )
+
+const (
+	COMMAND_CONFIG_FILE = "command.json"
+)
+
+// A Command plays a role in the system. These roles are well defined and
+// bound to structures that will be passed to the command playing that
+// role.  Public for json-encoding.
+type Command struct {
+	Role string
+	Info CommandInfo
+}
+
+//CommandInfo is extra information about a particular groupie. This is 
+//information used/needed at bootstrap time.  Public for json encoding.
+type CommandInfo struct {
+	TypeName      string
+	ImportsNeeded []string
+}
+
+//CommandWrapper is used just to allow to have only one top level declaration
+//in the COMMAND_CONFIG_FILE.
+type CommandWrapper struct {
+	CommandConfig []Command
+}
+
+//CommandConfig is the result of parsing the json.
+type commandConfig map[string]*CommandInfo
 
 //simulate const array
 func DEFAULT_IMPORTS() []string {
@@ -16,60 +43,57 @@ func DEFAULT_IMPORTS() []string {
 }
 
 // Bootstrap is responsible for buliding the current seven5 executable
-// based on the groupie configuration.
+// based on the command configuration.  He logs all errors so callers can
+// just return if they receive an error.
 type bootstrap struct {
-	request *http.Request
 	logger  util.SimpleLogger
 }
 
-//Bootstrap is invoked from the roadie to tell us that the user wants to 
-//try to build and run their project.  Normally, this results in a new
-//Seven5 excutabel.
-func Bootstrap(writer http.ResponseWriter, request *http.Request,
-	logger util.SimpleLogger) string {
-
-	start := time.Now()
-
-	b := &bootstrap{request, logger}
-	config := b.configureSeven5("")
-	if config != nil {
-		result := b.takeSeven5Pill(config)
-		delta := time.Since(start)
-		logger.Info("Rebuilding seven5 took %s", delta.String())
-		return result
-	}
-
-	return ""
-}
 
 //configureSeven5 checks for a goroupie config file and returns a config or
 //nil in the error case. pass "" to use current working dir.
-func (self *bootstrap) configureSeven5(dir string) groupieConfig {
+func (self *bootstrap) configureSeven5(dir string) (commandConfig,error) {
 
-	var groupieJson string
+	var commandJson string
 	var err error
-	var result groupieConfig
+	var result commandConfig
 
-	groupieJson, err = util.ReadIntoString(dir, GROUPIE_CONFIG_FILE)
+	commandJson, err = util.ReadIntoString(dir, COMMAND_CONFIG_FILE)
 		
 	if err != nil {
-		self.logger.Error("unable find or open the groupies config:%s", err)
-		return nil
+		self.logger.Error("unable find or open the command config:%s", err)
+		return nil, err
 	}
-	self.logger.DumpJson(util.DEBUG, "Groupie configuration", groupieJson)
+	self.logger.DumpJson(util.DEBUG, "Command configuration", commandJson)
 
-	if result, err = getGroupies(groupieJson, self.logger); err != nil {
-		self.logger.DumpJson(util.ERROR,"Groupie configuration", groupieJson)
-		self.logger.Error("could not understand groupie.json! aborting!")
-		return nil
+	if result, err = self.parseCommandConfig(commandJson); err != nil {
+		self.logger.DumpJson(util.ERROR,"Command configuration", commandJson)
+		self.logger.Error("could not understand "+COMMAND_CONFIG_FILE+"! aborting!")
+		return nil, err
 	}
 
-	return result
+	return result, nil
 }
+
+//parseCommandConfig takes a bunch of json and turns it into a commandConfig.
+//It returns an error if you don't supply a sensible configuration.
+func (self *bootstrap) parseCommandConfig(jsonBlob string) (commandConfig, error) {
+	result := make(map[string]*CommandInfo)
+	dec := json.NewDecoder(strings.NewReader(jsonBlob))
+	var wrapper CommandWrapper
+	if err := dec.Decode(&wrapper); err != nil {
+		return nil, err
+	} 
+	for _, raw := range wrapper.CommandConfig {
+		result[raw.Role] = &CommandInfo{raw.Info.TypeName, raw.Info.ImportsNeeded}
+	}
+	return result, nil
+}
+
 
 //takeSeven5 generates the pill in a temp directory and compiles it.  It returns
 //the name of the new seven5 command or "" if it failed.
-func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
+func (self *bootstrap) takeSeven5Pill(config commandConfig) (string,error) {
 	var cmd string
 	var errText string
 	var imports bytes.Buffer
@@ -115,12 +139,12 @@ func (self *bootstrap) takeSeven5Pill(config groupieConfig) string {
 		if err!=nil {
 			self.logger.Error("Internal seven5 error: %s",err)
 		}
-		return ""
+		return "", err
 	}
 	path := strings.Split(cmd, string(filepath.Separator))
 	self.logger.Info("Seven5 is now [tmpdir]/%s", path[len(path)-1])
 
-	return cmd
+	return cmd, nil
 }
 
 //seven5pill is the text of the pill

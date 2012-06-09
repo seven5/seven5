@@ -30,7 +30,7 @@ func defaultValidateProject(log util.SimpleLogger, v...interface{}) interface{} 
 		dirForHuman = filepath.Join(parts...)
 	}
 	log.Debug("Using DefaultProjectValidator in %s", dirForHuman)
-	names := []string{"client", "public", "src", "app.json"}
+	names := []string{"client", "public", "src", "project.json"}
 	directory := []bool{true, true, true, false}
 	for i, n := range names {
 		if !verifyFSEntry(log, directory[i], dir, n) {

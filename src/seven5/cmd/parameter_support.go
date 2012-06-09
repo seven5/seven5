@@ -22,6 +22,8 @@ type ClientSideCapability interface {
 	ProjectSrcDir(util.SimpleLogger) (string, error)
 	CollectFiles(util.SimpleLogger, string, bool) ([]string, error)
 	CurrentWebRequest(util.SimpleLogger) (*util.BrowserRequest, error)
+	SetTypeInfo(*ExplodeTypeResult)
+	TypeInfo() *ExplodeTypeResult
 }
 
 //projectRootDir is suitable for use in a Command declaration as an argument.
@@ -101,7 +103,19 @@ func (self *defaultClientSideCapability) ProjectSrcDir(log util.SimpleLogger) (s
 	}
 	return filepath.Join(root, "src", cfg.AppName), nil
 }
+//SetTypeInfo just sets the current type knowlege that we have into this
+//client capability.
+func (self *defaultClientSideCapability) SetTypeInfo(t *ExplodeTypeResult) {
+	self.typeInfo = t
+}
+//GetTypeInfo just returns the current type knowlege that we have inside this
+//client capability.
+func (self *defaultClientSideCapability) TypeInfo() *ExplodeTypeResult {
+	return self.typeInfo 
+}
 
+//CurrentWebRequest converts the "real" type of a web request into something
+//that can be easily marshalled in Json.
 func (self *defaultClientSideCapability) CurrentWebRequest(log util.SimpleLogger) (*util.BrowserRequest, error) {
 	browserReq, err := util.MarshalRequest(self.req, log)
 	if err != nil {
@@ -156,10 +170,11 @@ func ParamFromFiles(suffix string, wantTypeNames bool) *CommandArgPair {
 //our implementation of the client side capabilty
 type defaultClientSideCapability struct {
 	req *http.Request
+	typeInfo *ExplodeTypeResult
 }
 
 //NewDefaultClientCapability is the way to get an implementation of ClientCapabilities.
 //Marshalling is in a different package, so must be public
 func NewDefaultClientCapability(req *http.Request) ClientSideCapability {
-	return &defaultClientSideCapability{req}
+	return &defaultClientSideCapability{req, nil}
 }

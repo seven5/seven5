@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"seven5/cmd"
 	"seven5/util"
 	"strings"
 	"time"
-	"seven5/cmd"
 )
 
 //WireStrategy is used to encode the particular marshalling/unmarshalling
@@ -21,23 +21,21 @@ type WireStrategy interface {
 	//supplied. All the params have been encoded by MarshalArgument. 
 	//The first return value is log data from the invoked code.  The second
 	//is the (encoded) result of running the command.
-	Call(fn func(util.SimpleLogger,...interface{}) interface{},
-		log util.SimpleLogger, param ... interface{}) (string, interface{})
+	Call(commandName string, log util.SimpleLogger, param ...interface{}) (string, interface{})
 	//MarshalArgument does an encoding the particluar argument
 	//supplied (arg) and returning the encoded value.
-	MarshalArgument(arg *cmd.CommandArgPair, commandName string, count int, 
+	MarshalArgument(arg *cmd.CommandArgPair, commandName string, count int,
 		log util.SimpleLogger, cl cmd.ClientSideCapability) (interface{}, error)
 	//Unmarshal result does decoding of the result of a command and returns
 	//the result.  
-	UnmarshalResult(rez *cmd.CommandReturn, log util.SimpleLogger) (interface{}, error)
+	UnmarshalResult(commandName string, rez *cmd.CommandReturn, 
+		log util.SimpleLogger, retValue interface{}) (interface{}, error)
 }
-	
-//Wire represents the way to talk to a seven5 program.  It is, in some sense,
-//the client side of the RPC system. It handles marshalling
-//calling commands on the other side (invoking seven5 as a program), and 
-//unmarshalling the result. It holds a reference to the current Seven5 executable.
+
+//Wire represents all the processing necessary for handling a command execution
+//that is NOT specific to the particular encoding in use.
 type Wire struct {
-	path string
+	strategy WireStrategy
 }
 
 var (
@@ -46,13 +44,13 @@ var (
 	WIRE_SEMANTIC_ERROR = errors.New("Semantic error in seven5 command")
 	//WIRE_PROCESS_ERROR means that the other side could not be contacted
 	//successfully.
-	WIRE_PROCESS_ERROR  = errors.New("Unable to run the seven5 command")
+	WIRE_PROCESS_ERROR = errors.New("Unable to run the seven5 command")
 )
 
-//NewWire creates a new Wire instance.  Don't call this unless you have
-//a viable executable to run as the first param.
-func NewWire(path string) *Wire {
-	return &Wire{path}
+//NewWire creates a new Wire instance.  Don't call unless your WireStrategy
+//is fully ready.
+func NewWire(strategy WireStrategy) *Wire {
+	return &Wire{strategy}
 }
 
 //Dispatch is called to invoke a command.  It is called to generate arguments,
@@ -61,8 +59,8 @@ func NewWire(path string) *Wire {
 //will only be a valid result value if error is nil.  It can be the case
 //that the error is WIRE_SEMANTIC_ERROR meaning that the other side ran ok,
 //but the return value said that there was an error.
-func (self *Wire) Dispatch(commandName string, dir string, writer http.ResponseWriter,
-	request *http.Request, log util.SimpleLogger) (interface{}, error) {
+func (self *Wire) Dispatch(commandName string, writer http.ResponseWriter,
+	request *http.Request, log util.SimpleLogger, clientCap cmd.ClientSideCapability) (interface{}, error) {
 	start := time.Now()
 
 	defer func() {
@@ -71,142 +69,130 @@ func (self *Wire) Dispatch(commandName string, dir string, writer http.ResponseW
 	}()
 
 	//first two args arge required
-	toPass:=[]string{}
-	toPass = append(toPass,log.GetLogLevel())
-	toPass = append(toPass,commandName)
-	log.DumpTerminal(util.DEBUG, 
-		fmt.Sprintf("fixed args (0=log level, 1=command name) to %s", commandName),
-		log.GetLogLevel()+"\n"+commandName);
+	toPass := []interface{}{}
 
-	
 	//determine the rest of the args	
-	count := 2;
-	command:=Seven5app[commandName]
+	count := 0
+	command := Seven5app[commandName]
 	argDefn := command.Arg
-	cap := cmd.NewDefaultClientCapability(request)
-	
-	for _,arg:=range argDefn {
-		encodedArg := ""
+
+	for _, arg := range argDefn {
+		var encodedArg interface{}
 		var err error
-		encodedArg, err = marshalUserArgument(arg, commandName, count, log, cap)
+		encodedArg, err = self.strategy.MarshalArgument(arg, commandName, 
+			count, log, clientCap)
 		//check for marshalling error
-		if err!=nil {
+		if err != nil {
 			return nil, err
 		}
 		toPass = append(toPass, encodedArg)
 		count++
 	}
-	
-	
-	//
-	// Execution of cammand
-	//
-	var jsonBlob string
-	if jsonBlob = self.runSeven5(log, toPass...); jsonBlob == "" {
-		return nil, WIRE_PROCESS_ERROR
+
+	logData, encodedResult := self.strategy.Call(commandName,log, toPass...)
+	if encodedResult == nil{
+		return nil,WIRE_PROCESS_ERROR
 	}
 	
-	//
-	// Decode result
-	//
-	retDefn := command.Ret
-	result := retDefn.Unmarshalled()
-	decoder:=json.NewDecoder(strings.NewReader(jsonBlob))
-	if err:=decoder.Decode(result); err!=nil {
-		log.Error("Unable to decode result of %s, %+v: %s", commandName, result, err)
-		return nil, err
+	//show log data, since we have it now
+	log.Raw(logData);
+	
+	//decode result
+	result, err := self.strategy.UnmarshalResult(commandName, command.Ret, 
+		log, encodedResult)
+	if err!=nil {
+		return nil,err
 	}
-	if retDefn.ErrorTest(result) {
+	
+	if command.Ret.ErrorTest(result) {
 		return nil, WIRE_SEMANTIC_ERROR
 	}
-	//might need to copy the body to the browser
-	if retDefn.GetBody!=nil {
-		size, err := writer.Write([]byte(retDefn.GetBody(result)))
-		log.Debug("Size of body written to browser was %d bytes",size)
-		if err!=nil {
+		//might need to copy the body to the browser
+	if command.Ret.GetBody != nil {
+		size, err := writer.Write([]byte(command.Ret.GetBody(result)))
+		log.Debug("Size of body written to browser was %d bytes", size)
+		if err != nil {
 			log.Error("Unable to write to the browser for command: %s:%s",
 				commandName, err)
 			return nil, err
 		}
 	}
-		
+	
 	return result, nil
 }
 
-//runSeven5 is called to take the three bunches of json arguments (and a couple
-//of miscellaneous pramaters) and invoke
-//the process of Seven5 with those. It captures the output of the process
-//and returns the marshalled result that it got from stdout.
-func (self *Wire) runSeven5(log util.SimpleLogger, param ... string) string {
+//runSeven5 is called to take two fixed params (log level and command name)
+//plus the encoded parameter arguments and pass them through to the program.
+//It captures the output of the process and returns log data and marshalled
+//value.
+func (self *JsonStringExecStrategy) runSeven5(log util.SimpleLogger, param ...string) (string,string) {
 	var err error
 
 	//run the shell command and collect output
-	shellCommand := exec.Command(self.path, param...)
+	shellCommand := exec.Command(self.pathToSeven5, param...)
 	out, err := shellCommand.CombinedOutput()
 	allOutput := string(out)
-	
+
 	//look for the magic marker in the stdout string
 	index := strings.Index(allOutput, MARKER)
 	if index < 0 {
 		log.DumpTerminal(util.ERROR, "Bad output received from seven5", allOutput)
-		return ""
+		return "",""
 	}
-	
+
 	//log errors that are at our level (not semantics) of process handling
 	pos := len(MARKER) + index
 	logMsg := allOutput[pos:]
 	marshalledText := allOutput[:index]
-	if err != nil || badMarshalledText(marshalledText) {
+	if err != nil || self.badMarshalledText(marshalledText) {
 		log.Raw(logMsg)
-		if badMarshalledText(marshalledText) {
-			log.Error("internal seven5 error running command %s (no result from command)", 
+		if self.badMarshalledText(marshalledText) {
+			log.Error("internal seven5 error running command %s (no result from command)",
 				param[1])
 		} else {
 			log.Error("error running command %s was %s", param[1], err.Error())
 		}
-		return ""
+		return "",""
 	}
-	
-	//copy the log value from the other side into our log so the user can see it
-	log.Raw(logMsg)
-	return marshalledText
+
+	return logMsg, marshalledText
 
 }
 
-//marshalUserArgument does the work of figuring out how to take a particular
+//MarshalUserArgument does the work of figuring out how to take a particular
 //argument and convert it to a json string suitable for sending to the 
 //Seven5 application.  The commandName and count parameters are just for
 //producing nicer error messages.  The arg has the necessary information about
 //the parameter and the cl has functions that may be needed to create the
 //_value_ of the parameter to be encoded.
-func marshalUserArgument(arg *cmd.CommandArgPair, commandName string, count int, 
-	log util.SimpleLogger, cl cmd.ClientSideCapability) (string, error){
-		
-	generated, err:= arg.Generator(cl,log)
-	if err!=nil {
-		log.Error("Error trying to generate arg %d for command %s",count,commandName)
+func (self *JsonStringExecStrategy) MarshalArgument(arg *cmd.CommandArgPair, 
+	commandName string, count int, log util.SimpleLogger, cl cmd.ClientSideCapability) (interface{}, error) {
+
+	generated, err := arg.Generator(cl, log)
+	if err != nil {
+		log.Error("Error trying to generate arg %d for command %s", count, commandName)
 		return "", err
 	}
 	encodedArg, ok := generated.(string)
-	if ok && arg.Unmarshalled!=nil {
+	if ok && arg.Unmarshalled != nil {
 		log.Error("Mismatch on argument %d of %s, string value provided but not expected",
-			count,commandName)
+			count, commandName)
 		return "", err
 	}
-	if !ok && arg.Unmarshalled==nil {
+	if !ok && arg.Unmarshalled == nil {
 		log.Error("Mismatch on argument %d of %s, encoding needed but not expected",
-			count,commandName)
+			count, commandName)
 		return "", err
 	}
 	if ok {
-		log.DumpTerminal(util.DEBUG, fmt.Sprintf("raw arg %d to %s", count, commandName), 
+		log.DumpTerminal(util.DEBUG, fmt.Sprintf("raw arg %d to %s", count, commandName),
 			encodedArg)
 	} else {
 		//the object needs to be marshalled
 		var jsonBuffer bytes.Buffer
-		encoder:=json.NewEncoder(&jsonBuffer)
-		err:=encoder.Encode(generated)
-		if err!=nil {
+		encoder := json.NewEncoder(&jsonBuffer)
+		err := encoder.Encode(generated)
+		if err != nil {
 			log.Error("Could not encode argument %d of %s, %+v: %s",
 				count, commandName, generated, err)
 			return "", err
@@ -214,12 +200,97 @@ func marshalUserArgument(arg *cmd.CommandArgPair, commandName string, count int,
 		encodedArg = jsonBuffer.String()
 		log.DumpJson(util.DEBUG, fmt.Sprintf("json arg %d to %s", count, commandName), encodedArg)
 	}
-	return encodedArg,nil
+	return encodedArg, nil
 }
 
 //badMarshalledText returns true if the result value from Seven5 as "marshalled"
 //value doesn't make sense
-func badMarshalledText(s string) bool {
+func (self *JsonStringExecStrategy) badMarshalledText(s string) bool {
 	blob := strings.Trim(s, " \t\n")
 	return blob == "" || blob == "{}"
+}
+
+//JsonStringExcStrategy is a wire encoding that uses json-encoded values (in 
+//strings) as command line arguments to another (child) process.  The process
+//runs and it's standard output is the result, including
+//both log data for the parent as well as a json encoded result.Public
+//because it's used by the roadie.
+type JsonStringExecStrategy struct {
+	pathToSeven5 string
+}
+
+//Create a JsonStringStrategy from a path to executable... public so it can be used
+//by the roadie.
+func NewJsonStringStrategy(path string) WireStrategy {
+	result := &JsonStringExecStrategy{path}
+	return result
+}
+
+//Convenience for users of NewJsonStringStrategy... public so it can be used
+//by the roadie.  BuildSeven5 does the work of building the boostrap seven5 
+//instance and returns the path to it or "" and an error.
+func BuildSeven5(logger util.SimpleLogger) (string, error) {
+	start := time.Now()
+
+	b := &bootstrap{logger}
+	config, err := b.configureSeven5("")
+	if err != nil {
+		return "", err
+	}
+	result, err := b.takeSeven5Pill(config)
+	if err != nil {
+		return "", err
+	}
+
+	delta := time.Since(start)
+	logger.Info("Rebuilding seven5 took %s", delta.String())
+	return result, nil
+}
+
+//Call does the work of calling the command  with the arguments
+//supplied. All the params have been encoded by MarshalArgument. 
+//The first return value is log data from the invoked code.  The second
+//is the (encoded) result of running the command.  If something went
+//wrong, the 2nd result will be nil.
+func (self *JsonStringExecStrategy) Call(commandName string,
+	log util.SimpleLogger, param ...interface{}) (string, interface{}) {
+	
+	//first two args args are required to tell the other side the log level
+	//and the command name
+	toPass := []string{}
+	toPass = append(toPass, log.GetLogLevel())
+	toPass = append(toPass, commandName)
+	log.DumpTerminal(util.DEBUG,
+		fmt.Sprintf("fixed args (0=log level, 1=command name) to %s", commandName),
+		log.GetLogLevel()+"\n"+commandName)
+
+	for _, p := range param {
+		toPass = append(toPass, p.(string))
+	}
+	//
+	// Execution of cammand
+	//
+	var jsonBlob string
+	var logData string
+	if logData, jsonBlob = self.runSeven5(log, toPass...); jsonBlob == "" {
+		return "", nil
+	}
+	return logData, jsonBlob		
+}
+
+//Unmarshal result does decoding of the result of a command and returns
+//the result.  
+func (self *JsonStringExecStrategy) UnmarshalResult(commandName string, 
+	retDefn *cmd.CommandReturn, log util.SimpleLogger, value interface{}) (interface{}, error) {
+
+	jsonBlob := value.(string)
+
+	result := retDefn.Unmarshalled()
+	decoder := json.NewDecoder(strings.NewReader(jsonBlob))
+	if err := decoder.Decode(result); err != nil {
+		log.Error("Unable to decode result of %s, %+v: %s", commandName, result, err)
+		return nil, err
+	}
+	
+	return result, nil
 }

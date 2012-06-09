@@ -1,0 +1,10 @@
+{
+	"AppName"               : "hellorest",
+	"DartCompilerPath"      : "frogc"      
+}
+
+{
+	"Foo" : 7,
+	"Bar" : "I wish the world was flat the old days...",
+	"Baz" : 3.14159
+}

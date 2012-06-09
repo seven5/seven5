@@ -1,0 +1,55 @@
+{
+	"GroupieConfig" :
+	[ 
+		{
+			"Role" :"ValidateProject",
+			"Info" : {
+				"TypeName" : "seven5.DefaultValidateProject",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
+		},
+		{
+			"Role" :"Echo",
+			"Info" : {
+				"TypeName" : "seven5.DefaultEcho",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
+		},
+		{
+			"Role" :"ProcessController",
+			"Info" : {
+				"TypeName" : "seven5.DefaultProcessController",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
+		},
+		{
+			"Role" :"ProcessVocab",
+			"Info" : {
+				"TypeName" : "seven5.DefaultProcessVocab",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
+		},
+		{
+			"Role" :"ExplodeType",
+			"Info" : {
+				"TypeName" : "seven5.DefaultExplodeType",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
+		},
+		{
+			"Role" :"BuildUserLib",
+			"Info" : {
+				"TypeName" : "seven5.DefaultBuildUserLib",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
+		},
+		{
+			"Role" :"DestroyGeneratedFile",
+			"Info" : {
+				"TypeName" : "seven5.DefaultDestroyGeneratedFile",
+				"ImportsNeeded"  : [ "seven5" ]
+			}
+		}
+		
+	]
+}
