@@ -159,8 +159,19 @@ func formatProbeVocabResult(result *PillVocabWrapper) string {
 
 func defaultExplodeType(log util.SimpleLogger, v...interface{}) interface{} { 
 	config := v[0].(*ProjectConfig)
-	vocab := v[1].([]string)
-	
+	vocab := *(v[1].(*[]string))
+
+	var rez *ExplodeTypeResult 
+	if len(vocab)==0 {
+		log.Info("No vocabularies found, so no type explosion needed.")
+		rez = &ExplodeTypeResult{Error: false, Vocab: nil}
+	} else {
+		rez = explodeVocabsWithPill(log, vocab, config.AppName);	
+	}
+	return rez;
+}
+
+func explodeVocabsWithPill(log util.SimpleLogger, vocab []string, appName string) *ExplodeTypeResult{
 	//construct a function call that has all the names of the vocabs
 	var expectedList bytes.Buffer
 	var probeBuffer bytes.Buffer
@@ -170,13 +181,16 @@ func defaultExplodeType(log util.SimpleLogger, v...interface{}) interface{} {
 			expectedList.WriteString(", ");
 		}
 		expectedList.WriteString(v)
-		call := fmt.Sprintf("%s.%s{},",config.AppName, v)
+		call := fmt.Sprintf("%s.%s{},",appName, v)
 		probeBuffer.WriteString(call)
 	}
 	probeBuffer.WriteString(")")
 	
 	//construct the pill
-	pill:=fmt.Sprintf(EXPLODE_TYPE_PILL, config.AppName, probeBuffer.String())
+	pill:=fmt.Sprintf(EXPLODE_TYPE_PILL, appName, probeBuffer.String())
+	
+	log.DumpTerminal(util.DEBUG, "explode type pill", pill);
+	
 	p, compileMessage,err :=util.CompilePill(pill,log)
 	if err!=nil {
 		log.DumpTerminal(util.DEBUG, "Failed To Compile Type Exploder Pill",
@@ -187,6 +201,7 @@ func defaultExplodeType(log util.SimpleLogger, v...interface{}) interface{} {
 			compileMessage);
 	}
 	if err!=nil || compileMessage!="" {
+		log.Error("Ran pill to explode types: %s and %s were results.",err,compileMessage);
 		log.Error("Failed to understand vocabulary type: expecting to see these types: %s",
 			expectedList.String())
 		return &ExplodeTypeResult{Error:true}
@@ -212,16 +227,16 @@ func defaultExplodeType(log util.SimpleLogger, v...interface{}) interface{} {
 		log.Error(wrapper.ErrorMsg)
 		return &ExplodeTypeResult{Error:true}
 	}
-	
+
 	//everything went ok
 	result:=&ExplodeTypeResult{Error:false}
 	result.Vocab=wrapper.Vocab
-	return result
+	return result;	
 }
 
 const EXPLODE_TYPE_PILL = `
 package main
-import "seven5"
+import "seven5/cmd"
 import "fmt"
 import "os"
 

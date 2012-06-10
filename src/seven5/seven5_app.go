@@ -20,7 +20,9 @@ const (
 	DESTROYGENERATEDFILE = "DestroyGeneratedFile"
 )
 
-//seven5app this is the "application" that is seven5.
+//seven5app this is the "application" that is seven5.  On the server side
+//this includes both the definitions of the implementation and the marshal/unmarshal
+//code.  
 var Seven5app = make(map[string]*cmd.CommandDecl)
 
 //RunCommand is the equivalent of main for Seven5 when in development mode.  
@@ -32,6 +34,9 @@ func RunCommand(logLevel string, commandName string, param ... string) (ret stri
 
 	log := util.NewHtmlLogger(util.LogLevelStringToLevel(logLevel), &logdataBuffer, false)
 	command:=Seven5app[commandName]
+
+	log.Debug("Inside seven5, decoding parameters to seven5 command '%s', command: %+v",
+		 commandName,param);
 
 	//
 	// DECODE PARAMS
@@ -49,7 +54,7 @@ func RunCommand(logLevel string, commandName string, param ... string) (ret stri
 		arg:=argDefn.Unmarshalled();
 		if err:=enc.Decode(arg); err!=nil {
 			log.DumpJson(util.ERROR, "Raw parameter with problem",raw);
-			log.Error("Unable to decode into %+v inside seven5",arg)
+			log.Error("Unable to decode into %+v inside seven5:%s",arg, err)
 			ret = createResultString(nil, logdataBuffer)
 			return 
 		}

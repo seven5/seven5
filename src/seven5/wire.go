@@ -45,6 +45,9 @@ var (
 	//WIRE_PROCESS_ERROR means that the other side could not be contacted
 	//successfully.
 	WIRE_PROCESS_ERROR = errors.New("Unable to run the seven5 command")
+	//WIRE_NO_SUCH_COMMAND means that we were not able to find the command
+	//requested.
+	WIRE_NO_SUCH_COMMAND = errors.New("Cannot find command")
 )
 
 //NewWire creates a new Wire instance.  Don't call unless your WireStrategy
@@ -52,6 +55,19 @@ var (
 func NewWire(strategy WireStrategy) *Wire {
 	return &Wire{strategy}
 }
+
+//clientSide represents the encode/decode logic (only) for a command. The 
+//implementation is used only on the "other side".
+var clientSide  = map[string]*cmd.CommandDecl{
+	VALIDATEPROJECT :  cmd.ValidateProject,	
+	ECHO : cmd.Echo,
+	PROCESSCONTROLLER: cmd.ProcessController,
+	PROCESSVOCAB: cmd.ProcessVocab,
+	BUILDUSERLIB : cmd.BuildUserLib,
+	EXPLODETYPE : cmd.ExplodeType,
+	DESTROYGENERATEDFILE:  cmd.DestroyGeneratedFile,
+};
+
 
 //Dispatch is called to invoke a command.  It is called to generate arguments,
 //marshall them up, invoke the server, then decode the result by unmarshalling
@@ -73,8 +89,13 @@ func (self *Wire) Dispatch(commandName string, writer http.ResponseWriter,
 
 	//determine the rest of the args	
 	count := 0
-	command := Seven5app[commandName]
+	command := clientSide[commandName]
+	if command==nil {
+		log.Error("Unable to find command '%s' on client side!",commandName);
+		return nil, WIRE_NO_SUCH_COMMAND;
+	}
 	argDefn := command.Arg
+
 
 	for _, arg := range argDefn {
 		var encodedArg interface{}
@@ -267,6 +288,8 @@ func (self *JsonStringExecStrategy) Call(commandName string,
 	for _, p := range param {
 		toPass = append(toPass, p.(string))
 	}
+	log.Debug("full client side marshalled params for '%s' %+v", commandName,
+		toPass)
 	//
 	// Execution of cammand
 	//

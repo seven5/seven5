@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -103,15 +104,17 @@ func (self *defaultClientSideCapability) ProjectSrcDir(log util.SimpleLogger) (s
 	}
 	return filepath.Join(root, "src", cfg.AppName), nil
 }
+
 //SetTypeInfo just sets the current type knowlege that we have into this
 //client capability.
 func (self *defaultClientSideCapability) SetTypeInfo(t *ExplodeTypeResult) {
 	self.typeInfo = t
 }
+
 //GetTypeInfo just returns the current type knowlege that we have inside this
 //client capability.
 func (self *defaultClientSideCapability) TypeInfo() *ExplodeTypeResult {
-	return self.typeInfo 
+	return self.typeInfo
 }
 
 //CurrentWebRequest converts the "real" type of a web request into something
@@ -121,7 +124,7 @@ func (self *defaultClientSideCapability) CurrentWebRequest(log util.SimpleLogger
 	if err != nil {
 		return nil, err
 	}
-	return browserReq,nil
+	return browserReq, nil
 }
 
 //CollectFiles returns a slice of names that are either filenames
@@ -143,13 +146,24 @@ func (self *defaultClientSideCapability) CollectFiles(log util.SimpleLogger,
 	if err != nil {
 		return nil, err
 	}
-	result := []string{}
+	fnames := []string{}
 	fullSuffix := suffix + ".go"
 	for _, n := range raw {
 		if !n.IsDir() && strings.HasSuffix(n.Name(), fullSuffix) {
-			result = append(result, n.Name())
+			fnames = append(fnames, n.Name())
 		}
 	}
+	result := []string{}
+	fmt.Printf("want types? %v\n", wantTypeNames)
+	if wantTypeNames {
+		for _, f := range fnames {
+			result = append(result, util.FilenameToTypeName(f))
+		}
+		log.Debug("After filename conversion %+v", result)
+	} else {
+		result = fnames
+	}
+	fmt.Printf("result? %v\n", result)
 	return result, nil
 }
 
@@ -159,7 +173,7 @@ func (self *defaultClientSideCapability) CollectFiles(log util.SimpleLogger,
 func ParamFromFiles(suffix string, wantTypeNames bool) *CommandArgPair {
 	return &CommandArgPair{
 		func() interface{} {
-			return ([]string{})
+			return &([]string{})
 		},
 		func(cl ClientSideCapability, log util.SimpleLogger) (interface{}, error) {
 			return cl.CollectFiles(log, suffix, wantTypeNames)
@@ -169,7 +183,7 @@ func ParamFromFiles(suffix string, wantTypeNames bool) *CommandArgPair {
 
 //our implementation of the client side capabilty
 type defaultClientSideCapability struct {
-	req *http.Request
+	req      *http.Request
 	typeInfo *ExplodeTypeResult
 }
 

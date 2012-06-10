@@ -120,7 +120,7 @@ func (self *bootstrap) takeSeven5Pill(config commandConfig) (string,error) {
 	//walk all the configed groupies
 	for k, v := range config {
 		setStatement.WriteString(fmt.Sprintf(
-			"\tseven5.Seven5app[seven5.%s]=&%s{}\n",
+			"\tseven5.Seven5app[seven5.%s]=%s\n",
 			strings.ToUpper(k), v.TypeName))
 	}
 
@@ -154,12 +154,11 @@ package main
 
 func main() {
 %s
-	if len(os.Args)<7 {
+	if len(os.Args)<3 {
 		os.Exit(1)
 	}
 	//double percent bceause run through sprintf twice
-	fmt.Fprintf(os.Stdout,"%%s\n",seven5.RunCommand(os.Args[1], 
-		os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6]))
+	fmt.Fprintf(os.Stdout,"%%s\n",seven5.RunCommand(os.Args[1], os.Args[2], os.Args[3:]...))
 	os.Stdout.Sync()
 }
 `

@@ -8,21 +8,21 @@ import (
 )
 
 //
-// Destroy generated files is used to clean up before generating a new set of
+// Destroy generated file is used to clean up before generating a new set of
 // generated files.  This is useful in case the names of the "key" files change,
 // we don't want to leave files dangling.  Public because it is referenced by
 // the Seven5 pill.
 //
-var DestroyGeneratedFiles = &CommandDecl{
+var DestroyGeneratedFile = &CommandDecl{
 	Arg: []*CommandArgPair{
 		ProjectSrcDir, //project source code dir
 	},
 	Ret: SimpleReturn,
-	Impl: defaultDestroyGeneratedFiles,
+	Impl: defaultDestroyGeneratedFile,
 }
 
 
-func defaultDestroyGeneratedFiles(log util.SimpleLogger, v...interface{}) interface{} {
+func defaultDestroyGeneratedFile(log util.SimpleLogger, v...interface{}) interface{} {
 
 	appPath := v[0].(string)
 	

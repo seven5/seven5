@@ -29,7 +29,7 @@ var ProcessVocab = &CommandDecl{
 func defaultProcessVocab(log util.SimpleLogger, v...interface{}) interface{} {
 	config:=v[0].(*ProjectConfig)
 	srcDir:=v[1].(string)
-	arg := v[2].([]string)
+	arg := *(v[2].(*[]string))
 
 	for _, vocab := range arg {
 		typeName := util.FilenameToTypeName(vocab)

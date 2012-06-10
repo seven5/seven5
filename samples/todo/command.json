@@ -1,0 +1,55 @@
+{
+	"CommandConfig" :
+	[ 
+		{
+			"Role" :"ValidateProject",
+			"Info" : {
+				"TypeName" : "cmd.ValidateProject",
+				"ImportsNeeded"  : [ "seven5/cmd" ]
+			}
+		},
+		{
+			"Role" :"Echo",
+			"Info" : {
+				"TypeName" : "cmd.Echo",
+				"ImportsNeeded"  : [ "seven5/cmd" ]
+			}
+		},
+		{
+			"Role" :"ProcessController",
+			"Info" : {
+				"TypeName" : "cmd.ProcessController",
+				"ImportsNeeded"  : [ "seven5/cmd" ]
+			}
+		},
+		{
+			"Role" :"ProcessVocab",
+			"Info" : {
+				"TypeName" : "cmd.ProcessVocab",
+				"ImportsNeeded"  : [ "seven5/cmd" ]
+			}
+		},
+		{
+			"Role" :"ExplodeType",
+			"Info" : {
+				"TypeName" : "cmd.ExplodeType",
+				"ImportsNeeded"  : [ "seven5/cmd" ]
+			}
+		},
+		{
+			"Role" :"BuildUserLib",
+			"Info" : {
+				"TypeName" : "cmd.BuildUserLib",
+				"ImportsNeeded"  : [ "seven5/cmd" ]
+			}
+		},
+		{
+			"Role" :"DestroyGeneratedFile",
+			"Info" : {
+				"TypeName" : "cmd.DestroyGeneratedFile",
+				"ImportsNeeded"  : [ "seven5/cmd" ]
+			}
+		}
+		
+	]
+}

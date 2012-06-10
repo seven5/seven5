@@ -87,22 +87,27 @@ func main() {
 // for building the user library, if possible.
 func buildPhase1(writer http.ResponseWriter, request *http.Request) {
 	builtSeven5 := false
-
+	logLevel := util.INFO;
+	
+	values:=request.URL.Query();
+	if values["log"]!=nil {
+		logLevel = util.LogLevelStringToLevel(values["log"][0])
+	}
 	//nice symmetry: the util package contributes a parameter and the
 	//command package contributes one.  both are needed to actually dispatch
 	//commands to the wire.
-	logger := util.NewHtmlLogger(util.INFO, writer, true)
+	log := util.NewHtmlLogger(logLevel, writer, true)
 	clientCap := cmd.NewDefaultClientCapability(request)
 
 	fullStart := time.Now()
 	defer func() {
 		diff := time.Since(fullStart)
-		logger.Info("Complete build sequence too %s", diff)
+		log.Info("Complete build sequence too %s", diff)
 	}()
 	//do we have a wire?
 	if state.Wire == nil {
-		logger.Info("No seven5 built... so building now")
-		path, err := seven5.BuildSeven5(logger)
+		log.Info("No seven5 built... so building now")
+		path, err := seven5.BuildSeven5(log)
 		if err != nil {
 			return //can't build seven5
 		}
@@ -116,14 +121,14 @@ func buildPhase1(writer http.ResponseWriter, request *http.Request) {
 
 	//we now have a wire, do we need to rebuild anything because of config
 	//changes
-	appChanged, commandChanged, err := state.cfg.poll(writer, request, logger)
+	appChanged, commandChanged, err := state.cfg.poll(writer, request, log)
 	if err != nil {
 		return //some kind of io problem
 	}
 	//maybe they changed the seven5 app commands?
 	if commandChanged && !builtSeven5 {
-		logger.Info("command.json configuration files changed, rebuilding seven5")
-		path, err := seven5.BuildSeven5(logger)
+		log.Info("command.json configuration files changed, rebuilding seven5")
+		path, err := seven5.BuildSeven5(log)
 		if err != nil {
 			state.Wire = nil //just to be sure
 			return           //can't build seven5
@@ -133,17 +138,17 @@ func buildPhase1(writer http.ResponseWriter, request *http.Request) {
 	//at this point, seven5 has been updated if needed and we have a wire
 	//capable of actually reaching our executable
 	if appChanged {
-		logger.Info("Validating that the project has the right project structure.")
+		log.Info("Validating that the project has the right project structure.")
 		//note that it is ok to ignore the value here because the only thing is
 		//an error which will get converted to WIRE_SEMANTIC_ERROR in the err
 		_, err := state.Wire.Dispatch(seven5.VALIDATEPROJECT, writer,
-			request, logger, clientCap)
+			request, log, clientCap)
 		if err != nil {
 			return //app does not check out... abandon hope
 		}
 	}
 	//app in now in a sensible state, did the source code change?
-	source, err := state.src.pollAllSource(writer, request, logger)
+	source, err := state.src.pollAllSource(writer, request, log)
 	if err != nil {
 		return // can't read source dir or other IO problem
 	}
@@ -151,73 +156,73 @@ func buildPhase1(writer http.ResponseWriter, request *http.Request) {
 	for source || !state.haveLibrary {
 		state.types = nil //signal that we need help from types later
 
-		if _, err:=state.Wire.Dispatch(seven5.DESTROYGENERATEDFILE,
-			writer, request, logger, clientCap); err != nil {
+		if _, err := state.Wire.Dispatch(seven5.DESTROYGENERATEDFILE,
+			writer, request, log, clientCap); err != nil {
 			return
 		}
 		if !state.haveLibrary {
-			logger.Info("No user library present, rebuilding")
+			log.Info("No user library present, rebuilding")
 		}
 		if source {
-			logger.Info("Detected change to source code, building user library in %s",
+			log.Info("Detected change to source code, building user library in %s",
 				workingDirectory)
 		}
 		//ok to return result because this command just returns a yes/no value
 		//and it gets put in the err value
-		if _, err:=state.Wire.Dispatch(seven5.BUILDUSERLIB, 
-			writer, request, logger, clientCap); err!= nil {
+		if _, err := state.Wire.Dispatch(seven5.BUILDUSERLIB,
+			writer, request, log, clientCap); err != nil {
 			return // can't build .a for user code
 		}
 		state.haveLibrary = true
 		//check again, might be another change
-		source, err = state.src.pollAllSource(writer, request, logger)
+		source, err = state.src.pollAllSource(writer, request, log)
 		if err != nil {
 			return // can't read source dir or other IO problem
 		}
 	}
 
-	logger.Info("User library is ok.")
-	buildPhase2(writer, request, logger, clientCap)
+	log.Info("User library is ok.")
+	buildPhase2(writer, request, log, clientCap)
 }
 
 //buildPhase2 is responsible for exploding types and if possible building
 //the necessary add-on source code.
-func buildPhase2(writer http.ResponseWriter, request *http.Request, logger util.SimpleLogger,
+func buildPhase2(writer http.ResponseWriter, request *http.Request, log util.SimpleLogger,
 	clientCap cmd.ClientSideCapability) {
 	var vocab []string
 	var err error
 	var rawResult interface{}
 	exploded := false
-	
-	if state.types!=nil {
+
+	if state.types != nil {
 		//did vocabs change?
-		vocab, err = state.src.pollVocab(writer, request, logger)
+		vocab, err = state.src.pollVocab(writer, request, log)
 		if err != nil {
-			logger.Error("Error trying to determine if vocabularies changed:%s", err)
+			log.Error("Error trying to determine if vocabularies changed:%s", err)
 			return // can't read source dir or other IO problem
 		}
 		if len(vocab) == 0 {
-			logger.Debug("No vocab has changed (size of vocab is zero)")
+			log.Debug("No vocab has changed (size of vocab is zero)")
 		} else {
-			dumpVocabs(vocab, logger)
+			dumpVocabs(vocab, log)
 		}
 		if len(vocab) > 0 {
-			logger.Info("Vocabularies to be processed: %v\n", vocab)
+			log.Info("Vocabularies to be processed: %v\n", vocab)
 			state.types = nil
 		}
 	}
-	if state.types == nil ||len(vocab)!=0 {
+	if state.types == nil || len(vocab) != 0 {
 		exploded = true
-		if state.types==nil {
-			logger.Info("Need to rebuild and explode types because we don't know anything.")
+		if state.types == nil {
+			log.Info("Need to rebuild and explode types because we don't know anything.")
 		}
-		rawResult, err = state.Wire.Dispatch(seven5.EXPLODETYPE, 
-		writer, request, logger, clientCap)
-		result:=rawResult.(*cmd.ExplodeTypeResult)
+		rawResult, err = state.Wire.Dispatch(seven5.EXPLODETYPE,
+			writer, request, log, clientCap)
 		if err != nil {
-			logger.Debug("Error trying to explode type: %s", err)
+			log.Debug("Error trying to explode type: %s", err)
 			return
 		}
+		result := rawResult.(*cmd.ExplodeTypeResult)
 		//we now have the results
 		state.types = result
 	} else {
@@ -225,18 +230,22 @@ func buildPhase2(writer http.ResponseWriter, request *http.Request, logger util.
 	}
 
 	//make sure that any future command knows our types, recomputed or not
-	clientCap.SetTypeInfo(state.types);
+	clientCap.SetTypeInfo(state.types)
 
 	if exploded {
-		logger.Debug("Need to rebuild the vocabulary support code since we " +
-			"just exploded the types.")
-		_, err = state.Wire.Dispatch(seven5.PROCESSVOCAB, writer, request,
-			logger, clientCap)
-		if err != nil {
-			return
+		if clientCap.TypeInfo().Vocab != nil {
+			log.Debug("Need to rebuild the vocabulary support code since we " +
+				"just exploded the types.")
+			_, err = state.Wire.Dispatch(seven5.PROCESSVOCAB, writer, request,
+				log, clientCap)
+			if err != nil {
+				return
+			}
+		} else {
+			log.Info("No work to do on vocabularies.")
 		}
 	}
-	
+
 }
 
 func dumpVocabs(vocab []string, logger util.SimpleLogger) {
