@@ -187,3 +187,65 @@ This will create the binary again into `/path/to/modena/go/bin/dbload` and is th
 go compiler/linker and get the output put into your path.  
 
 >>>> There is also `go build`, which does not install built artifacts, `go clean`, and `go test`.
+
+### Running the server
+
+Assuming you have run `dbload` above to initialize a database, usually `/path/to/modena/db/modena.sqlite`, 
+you can run the server by building and running the server.  This is done with the `go` tool and the source code
+in `/path/to/modena/go/src/cmds/runserver.go`.  
+
+``` console
+$ go install cmds/runserver
+$ runserver
+[log messages telling you which database is being used and the REST resources mapped into the server space]
+``` 
+
+### Running the debug browser
+
+With the server running, use a different shell to start the Chromium browser; this browser has support for
+Dart built-in so it allows "shift-reload" as the dev cycle for Dart.  It should be located in the directory
+that is the parent of your `DART_SDK`.  On a mac, you can open this browser like this:
+
+``` console
+$ open $DART_SDK/.../Chromium.app
+``` 
+
+>>> This is probably quite different on linux.
+
+Once you have the browser open, you can hit the server on this URL, `http://localhost:3003/static/modena.html`
+which runs a very simple Dart program.  This prints a list of the quotes from `/path/to/modena/db/quotes.json`
+into the browser as a list.  
+
+#### Summary of data movement
+
+* Use `dbload` to load the static text file `quotes.json` into tables in `modena.sqlite`
+* Use `runserver` to serve up a resource that is `http://localhost:3003/quote/` as json
+* Use `Chromium` to run the dart code at `hello.dart` which parses the returned json and builds HTML elements
+  from it
+
+
+### Developing with a text editor/command line
+
+Most modern text editors have support for both Dart and Go, although keep in mind you typically need to
+have `gocode` running for automatic completion in Go.
+
+Editor       | Dart                                       | Go
+-------------|--------------------------------------------|-------------------------------------------------
+TextMate     | [Part Of Dart Source Bundle](http://code.google.com/p/dart/source/browse/branches/bleeding_edge/dart/tools/utils/textmate/) | [Via GitHub and Alan Quatermain](https://github.com/AlanQuatermain/go-tmbundle)
+VIM          |[VIM scripts mirror on github](https://github.com/bartekd/vim-dart) | [VIM scripts mirror on github](https://github.com/jnwhiteh/vim-golang)
+Sublime      | [Configuring Sublime Text 2 for Dart](http://active.tutsplus.com/tutorials/workflow/quick-tip-configuring-sublime-text-2-for-dart-coding/) | [Github repo of plugins](https://github.com/DisposaBoy/GoSublime)
+
+>>>> I have not tested any of this VIM and Sublime stuff; I have no idea if it works properly.
+
+Normally, you want to keep a shell window open that has the correct environment variables set 
+for the modena project.  In this shell, you can quickly recompile the server with `go install cmds/runserver` and
+restart it with `runserver`.  This is sufficiently fast that as yet I have not bothered to automate it.
+
+When developing Dart code, two things to keep in mind.
+
+1. Dart's `print` function goes to the debug console in Chromium, ala `console.log` in Javascript.
+2. Chromium + the modena server correctly detect changed dart files so you can just "reload the page" to see updates on the client side.
+
+
+
+
