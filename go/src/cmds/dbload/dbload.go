@@ -12,7 +12,7 @@ import (
 //note that main takes no args.  there are some routines in "os" package if you want to mess with
 //the process level arguments
 func main() {
-	logger := log.New(os.Stdout, "dbload", log.LstdFlags)
+	logger := log.New(os.Stdout, "dbload ", log.LstdFlags)
 
 	db, err := modena.DBFromEnv(logger)
 	if err != nil {

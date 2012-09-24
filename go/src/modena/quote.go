@@ -29,7 +29,7 @@ type QuoteResource struct {
 }
 
 // Create a pointer to this type of resource
-func New(dbmap *gorp.DbMap, logger *log.Logger) *QuoteResource {
+func NewQuoteResource(dbmap *gorp.DbMap, logger *log.Logger) *QuoteResource {
 	return &QuoteResource{dbmap, logger}
 }
 
