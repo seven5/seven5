@@ -9,14 +9,11 @@ import (
 	"encoding/json"
 )
 
-/**
-  * Map a resource to a part of the URL space.  
-  * @param name the part of the url space, which should be the name of the rousrce.  This should be
-  * plural for Indexers (cars, people, oxen) and singular for Finders (car, person, ox).  The name 
-  * will be converted to all lower case.  The name should not include any slashes or spaces as this
-  * will trigger armageddon and destroy all life on this planet.
-  * @param r the resource object.  
-  */
+//AddResource maps a resource to a part of the URL space.  
+//name the part of the url space, which should be the name of the rousrce.  This should be
+//plural for Indexers (cars, people, oxen) and singular for Finders (car, person, ox).  The name 
+//will be converted to all lower case.  The name should not include any slashes or spaces as this
+//will trigger armageddon and destroy all life on this planet.
 func (self *SimpleHandler) AddResource(name string, r interface{}) {
 	
 	//sanity check
@@ -34,18 +31,14 @@ func (self *SimpleHandler) AddResource(name string, r interface{}) {
 	//log.Printf("added resource of type %T at %s", r, name)
 	http.Handle(withSlashes, http.HandlerFunc(handlerWrapper))
 }
-/**
-  * Dump all the resource mappings we know.
-  *  
-  */
+//RemoveAllResources dumps all the resource mappings known to the Handler.  Useful in tests.
 func (self *SimpleHandler) RemoveAllResources() {
 	self.resource = make(map[string]interface{})
 }
 
-/**
-  * This converts the parameters from the HTTP level request to our rest-level values
-  * and dumps the output on the response.
-  */
+//Handle converts the parameters from the HTTP level request to our rest-level values
+//and dumps the output on the response.  This is not used in tests, only when running
+//against a real network.
 func (self *SimpleHandler) Handle(c http.ResponseWriter, req *http.Request) {
 	hdr := toSimpleMap(req.Header)
 	qparams := toSimpleMap(map[string][]string(req.URL.Query()))
@@ -53,30 +46,24 @@ func (self *SimpleHandler) Handle(c http.ResponseWriter, req *http.Request) {
 	dumpOutput(c, json, err)
 }
 
-/** 
-  * A simple implementation of the Handler interface that ignores multiple values for
-  * headers and query params because these are both rare and error-prone.
-  */
+//SimpleHandler is the default implementation of the Handler interface that ignores multiple values for
+//headers and query params because these are both rare and error-prone.  
 type SimpleHandler struct {
-	//maps names in URL space to objects that implement one or more of our rest interfaces
+	//resource maps names in URL space to objects that implement one or more of our rest interfaces
 	resource map[string]interface{}
-	//supress sanity check after first one
+	//sanityCheckDisplayed is true if we have already displayed the "useless" warning
 	sanityCheckDisplayed bool
 }
 
-/**
-  * Create a new simple handler with an empty mapping.
-  */
+//NewSimpleHandler creates a new SimpleHandler with an empty mapping.
 func NewSimpleHandler() *SimpleHandler {
 	return &SimpleHandler{resource: make(map[string]interface{})}
 }
 
-/**
-  * Dispatch does the dirty work of finding a resource and calling it.
-  * It returns the value from the correct rest-level function or an error.
-  * It generates some errors itself if, for example a 404 or 501 is needed.
-	* I borrowed lots of ideas from "github.com/Kissaki/rest2go"
-  */
+//Dispatch does the dirty work of finding a resource and calling it.
+//It returns the value from the correct rest-level function or an error.
+//It generates some errors itself if, for example a 404 or 501 is needed.
+//I borrowed lots of ideas and inspiration from "github.com/Kissaki/rest2go"
 func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[string]string, 
 	queryParams map[string]string) (string, *Error) {
 
@@ -129,7 +116,8 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 	return "", &Error{http.StatusNotImplemented,"","Not implemented yet"}
 }
 
-//send the output to the calling client
+//dumpOutput send the output to the calling client over the network.  Not used in tests,
+//only when running against real network.
 func dumpOutput(response http.ResponseWriter, json string, err *Error)  {
 	if err!=nil && json!="" {
 		log.Printf("ignoring json reponse (%d bytes) because also have error func %+v", len(json), err)
@@ -147,46 +135,35 @@ func dumpOutput(response http.ResponseWriter, json string, err *Error)  {
 	return
 }
 
-/**
-  * Returns an error struct representing a 402, Bad Request HTTP response. This should be returned
-  * when the parameters passed the by client don't make sense.
-  */
+//BadRequest returns an error struct representing a 402, Bad Request HTTP response. This should be returned
+//when the parameters passed the by client don't make sense.
 func BadRequest(msg string) (string,*Error) {
 	return "",&Error{http.StatusBadRequest, "", fmt.Sprintf("BadRequest - %s ", msg)}
 }
 
-/**
-  * Returns an error struct representing a "succcess" in the sense of the protocol but 
-  * a semantic error of "empty".
-  */
+//NoContent Returns an error struct representing a "succcess" in the sense of the protocol but 
+//a semantic error of "empty".
 func NoContent() (string,*Error) {
 	return "",&Error{http.StatusNoContent, "", "No content"}
 }
 
-/**
-  * Returns a 'these are not the droids you're looking for... move along.'
-  */
+//NotFound Returns a 'these are not the droids you're looking for... move along.'
 func NotFound() (string,*Error) {
 	return "",&Error{http.StatusNotFound, "", "Not found"}
 }
 
-/**
-  * Returns a not implemented.  This happens if we find a resource at the URL _but_ the implementing
-  * struct doesn't have the correct type, for example /foobars/ with no Indexer.
-  */
+//NotImplemented returns an http 501.  This happens if we find a resource at the URL _but_ the 
+//implementing struct doesn't have the correct type, for example /foobars/ is a known mapping
+//but the struct does not implement Indexer.
 func NotImplemented() (string,*Error) {
 	return "",&Error{http.StatusNotImplemented, "", "Not implemented"}
 }
 
-/**
-  * Convenience for returning a type error as the result of an operation.
-  */
+//InternalErr is a convenience for returning a 501 when an error has been found at the go level.
 func InternalErr(err error) (string,*Error) {
 	return "",&Error{http.StatusInternalServerError, "", err.Error()}
 }
-/**
-  * Convert an http level map with multiple strings as value to single string value.
-  */
+//toSimpleMap converts an http level map with multiple strings as value to single string value.
 func toSimpleMap(m map[string][]string) map[string]string {
 	result :=make(map[string]string)
 	for k,v := range m {
@@ -195,10 +172,9 @@ func toSimpleMap(m map[string][]string) map[string]string {
 	return result
 }
 
-/**
-  * Return a json string from the supplied value or return an error (caused by the encoder)
-  * via the InternalErr function.
-  */
+//JsonResult returns a json string from the supplied value or return an error (caused by the encoder)
+//via the InternalErr function.  This is the normal path for functions that return Json values.
+//pretty can be set to true for pretty-printed json.
 func JsonResult(v interface{}, pretty bool) (string,*Error){
 	var buff []byte
 	var err error
