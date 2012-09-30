@@ -8,7 +8,7 @@ import (
 )
 
 //rest resource for a single city, properties must be public for JSON encoder
-type ItalianCityResource struct {
+type ItalianCity struct {
 	Id int32
 	Name string
 	Population int
@@ -16,15 +16,18 @@ type ItalianCityResource struct {
 }
 
 //sample data to work with... so no need for DB
-var cityData = []*ItalianCityResource{
-	&ItalianCityResource{Id:0,Name:"Turin", Province:"Piedmont", Population:900569},
-	&ItalianCityResource{1,"Milan", 3083955, "Lombardy"},
-	&ItalianCityResource{2,"Genoa",800709,"Liguria"},
+var cityData = []*ItalianCity{
+	&ItalianCity{Id:0,Name:"Turin", Province:"Piedmont", Population:900569},
+	&ItalianCity{1,"Milan", 3083955, "Lombardy"},
+	&ItalianCity{2,"Genoa",800709,"Liguria"},
 }
 
 
 //rest resource for the city list, no data use internally because it is stateless
 type ItalianCitiesResource struct{
+}
+//rest resource for a particular city
+type ItalianCityResource struct{
 }
 
 //you can use the request parameter to do pagination of a large set of items and such, but we ignore it here
@@ -63,9 +66,11 @@ func (STATELESS *ItalianCityResource) FindFields() map[string]*seven5.FieldDoc  
 }
 
 func main() {
-	seven5.CurrentHandler.AddResource("italiancities", &ItalianCitiesResource{})
-	seven5.CurrentHandler.AddResource("italiancity", &ItalianCityResource{})
 	
-	err:=http.ListenAndServe(":8080",nil)
+	h := seven5.NewSimpleHandler()
+	h.AddFindAndIndex("italiancity", &ItalianCityResource{},
+		"italiancities", &ItalianCitiesResource{}, ItalianCity{})
+		
+	err:=http.ListenAndServe(":8080",h)
 	log.Printf("Error! Returned from ListenAndServe(): %s", err)
 }

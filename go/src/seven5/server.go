@@ -9,41 +9,36 @@ import (
 	"encoding/json"
 )
 
-//AddResource maps a resource to a part of the URL space.  
-//name the part of the url space, which should be the name of the rousrce.  This should be
-//plural for Indexers (cars, people, oxen) and singular for Finders (car, person, ox).  The name 
-//will be converted to all lower case.  The name should not include any slashes or spaces as this
-//will trigger armageddon and destroy all life on this planet.
-func (self *SimpleHandler) AddResource(name string, r interface{}) {
+//AddIndexAndFind maps the singular and plural names into the url space.  The names should not include 
+//any slashes or spaces as this will trigger armageddon and destroy all life on this planet.  If either
+//name is "" the corresponding interface value is ignored.  The final interface should be a struct
+//(not a pointer to a struct) that describes the json values exchanged over the wire.  The Finder
+//and Indexer are expected (but not required) to be marshalling these values as returned objects.
+//The marshalling done in JsonResult uses the go json package, so the struct field tags using
+//"json" will be respected.  The struct must contain an int32 field called Id.  The url space uses
+//lowercase only, so the singular and plural will be converted.  If both singular and plural are
+//"" this function computes the capital of North Ossetia and ignores it.
+func (self *SimpleHandler) AddFindAndIndex(singular string, finder Finder, plural string, 
+	indexer Indexer, r interface{}) {
 	
-	//sanity check
-	_, index:=r.(Indexer)
-	_, find:=r.(Finder)
-	
-	if !self.sanityCheckDisplayed && !index && !find {
-		log.Printf("WARNING: You passed in a resource to AddResource which can never be accessed (%T)!", r);
-		log.Printf("HINT: Maybe your methods require a pointer recevier and you passed just a receiver?");
-		self.sanityCheckDisplayed=true
+	if singular!="" {
+ 		withSlashes := fmt.Sprintf("/%s/", strings.ToLower(singular))
+		self.resource[withSlashes] = finder
+		self.mux.Handle(withSlashes, self)
 	}
-	withSlashes := fmt.Sprintf("/%s/", strings.ToLower(name))
-	
-	self.resource[withSlashes] = r
-	//log.Printf("added resource of type %T at %s", r, name)
-	http.Handle(withSlashes, http.HandlerFunc(handlerWrapper))
+	if plural!="" {
+ 		withSlashes := fmt.Sprintf("/%s/", strings.ToLower(plural))
+		self.resource[withSlashes] = indexer
+		self.mux.Handle(withSlashes, self)
+	}
 }
-//RemoveAllResources dumps all the resource mappings known to the Handler.  Useful in tests.
-func (self *SimpleHandler) RemoveAllResources() {
-	self.resource = make(map[string]interface{})
-}
-
-//Handle converts the parameters from the HTTP level request to our rest-level values
-//and dumps the output on the response.  This is not used in tests, only when running
-//against a real network.
-func (self *SimpleHandler) Handle(c http.ResponseWriter, req *http.Request) {
+//ServeHTTP allows this object to act like an http.Handler. ServeHTTP data is passed to Dispatch
+//after some minimal processing.  This is not used in tests, only when on a real network.
+func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	hdr := toSimpleMap(req.Header)
 	qparams := toSimpleMap(map[string][]string(req.URL.Query()))
 	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams)
-	dumpOutput(c, json, err)
+	dumpOutput(writer, json, err)
 }
 
 //SimpleHandler is the default implementation of the Handler interface that ignores multiple values for
@@ -51,13 +46,13 @@ func (self *SimpleHandler) Handle(c http.ResponseWriter, req *http.Request) {
 type SimpleHandler struct {
 	//resource maps names in URL space to objects that implement one or more of our rest interfaces
 	resource map[string]interface{}
-	//sanityCheckDisplayed is true if we have already displayed the "useless" warning
-	sanityCheckDisplayed bool
+	//connection to the http layer
+	mux *http.ServeMux
 }
 
 //NewSimpleHandler creates a new SimpleHandler with an empty mapping.
 func NewSimpleHandler() *SimpleHandler {
-	return &SimpleHandler{resource: make(map[string]interface{})}
+	return &SimpleHandler{resource: make(map[string]interface{}), mux:http.NewServeMux()}
 }
 
 //Dispatch does the dirty work of finding a resource and calling it.

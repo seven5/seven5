@@ -5,20 +5,12 @@ import (
 	"fmt"
 )
 
-
-/*-------------------------------------------------------------------------*/
-type ExampleIndexer_wrongNoDoc struct {
-}
-func (STATELESS *ExampleIndexer_wrongNoDoc) Index(headers map[string]string,
-		queryParams map[string]string) (string,*Error)  {
-		return "{}",nil
-}
 /*-------------------------------------------------------------------------*/
 type ExampleIndexer_correct struct {
 }
 
 func (STATELESS *ExampleIndexer_correct) Index(headers map[string]string,queryParams map[string]string) (string,*Error)  {
-		return "{}",nil
+		return "[]",nil
 }
 func (STATELESS *ExampleIndexer_correct) IndexDoc() (string,string,string) {
 	return "","",""
@@ -60,9 +52,9 @@ func verifyErrorCode(T *testing.T, err *Error, expected int, msg string) {
 	}
 }
 
-func verifyDispatchError(T *testing.T, errorMap map[string]int) {
+func verifyDispatchError(T *testing.T, h Handler, errorMap map[string]int) {
 	for k,v := range errorMap {
-		json, err := CurrentHandler.Dispatch("GET",k, emptyMap, emptyMap)
+		json, err := h.Dispatch("GET",k, emptyMap, emptyMap)
 		if json!="" {
 			T.Errorf("expected no json result on an error : GET %s",k)
 			continue
@@ -83,49 +75,51 @@ func verifyJsonContent(T *testing.T, json string, expected string, msg string){
 }
 
 /*-------------------------------------------------------------------------*/
+/*                                 TEST CODE                               */
+/*-------------------------------------------------------------------------*/
 var emptyMap = make(map[string]string)
 
 
 func TestResourceMappingForIndex(T *testing.T) {
-	CurrentHandler.RemoveAllResources()
+	h := NewSimpleHandler()
 		
-	CurrentHandler.AddResource("oxen",&ExampleIndexer_wrongNoDoc{})
-	CurrentHandler.AddResource("people",&ExampleIndexer_correct{})
+	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{},nil)
 	
 	errorMap :=map[string]int{
 		"oxen": 404,
 		"/oxen": 404,
-		"/oxen/": 501,
+		"/oxen/": 404,
 		"/people": 404,
 		"people": 404,
+		"cars": 404,
 	}
 	
-	verifyDispatchError(T, errorMap)
+	verifyDispatchError(T, h, errorMap)
 	
-	json, err := CurrentHandler.Dispatch("GET","/people/", emptyMap, emptyMap)
+	json, err := h.Dispatch("GET","/people/", emptyMap, emptyMap)
 	verifyNoError(T,json,err,"GET /people/")
-	verifyJsonContent(T,json,"{}", "GET /people/")	
+	verifyJsonContent(T,json,"[]", "GET /people/")	
 }
 
 func TestResourceMappingForFinder(T *testing.T) {
-	CurrentHandler.RemoveAllResources()
+	h := NewSimpleHandler()
 
-	CurrentHandler.AddResource("ox",&ExampleFinder_correct{})
-	CurrentHandler.AddResource("person",&ExampleIndexer_wrongNoDoc{})
+	h.AddFindAndIndex("ox",&ExampleFinder_correct{},"",nil,Ox{})
+	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{},nil)
 
 
 	errorMap :=map[string]int{
 		"/oxen/": 404,
+		"/ox/": 501, // not implemented because this is written like a plural
 		"/oxen/123": 404,
-		"/people/": 404,
-		"/people/123": 404, 
-		"/person/123": 501, //not implemented properly
 		"/ox/123": 404, //too large an id
+		"/people/123": 501, //name is registered but not implemented (not Finder)
+		"/person/123": 404, 
 	}
 
-	verifyDispatchError(T, errorMap)
+	verifyDispatchError(T, h, errorMap)
 
-	json, err := CurrentHandler.Dispatch("GET","/ox/0", emptyMap, emptyMap)
+	json, err := h.Dispatch("GET","/ox/0", emptyMap, emptyMap)
 	verifyNoError(T,json,err, "GET /ox/0")
 	verifyJsonContent(T,json,"{\"Id\":0,\"IsLarge\":true}", "GET /ox/0")	
 }

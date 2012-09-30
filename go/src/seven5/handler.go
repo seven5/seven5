@@ -15,26 +15,18 @@ import (
 //One layer of indirection around the DefaultHandler in case somebody wants different
 //behavior at the HTTP level.  
 type Handler interface {
-	//This is the function that actually gets called by the go-level muxer (there is 
-	//a wrapper around the handler interface).  Handle is responsible for calling
-	//Dispatch() so you can ignore this Dispatch if you want your own.
-	Handle(response http.ResponseWriter, request *http.Request)
 	//This is the function that dispatches method calls to rest level resources.  This is
 	//where to hook tests of the back end functionality.
-	Dispatch(method string, uriPath string, header map[string]string, queryParams map[string]string)
-	//This maps a resource into the URL space.  You can write your own version to do
-	//fancy things like put prefixes on the URLs or do versioning, etc. All calls to
-	//add resource should be completed _before_ calling ListenAndServe because there
-	//no concurrency guarantees around the mapping data structure.
-	AddResource(name string, r interface{})
-	//Removes all mappings currently known.  Useful for test code.
-	RemoveAllResources()
-}
-
-//The currently in use handler, typically an instance of SimpleHandler
-var CurrentHandler = NewSimpleHandler()
-
-//because go-level wants a function, not an interface, so we wrap the CurrentHandler
-func handlerWrapper(response http.ResponseWriter, request *http.Request) {
-	CurrentHandler.Handle(response, request)
+	Dispatch(method string, uriPath string, header map[string]string, queryParams map[string]string) (string, *Error)
+	//AddIndexAndFind maps the singular and plural resource names into URL space. If singular
+	//is not "", then GET on /singular/id calls finder.Find().  If plural is not "" then
+	//GET /plural/ calls the Indexer.  r should be a struct that describes the json exchanged
+	//between the client and server.  This struct should have only simple field types or
+	//substructs that are similarly composed.  
+	AddFindAndIndex(singular string, finder Finder, plural string, indexer Indexer, r interface{})
+	//ServeHttp allows this type to be used as an http.Handler in the http.ListenAndServe method.  However,
+	//all manipulations of the mapping (such as adding resources) must have been completed
+	//before this object is used as an http.Handler because there are no concurrency guarantees
+	//around the data structures internal to this object.
+	ServeHTTP(http.ResponseWriter, *http.Request)
 }
