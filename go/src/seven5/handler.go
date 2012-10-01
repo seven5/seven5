@@ -12,11 +12,12 @@ package seven5
 import (
 	"net/http"
 )
-//One layer of indirection around the DefaultHandler in case somebody wants different
+//One layer of indirection around the SimpleHandler in case somebody wants different
 //behavior at the HTTP level.  
 type Handler interface {
-	//This is the function that dispatches method calls to rest level resources.  This is
-	//where to hook tests of the back end functionality.
+	//Dispatch is the function that dispatches method calls to rest level resources.  This is
+	//where to hook tests of the back end functionality because it does not have dependencies
+	//on the network.
 	Dispatch(method string, uriPath string, header map[string]string, queryParams map[string]string) (string, *Error)
 	//AddIndexAndFind maps the singular and plural resource names into URL space. If singular
 	//is not "", then GET on /singular/id calls finder.Find().  If plural is not "" then
@@ -29,4 +30,7 @@ type Handler interface {
 	//before this object is used as an http.Handler because there are no concurrency guarantees
 	//around the data structures internal to this object.
 	ServeHTTP(http.ResponseWriter, *http.Request)
+	//Doc generates a JSON representation of the resource, suitable for generation of documentation
+	//or construction of an API on the fly.
+	GenerateDoc(uriPath string)*ResourceDescription
 }

@@ -12,20 +12,20 @@ type ExampleIndexer_correct struct {
 func (STATELESS *ExampleIndexer_correct) Index(headers map[string]string,queryParams map[string]string) (string,*Error)  {
 		return "[]",nil
 }
-func (STATELESS *ExampleIndexer_correct) IndexDoc() (string,string,string) {
-	return "","",""
+func (STATELESS *ExampleIndexer_correct) IndexDoc() []string{
+	return []string{"FOO","bar","Baz"}
 }
 
 /*-------------------------------------------------------------------------*/
 type Ox struct {
-	Id int32
+	Id int64
 	IsLarge bool
 }
 
 type ExampleFinder_correct struct {
 }
 
-func (STATELESS *ExampleFinder_correct)	Find(id int32, headers map[string]string, 
+func (STATELESS *ExampleFinder_correct)	Find(id int64, headers map[string]string, 
 	queryParams map[string]string) (string,*Error) {
 		switch (id) {
 		case 0,1:
@@ -33,14 +33,11 @@ func (STATELESS *ExampleFinder_correct)	Find(id int32, headers map[string]string
 		}	
 		return NotFound();
 }
-func (STATELESS *ExampleFinder_correct)	FindDoc() string {
-	return "How can you lose an ox?"
+func (STATELESS *ExampleFinder_correct)	FindDoc() []string {
+	return []string{"How can you lose an ox?","fleazil","frack for love"}
 }
-func (STATELESS *ExampleFinder_correct) FindFields() map[string]*FieldDoc {
-	return map[string]*FieldDoc{
-		"IsLarge": &FieldDoc{false, "Set to `true` if this a _really_ big ox!"},
-	};
-}
+/*-------------------------------------------------------------------------*/
+/*                            SHARED VERIFIERS                             */
 /*-------------------------------------------------------------------------*/
 func verifyErrorCode(T *testing.T, err *Error, expected int, msg string) {
 	if err==nil {
@@ -83,7 +80,7 @@ var emptyMap = make(map[string]string)
 func TestResourceMappingForIndex(T *testing.T) {
 	h := NewSimpleHandler()
 		
-	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{},nil)
+	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{}, Ox{})
 	
 	errorMap :=map[string]int{
 		"oxen": 404,
@@ -105,7 +102,7 @@ func TestResourceMappingForFinder(T *testing.T) {
 	h := NewSimpleHandler()
 
 	h.AddFindAndIndex("ox",&ExampleFinder_correct{},"",nil,Ox{})
-	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{},nil)
+	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{},Ox{})
 
 
 	errorMap :=map[string]int{

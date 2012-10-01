@@ -14,22 +14,32 @@ import (
 //name is "" the corresponding interface value is ignored.  The final interface should be a struct
 //(not a pointer to a struct) that describes the json values exchanged over the wire.  The Finder
 //and Indexer are expected (but not required) to be marshalling these values as returned objects.
-//The marshalling done in JsonResult uses the go json package, so the struct field tags using
+//The Finder and Indexer are called _only_ in response to a GET method on the appropriate URI.
+//
+//The marshalling done in seven5.JsonResult uses the go json package, so the struct field tags using
 //"json" will be respected.  The struct must contain an int32 field called Id.  The url space uses
 //lowercase only, so the singular and plural will be converted.  If both singular and plural are
 //"" this function computes the capital of North Ossetia and ignores it.
 func (self *SimpleHandler) AddFindAndIndex(singular string, finder Finder, plural string, 
 	indexer Indexer, r interface{}) {
 	
+	d:=NewResourceDoc(r)
+	
 	if singular!="" {
  		withSlashes := fmt.Sprintf("/%s/", strings.ToLower(singular))
 		self.resource[withSlashes] = finder
 		self.mux.Handle(withSlashes, self)
+		self.doc[withSlashes]=d
+		d.Find = finder
+		d.GETSingular = singular
 	}
 	if plural!="" {
  		withSlashes := fmt.Sprintf("/%s/", strings.ToLower(plural))
 		self.resource[withSlashes] = indexer
 		self.mux.Handle(withSlashes, self)
+		self.doc[withSlashes]=d
+		d.Index = indexer
+		d.GETPlural = plural
 	}
 }
 //ServeHTTP allows this object to act like an http.Handler. ServeHTTP data is passed to Dispatch
@@ -42,17 +52,22 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 }
 
 //SimpleHandler is the default implementation of the Handler interface that ignores multiple values for
-//headers and query params because these are both rare and error-prone.  
+//headers and query params because these are both rare and error-prone.  All resources need to be
+//added to the Handler before it starts serving real HTTP requests.
 type SimpleHandler struct {
 	//resource maps names in URL space to objects that implement one or more of our rest interfaces
 	resource map[string]interface{}
 	//connection to the http layer
 	mux *http.ServeMux
+	//doc handling
+	doc map[string]*ResourceDoc
 }
 
-//NewSimpleHandler creates a new SimpleHandler with an empty mapping.
+//NewSimpleHandler creates a new SimpleHandler with an empty mapping in the URL space. 
 func NewSimpleHandler() *SimpleHandler {
-	return &SimpleHandler{resource: make(map[string]interface{}), mux:http.NewServeMux()}
+	return &SimpleHandler{resource: make(map[string]interface{}), 
+	mux:http.NewServeMux(),
+	doc: make(map[string]*ResourceDoc)}
 }
 
 //Dispatch does the dirty work of finding a resource and calling it.
@@ -62,28 +77,9 @@ func NewSimpleHandler() *SimpleHandler {
 func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[string]string, 
 	queryParams map[string]string) (string, *Error) {
 
-	// try to get resource with full uri path
-	someResource, ok := self.resource[uriPath]
-	var id string
-	var err error
-	
-	if !ok {
-		// no resource found, thus check if the path is a resource + ID
-		i := strings.LastIndex(uriPath, "/")
-		if i == -1 {
-			//log.Printf("No mapping found and no slash found in URIPath %s", uriPath)
-			return NotFound()
-		}
-		// Move index to after slash as that’s where we want to split
-		i++
-		id = uriPath[i:]
-		var uriPathParent string
-		uriPathParent = uriPath[:i]
-		someResource,ok = self.resource[uriPathParent]
-		if !ok {
-			//log.Printf("No mapping for URIPath-Parent %s", uriPathParent)
-			return NotFound()
-		}
+	matched, id, someResource := self.resolve(uriPath)
+	if matched=="" {
+		return NotFound();
 	}
 	switch method {
 	case "GET":
@@ -96,19 +92,49 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			}
 		} else {
 			// Find by ID
-			var num int
-			if num, err = strconv.Atoi(id); err!=nil {
+			var num int64
+			var err error
+			if num, err = strconv.ParseInt(id, 10, 64); err!=nil {
 				return BadRequest("resource ids must be non-negative integers")
 			}
 			//resource id is a number, try to find it
 			if resFind, ok := someResource.(Finder); ok {
-				return resFind.Find(int32(num), header, queryParams)
+				return resFind.Find(num, header, queryParams)
 			} else {
 				return NotImplemented()
 			}
 		}
 	}
 	return "", &Error{http.StatusNotImplemented,"","Not implemented yet"}
+}
+
+//resolve is used to find the matching resource for a particular request.  It returns the match
+//and the resource matched.  If no match is found it returns "",nil.  resolve does not check
+//that the resulting object is suitable for any purpose, only that it matches.
+func (self *SimpleHandler) resolve(path string) (string,string,interface{}) {
+	someResource, ok := self.resource[path]
+	var id string
+	result:=path
+	
+	if !ok {
+		// no resource found, thus check if the path is a resource + ID
+		i := strings.LastIndex(path, "/")
+		if i == -1 {
+			return "","",nil
+		}
+		// Move index to after slash as that’s where we want to split
+		i++
+		id = path[i:]
+		var uriPathParent string
+		uriPathParent = path[:i]
+		someResource,ok = self.resource[uriPathParent]
+		if !ok {
+			return "","",nil
+		}
+		result=uriPathParent
+	} 
+	return result,id,someResource
+	
 }
 
 //dumpOutput send the output to the calling client over the network.  Not used in tests,
@@ -184,5 +210,4 @@ func JsonResult(v interface{}, pretty bool) (string,*Error){
 	}
 	result := string(buff)
 	return strings.Trim(result, " "),nil
-	
 }

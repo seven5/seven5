@@ -37,7 +37,7 @@ type Indexer interface {
 	Index(headers map[string]string,queryParams map[string]string) (string,*Error)  
 	//IndexDoc returns doc for, respectively: collection, headers, query params.  Returned doc strings can
 	//and should be markdown encoded.
-	IndexDoc() (string, string, string) 
+	IndexDoc() []string
 }
 
 
@@ -50,13 +50,10 @@ type Finder interface {
 	//id will be non-negative
   //headers is a map from header name to value (not values, as in HTTP)
   //queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
-	Find(id int32, headers map[string]string, queryParams map[string]string) (string,*Error)
+	Find(id int64, headers map[string]string, queryParams map[string]string) (string,*Error)
 	//FindDoc returns doc for, respectively: resource, headers, query params.  Returned doc strings can
 	//and should be markdown encoded.
-	FindDoc() string 
-	//FindFields returns documentation for each field of the object.  The FieldDoc for each field includes
-	//a zero-valued instance of the value for type purposes.
-	FindFields() map[string]*FieldDoc
+	FindDoc() []string 
 }
 
 
