@@ -1,9 +1,29 @@
 #import("dart:json");
 #import("dart:html");
 
+class ItalianCity {
+	int Id;
+	string Name;
+	int Population;
+	string Province
+
+	static List<ItalianCity> Index(successFunc) {
+		string resource = "/italiancities/";
+		new HttpRequest.get(resource, function (HttpRequest request) {
+			List <ItalianCity> result = JSON.parse(req.responseText);
+			successFunc(result);
+		});
+	}
+}
+
+dump(List<ItalianCity> cities) {
+	for (ItalianCity city in cities) {
+		print city.Name
+	}
+}
+
 main() {
-	String url = "http://localhost:3003/quote/";
-  HttpRequest request = new HttpRequest.get(url, onSuccess);
+  ItalianCity.Index(dump);
 }
 
 // print the raw json response text from the server

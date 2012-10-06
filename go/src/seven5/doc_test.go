@@ -26,7 +26,7 @@ type Rec3 struct {
 /*-------------------------------------------------------------------------*/
 /*                          VERIFICATION CODE                              */
 /*-------------------------------------------------------------------------*/
-func verifyNoNesting(T *testing.T, f... *FieldDescription) {
+func verifyNoNesting(T *testing.T, f... FieldDescription) {
 	for _, someField := range f {
 		if someField.Array!=nil || someField.Struct!=nil {
 			T.Errorf("Unexpected nesting in field description %+v",f)
@@ -68,18 +68,18 @@ func verifyDocSlices(T *testing.T, d *ResourceDescription, uri string, expectedC
 
 func TestRecursiveTraversal(T *testing.T) {
 	d := walkJsonType(reflect.TypeOf(Rec2{}))
-	if len(d) != 4 {
-		T.Errorf("expected 3 fields from Rec2 but found %d", len(d))
+	if len(*d) != 4 {
+		T.Errorf("expected 3 fields from Rec2 but found %d", len(*d))
 	}
-	if len(d[1].Struct)!=2{
-		T.Errorf("expected 4 fields from Rec1 but found %d", len(d[1].Struct))
+	if len(*(*d)[1].Struct)!=2{
+		T.Errorf("expected 4 fields from Rec1 but found %d", len(*(*d)[1].Struct))
 	}
-	if d[3].Array==nil{
-		T.Errorf("expected array type, but didn't find it: %+v", d[3].Array)
+	if (*d)[3].Array==nil{
+		T.Errorf("expected array type, but didn't find it: %+v", (*d)[3].Array)
 	}
-	verifyNoNesting(T, d[0], d[2])
-	verifyNoNesting(T, d[1].Struct[0], d[1].Struct[1])
-	verifyNoNesting(T, d[3].Array.Struct[0],d[3].Array.Struct[1],d[3].Array.Struct[2])
+	verifyNoNesting(T, (*d)[0], (*d)[2])
+	verifyNoNesting(T, (*(*d)[1].Struct)[0], (*(*d)[1].Struct)[1])
+	verifyNoNesting(T, (*(*d)[3].Array.Struct)[0],(*(*d)[3].Array.Struct)[1],(*(*d)[3].Array.Struct)[2])
 }
 
 func TestResolve(T *testing.T) {
@@ -115,4 +115,5 @@ func TestDoc(T *testing.T) {
 		[]string{"How can you lose an ox?","fleazil","frack for love"})
 	verifyDocSlices(T,h.GenerateDoc(people),q,[]string{"FOO","bar","Baz"},
 		[]string{"How can you lose an ox?","fleazil","frack for love"})
+	
 }

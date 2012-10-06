@@ -25,12 +25,17 @@ type Handler interface {
 	//between the client and server.  This struct should have only simple field types or
 	//substructs that are similarly composed.  
 	AddFindAndIndex(singular string, finder Finder, plural string, indexer Indexer, r interface{})
-	//ServeHttp allows this type to be used as an http.Handler in the http.ListenAndServe method.  However,
-	//all manipulations of the mapping (such as adding resources) must have been completed
+	//ServeHttp allows this type to be used as an http.Handler in the http.ListenAndServe method.  
+	//However, all manipulations of the mapping (such as adding resources) must have been completed
 	//before this object is used as an http.Handler because there are no concurrency guarantees
 	//around the data structures internal to this object.
 	ServeHTTP(http.ResponseWriter, *http.Request)
 	//Doc generates a JSON representation of the resource, suitable for generation of documentation
 	//or construction of an API on the fly.
 	GenerateDoc(uriPath string)*ResourceDescription
+	//ServerMux returns the underlying server multiplexer this object is based on.  If you want
+	//to add other resources to the Handler you can do this by adding them to the returned mux.
+	//Because this object is going to usually be "invoked" with ServeHTTP(), adding of resources
+	//must be done before the call ServeHTTP to function properly.
+	ServeMux() *http.ServeMux
 }

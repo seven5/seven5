@@ -28,20 +28,23 @@ type FieldDescription struct {
 	GoType string
 	DartType string
 	SQLType string
-	Array *FieldDescription;
-	Struct []*FieldDescription;
+	Array *FieldDescription
+	Struct *[]FieldDescription
 }
 
 //ResourceDescription is the type passed over the wire to describe how a particular can be called
 //and what fields the objects have that it manipulates.
 type ResourceDescription struct {
+	Name string
 	Index bool
 	Find bool
+	GETSingular string
+	GETPlural string
 	CollectionURL string
 	CollectionDoc []string
 	ResourceURL string
 	ResourceDoc[] string
-	Fields []*FieldDescription
+	Fields *[]FieldDescription
 }
 
 //NewResourceDoc is called to create a new ResourceDoc instance from a given type.  The passed
@@ -69,29 +72,31 @@ func isLiveDocRequest(req *http.Request) bool {
 }
 
 //GenerateDoc walks through the registered resources to find the one requested and the compute
-//the description of it.  Note that it will compute the same result for singular or plural
+//the description of it.  Note that iisLiveDocRequest(req *http.Request)t will compute the same result for singular or plural
 //since these really correspond to the same logical entity.
 func (self *SimpleHandler) GenerateDoc(uriPath string) *ResourceDescription {
 	result := &ResourceDescription{}
-	res, _, _ := self.resolve(uriPath)
+	path, _, _ := self.resolve(uriPath)
 	
 	//no such path?
-	if res=="" {
+	if path=="" {
 		return nil
 	}
-	
-	doc := self.doc[res]
+	doc := self.doc[path]
+	result.Name = reflect.TypeOf(doc.ResType).Name()
 	
 	result.Fields = walkJsonType(reflect.TypeOf(doc.ResType))
 	if doc.Find!= nil{
 		result.Find = true
 		result.ResourceURL = fmt.Sprintf("/%s/123",doc.GETSingular)
 		result.ResourceDoc = doc.Find.FindDoc()
+		result.GETSingular = doc.GETSingular
 	}
 	if doc.Index!= nil{
 		result.Index = true
 		result.CollectionURL = fmt.Sprintf("/%s/",doc.GETPlural)
 		result.CollectionDoc = doc.Index.IndexDoc()
+		result.GETSingular = doc.GETPlural
 	}
 	return result
 }
@@ -101,8 +106,8 @@ func (self *SimpleHandler) GenerateDoc(uriPath string) *ResourceDescription {
 //type or array. 
 //walkJsonType will panic if it finds something that cannot be correctly flattened to json,
 //converted to Dart, and converted to SQL.
-func walkJsonType(t reflect.Type) []*FieldDescription {
-	var result []*FieldDescription
+func walkJsonType(t reflect.Type) *[]FieldDescription {
+	var result []FieldDescription
 	
 	if t.Kind() != reflect.Struct &&t.Kind() != reflect.Array {
 		panic(fmt.Sprintf("can't understand type %v as a json, top-level object", t))
@@ -114,22 +119,22 @@ func walkJsonType(t reflect.Type) []*FieldDescription {
 		switch (k) {
 		case reflect.Bool, reflect.String, reflect.Float64, reflect.Int64:
 			g, dart, sql := toMultipleTypeNames(k)
-			result = append(result, &FieldDescription{Name: name, GoType: g, DartType: dart, 
+			result = append(result, FieldDescription{Name: name, GoType: g, DartType: dart, 
 				SQLType: sql})
 		case reflect.Struct:
 			nested:=walkJsonType(t.Field(i).Type)
-			result = append(result, &FieldDescription{Name: name, Struct: nested})
+			result = append(result, FieldDescription{Name: name, Struct: nested})
 		case reflect.Slice:
 			elem:=t.Field(i).Type.Elem()
 			elemDesc:=walkJsonType(elem)
-			nested:=&FieldDescription{Name: elem.Name(), Struct:elemDesc}
-			result = append(result, &FieldDescription{Name: name, Array: nested})
+			nested:=FieldDescription{Name: elem.Name(), Struct:elemDesc}
+			result = append(result, FieldDescription{Name: name, Array: &nested})
 		default:
 			panic(fmt.Sprintf("can't understand type field %s of type %s as part of a json struct", 
 				name, k.String()))
 		}
 	}
-	return result
+	return &result
 }
 
 //given a go type, compute the human readable type name for various systems
