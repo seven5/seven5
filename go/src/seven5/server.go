@@ -55,7 +55,7 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 	hdr := toSimpleMap(req.Header)
 	qparams := toSimpleMap(map[string][]string(req.URL.Query()))
 	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams)
-	if err.StatusCode==http.StatusNotFound {
+	if err!=nil && err.StatusCode==http.StatusNotFound {
 		self.mux.ServeHTTP(writer,req)
 	} else {
 		dumpOutput(writer, json, err)
