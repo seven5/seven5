@@ -261,7 +261,6 @@ func StaticContent(h Handler, urlPath string, subdir string) {
 		log.Fatalf("can't understand GOPATH or not using default project layout: %s", err)
 	}
 	//strip the path from requests so that /urlPath/fart = modena/subdir/fart
-	fmt.Printf("true path is %s and url path is %s\n",truePath, urlPath)
 	h.ServeMux().Handle(urlPath, http.StripPrefix(urlPath, http.FileServer(http.Dir(truePath))))
 }
 
@@ -269,10 +268,7 @@ func StaticContent(h Handler, urlPath string, subdir string) {
 //seven5 project to the handler provided and returns it as as http.Handler so it can be
 //use "in the normal way" with http.ServeHttp
 func AddDefaultLayout(h Handler) http.Handler {
-	StaticContent(h, "/static/", "web")
+	StaticContent(h, "/static/", "static")
   StaticContent(h, "/dart/", "dart")
-
-	fmt.Printf("\n%+v\n\n%v\n",h.ServeMux(), h.ServeMux()==http.DefaultServeMux)
-	fmt.Printf("\n%+v\n\n",http.DefaultServeMux)
 	return h
 }

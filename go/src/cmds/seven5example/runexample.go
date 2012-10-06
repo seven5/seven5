@@ -77,11 +77,8 @@ func main() {
 	//it more "clean" when used with the built in http package.
 	asHttp:=seven5.AddDefaultLayout(h)
 	
-	//normal http calls for running a server in go
+	//normal http calls for running a server in go... ListenAndServe never should return
 	err:=http.ListenAndServe(":3003",logHTTP(asHttp))
-	//http.Handle("/dart/", http.StripPrefix("/dart/", http.FileServer(http.Dir("/Users/iansmith/cap/fun/modena/dart"))))
-	//fmt.Printf("%+v\n\n", http.DefaultServeMux)
-	//err:=http.ListenAndServe(":3003",nil)
 	fmt.Printf("Error! Returned from ListenAndServe(): %s", err)
 }
 
