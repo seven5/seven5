@@ -5,51 +5,6 @@ import (
 	"strings"
 )
 
-const exampleapi1=`
-{
-	"Index": true,
-  "Find": true,
-	"CollectionURL": "/oxen/",
-	"CollectionDoc": 
-	[
-		"FOO",
-		"bar",
-		"Baz"
-	],
-	"ResourceURL": "/ox/123",
-	"ResourceDoc": 
-	[
-		"How can you lose an ox?",
-		"fleazil",
-		"frack for love"
-	],
-	"Fields": 
-	[
-		{
-		   "Name": "Id",
-		   "GoType": "int64",
-		   "DartType": "int",
-		   "SQLType": "integer",
-		   "Array": null,
-		   "Struct": null
-		},
-		{
-		   "Name": "IsLarge",
-		   "GoType": "bool",
-		   "DartType": "bool",
-		   "SQLType": "int",
-		   "Array": null,
-		   "Struct": null
-		}
-	]
-}`
-
-const exampleapi1_dart = `
-class Ox {
-	int Id;
-	bool IsLarge;
-}
-`
 /*-------------------------------------------------------------------------*/
 /*                          VERIFICATION CODE                              */
 /*-------------------------------------------------------------------------*/
@@ -73,7 +28,7 @@ func TestDartFields(T *testing.T) {
 	
 	person, _, _ := h.resolve(p)
 	//people, _, _ := h.resolve(q)
-	doc:=h.GenerateDoc(person)
+	doc:=h.Describe(person)
 	
 	decl:=doc.generateDart()
 	verifyHasString(T,"class Ox {",decl)
