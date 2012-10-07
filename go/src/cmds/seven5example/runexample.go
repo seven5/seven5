@@ -4,6 +4,8 @@ import (
 	"seven5"
 	"fmt"
 	"net/http"
+	"strings"
+	"strconv"
 )
 
 //rest resource for a single city, properties must be public for JSON encoder
@@ -25,15 +27,36 @@ var cityData = []*ItalianCity{
 //rest resource for the city list, no data used internally because it is stateless
 type ItalianCitiesResource struct{
 }
-//rest resource for a particular city
+//rest resource for a particular city, stateless
 type ItalianCityResource struct{
 }
 
-//you can use the request parameter to do pagination of a large set of items and such
-//but we ignore both headers and query parameters in this func
-func (STATELESS *ItalianCitiesResource) Index(IGNORED_headers map[string]string, 
-	IGNORED_qp map[string]string) (string,*seven5.Error) {
-	return seven5.JsonResult(cityData,true)
+//Index returns a list of italian cities, filtered by the prefix header and the maximum
+//number returned controlled by the max parameter.  
+func (STATELESS *ItalianCitiesResource) Index(headers map[string]string, 
+	qp map[string]string) (string,*seven5.Error) {
+		
+	result := []*ItalianCity{}
+	prefix, hasPrefix := headers["Prefix"] //note the capital is always there on headers
+	maxStr, hasMax := qp["max"]
+	var max int
+	var err error
+	
+	if hasMax {
+		if max, err = strconv.Atoi(maxStr); err!=nil {
+			return seven5.BadRequest(fmt.Sprintf("can't undestand max parameter %s",maxStr))
+		}
+	}
+	for _, v := range cityData {
+		if hasPrefix && !strings.HasPrefix(v.Name, prefix) {
+				continue
+		}
+		result = append(result, v)
+		if hasMax && len(result)==max {
+			break
+		}
+	}
+	return seven5.JsonResult(result,true)
 }
 
 //used to create dynamic documentation/api
@@ -43,26 +66,45 @@ func (STATELESS *ItalianCitiesResource) IndexDoc() []string {
 	"a resource of type italiancity that can be fetched individually at `/italiancity/id`.",
 	"italiancities ignores the headers supplied in the GET request.",
 	"italiancities ignores the query parameters supplied in the URL to GET.",
-	"Ignores headers",
-	"Ignores query parameters",
+	
+	"The resource /italiancities/ understands the header 'prefix' and if this header is supplied "+
+	"only cities whose Name field begins with the prefix given will be returned.",
+	
+	"The resource /italiancities/ allows a query parameter 'max' to control the maximum number "+
+	"of cities returned.  No guarantee is made about the order of the returned items. Max must "+
+	"be a positive integer (not zero).",
 	}
 }
 
-//given an id, find the object it referencs and return JSON for it.  This ignores
-//the headers and query parameters.
+//given an id, find the object it referencs and return JSON for it. This ignores
+//the query parameters but understands the header 'Round' for rounding pop figures to
+//100K boundaries.
 func (STATELESS *ItalianCityResource) Find(id int64, hdrs map[string]string, 
 	query map[string]string) (string,*seven5.Error) {
+	
+	r, hasRound := hdrs["Round"] //note the capital is always there on headers
 	if id<0 || id>=int64(len(cityData)) {
 		return seven5.BadRequest(fmt.Sprintf("id must be from 0 to %d",len(cityData)-1))
 	}
-	return seven5.JsonResult(cityData[id],true)
+	pop:= cityData[id].Population
+	if hasRound && strings.ToLower(r)=="true" {
+		excess := cityData[id].Population % 100000
+		pop -= excess;
+		if excess>=50000 {
+			pop+=100000
+		}
+	} 
+	data := cityData[id]
+	forClient := &ItalianCity{data.Id, data.Name, pop, data.Province}
+	return seven5.JsonResult(forClient,true)
 }
 
 //used to generate documentation/api
 func (STATELESS *ItalianCityResource) FindDoc() []string {
 	return []string{""+
 	"A resource representing a specific italian city at `/italiancity/123`.",
-	"Ignores headers",
+	"The header 'Round' can be used to get population values rounded to the nearest 100K."+
+	"Legal values are true, false, and omitted (which means false).",
 	"Ignores query parameters",
 	}
 }
@@ -78,7 +120,11 @@ func main() {
 	asHttp:=seven5.AddDefaultLayout(h)
 	
 	//normal http calls for running a server in go... ListenAndServe never should return
+	//err:=http.ListenAndServe(":3003",logHTTP(asHttp))
+	
+	//use this verson, not the one above, if you want to log HTTP requests to terminal
 	err:=http.ListenAndServe(":3003",logHTTP(asHttp))
+	
 	fmt.Printf("Error! Returned from ListenAndServe(): %s", err)
 }
 

@@ -1,69 +1,9 @@
 #import("dart:json");
 #import("dart:html");
+#import("seven5.dart");
 
-class ItalianCity {
-	int Id;
-	string Name;
-	int Population;
-	string Province;
-	
-	static int NOT_FETCHED = -1092;
-	static string findURL = "/italiancity/";
-	static string indexURL = "/italiancities/";
-
-	static List<ItalianCity> Index(successFunc, [errorFunc]) {
-		HttpRequest req = new HttpRequest();
-		req.open("GET", indexURL);
-		req.on.load.add(function (HttpRequestProgressEvent progressEvent) {
-			if (req.status%100==2) {
-				List raw = JSON.parse(req.responseText);
-				List<ItalianCity> result = new List<ItalianCity>();
-				for (Map json in raw) {
-					ItalianCity city = new ItalianCity.fromJson(json);
-					result.add(city);
-				}
-				successFunc(result, req);
-			} else {
-				if (errorFunc!=null) {
-					req.on.error.add(errorFunc);
-				}
-			}
-		});
-		req.send();
-	}
-
-	void Find(int Id, successFunc, [errorFunc]) {
-		HttpRequest req = new HttpRequest();
-		req.open("GET", "${findURL}/${Id}");
-		req.on.load.add(function (HttpRequestProgressEvent progressEvent) {
-			if (req.status%100==2) {
-				copyFromJson(JSON.parse(req.responseText));
-				successFunc(this, req);
-			} else {
-				if (errorFunc!=null) {
-					errorFunc(req);
-				}
-			}
-		});
-		req.send();
-	}
-	
-	//convenience constructor
-	ItalianCity.fromJson(Map json) {
-		copyFromJson(json);
-	}
-	
-	ItalianCity() {
-		this.Id= NOT_FETCHED;
-	};
-	
-	copyFromJson(Map json) {
-		this.Id = json["Id"];
-		this.Name = json["Name"];
-		this.Population = json["Population"];
-		this.Province = json["Province"];
-	}
-}
+//generated code derived from the go code
+#source("italiancity.dart");
 
 main() {
 	//note that Index() is a class method (static) because it referencs the entire
@@ -74,9 +14,10 @@ main() {
 	//from the server
   ItalianCity city = new ItalianCity();
 	city.Find(0,dumpCity);
-	city.Find(4,dumpCity, errorOnCity);
-}
 
+	//run simple tests
+	exerciseAPI();
+}
 
 dumpAll(List<ItalianCity> cities, HttpRequest result) {
 	print("number of cities returned from Index: ${cities.length}");
@@ -92,9 +33,6 @@ dumpCity(ItalianCity cityFound, HttpRequest result) {
 	print("result of 'Find' (GET) was ${result.status} ${result.statusText}");
 }
 
-errorOnCity(HttpRequest result) {
-	print("ERROR! result of 'Find' (GET) was ${result.status} ${result.statusText}");
-}
 
 // print the raw json response text from the server
 onSuccess(HttpRequest req) {
@@ -124,4 +62,54 @@ onSuccess(HttpRequest req) {
 	
 	//just put in body for now
 	document.query('body').nodes.add(quoteDiv);
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------       TEST STUFF      -------------------------*/
+/*---------------------------------------------------------------------------*/
+
+exerciseAPI() {
+	//exercise the API a bit
+	ItalianCity.Index(checkSizeOfCityList(3));
+	//on the go side, this will be normalized to "Prefix" with a capital P
+	ItalianCity.Index(checkSizeOfCityList(1), null, {"prefix":"T"});
+
+	ItalianCity.Index(checkSizeOfCityList(2), null, null, {"max": "    2"});
+	ItalianCity.Index(checkSizeOfCityList(1), null, {"prefix":"T"}, {"max": 2});
+	ItalianCity.Index(checkSizeOfCityList(0), null, {"prefix":"Q"}, {"max": "0002"});
+
+	//bogus query parameter
+	ItalianCity.Index(null, (response){
+		assert(response.status==400);
+	}, null, {"max": "two"});
+
+
+	//
+	// TEST FIND
+	//
+	ItalianCity genoa = new ItalianCity();
+	genoa.Find(0, (city, result) {
+		assert(city.Name!="Genoa");
+	});
+	genoa.Find(16, null, (result) {
+		assert(result.status==400);
+	});
+	checkGenoaPopulation(genoa, false, 800709);
+	checkGenoaPopulation(genoa, true, 800000);
+
+}
+
+checkGenoaPopulation(ItalianCity genoa, bool rounded, int people) {
+	genoa.Find(2, (city, result) {
+		assert(city.Name=="Genoa");
+		assert(city.Population==people);
+	}, null, {"round": "${rounded}"});
+}
+
+checkSizeOfCityList(int expectedSize) {
+	return (List<ItalianCity> cities, HttpRequest result) {
+		print("city length is ${cities.length}");
+		assert(cities.length==expectedSize);
+		assert(result.status==200);
+	};
 }

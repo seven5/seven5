@@ -205,7 +205,7 @@ func InternalErr(err error) (string, *Error) {
 func toSimpleMap(m map[string][]string) map[string]string {
 	result := make(map[string]string)
 	for k, v := range m {
-		result[k] = v[0]
+		result[k] = strings.TrimSpace(v[0])
 	}
 	return result
 }
