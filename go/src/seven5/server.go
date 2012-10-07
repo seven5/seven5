@@ -133,14 +133,14 @@ func StaticContent(h Handler, urlPath string, subdir string) {
 //bound.
 func GeneratedContent(h Handler, urlPath string) {
 	desc := h.Resources()
-	h.ServeMux().Handle(fmt.Sprintf("%sdart"), generateDartFunc(desc))
+	h.ServeMux().HandleFunc(fmt.Sprintf("%sdart"), generateDartFunc(desc))
 }
 
 //generateDartFunc returns a function that outputs text string for all the dart code
 //in the system.
 func generateDartFunc(desc []*ResourceDescription) func (http.ResponseWriter, *http.Request) {
+	
 	for _,_ = range desc {
-		
 	}
 	return nil
 }

@@ -58,9 +58,8 @@ func NewDispatch(r interface{}) *Dispatch {
 
 //walkJsonType recursively walks the type structure provided.  This is called recursively 
 //if there is a nested struct or array. The top level type must be a struct, not a simple
-//type or array. 
-//walkJsonType will panic if it finds something that cannot be correctly flattened to json,
-//converted to Dart, and converted to SQL.
+//type or array.  walkJsonType will panic if it finds something that cannot be correctly 
+//flattened to json, converted to Dart, and converted to SQL.
 func walkJsonType(t reflect.Type) *[]FieldDescription {
 	var result []FieldDescription
 	
