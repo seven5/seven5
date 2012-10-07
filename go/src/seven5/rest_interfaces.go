@@ -17,16 +17,6 @@ type Error struct {
 	Message string
 }
 
-//FieldDoc represents the type of a field at the go level, plus documentation about that field.
-type FieldDoc struct {
-	//ZeroValueExample is an instance of the type of this field, zero valued.  ZeroValueExample must be a 
-	//simple type like int32 or string because it has be storable in a single column in the DB and 
-	//must be "naturally" convertible to a json and Dart type.
-	ZeroValueExample interface{}
-	//Doc is documentation about this field, should be markdown encoded.
-	Doc string
-}
-
 //Indexer indicates that the struct can return a list of resources.  Implementing structs should return 
 //a list of resources from the Index() method.  Implementations should not hold state.  Index will be 
 //called to create a response for a GET.
@@ -50,7 +40,7 @@ type Finder interface {
 	//id will be non-negative
   //headers is a map from header name to value (not values, as in HTTP)
   //queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
-	Find(id int64, headers map[string]string, queryParams map[string]string) (string,*Error)
+	Find(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)
 	//FindDoc returns doc for, respectively: resource, headers, query params.  Returned doc strings can
 	//and should be markdown encoded.
 	FindDoc() []string 

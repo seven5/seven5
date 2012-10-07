@@ -1,8 +1,24 @@
+class LatLng {
+	
+	double Latitude;
+	double Longitude; 
+	
+	LatLng.fromJson(Map json) {
+		copyFromJson(json);
+	}
+	
+	LatLng copyFromJson(Map json) {
+		this.Latitude = json["Latitude"];
+		this.Longitude = json["Longitude"];
+		return this;
+	}
+}
 class ItalianCity {
 	int Id = Seven5Support.NOT_FETCHED;
 	String Name;
 	int Population;
 	String Province;
+	LatLng Location;
 	
 	static String findURL = "/italiancity/";
 	static String indexURL = "/italiancities/";
@@ -31,6 +47,7 @@ class ItalianCity {
 		this.Name = json["Name"];
 		this.Population = json["Population"];
 		this.Province = json["Province"];
+		this.LatLng = LatLng.fromJson(json["Location"]);
 		return this;
 	}
 }

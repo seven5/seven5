@@ -8,12 +8,19 @@ import (
 	"strconv"
 )
 
+//sub structure used for a latitude, longitude pair
+type LatLng struct {
+	Latitude seven5.Floating
+	Longitude seven5.Floating
+}
+
 //rest resource for a single city, properties must be public for JSON encoder
 type ItalianCity struct {
-	Id int32
-	Name string
-	Population int
-	Province string
+	Id seven5.Id
+	Name seven5.String255
+	Population seven5.Integer
+	Province seven5.String255
+	Location LatLng
 }
 
 //sample data to work with... so no need for DB
@@ -105,7 +112,7 @@ func (STATELESS *ItalianCityResource) FindDoc() []string {
 	"A resource representing a specific italian city at `/italiancity/123`.",
 	"The header 'Round' can be used to get population values rounded to the nearest 100K."+
 	"Legal values are true, false, and omitted (which means false).",
-	"Ignores query parameters",
+	"Ignores query parameters.",
 	}
 }
 
@@ -122,7 +129,7 @@ func main() {
 	//normal http calls for running a server in go... ListenAndServe never should return
 	//err:=http.ListenAndServe(":3003",logHTTP(asHttp))
 	
-	//use this verson, not the one above, if you want to log HTTP requests to terminal
+	//use this verson, not the one above, if you want to log HTTP requests to the terminal
 	err:=http.ListenAndServe(":3003",logHTTP(asHttp))
 	
 	fmt.Printf("Error! Returned from ListenAndServe(): %s", err)

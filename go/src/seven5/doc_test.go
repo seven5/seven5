@@ -7,20 +7,20 @@ import (
 
 /*-------------------------------------------------------------------------*/
 type Rec1 struct {
-	Id int64
-	A  bool
+	Id Id
+	A  Boolean
 }
 type Rec2 struct {
-	Id int64
+	Id Id
 	S  Rec1
-	D  string
+	D  String255
 	A  []Rec3
 }
 
 type Rec3 struct {
-	Id int64
-	X float64
-	Y int64
+	Id Id
+	X Floating
+	Y Floating
 }
 
 /*-------------------------------------------------------------------------*/

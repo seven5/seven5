@@ -18,16 +18,16 @@ func (STATELESS *ExampleIndexer_correct) IndexDoc() []string{
 
 /*-------------------------------------------------------------------------*/
 type Ox struct {
-	Id int64
-	IsLarge bool
+	Id Id
+	IsLarge Boolean
 }
 
 type ExampleFinder_correct struct {
 }
 
-func (STATELESS *ExampleFinder_correct)	Find(id int64, headers map[string]string, 
+func (STATELESS *ExampleFinder_correct)	Find(id Id, headers map[string]string, 
 	queryParams map[string]string) (string,*Error) {
-		switch (id) {
+		switch (int64(id)) {
 		case 0,1:
 			return JsonResult(&Ox{id,true},false);
 		}	

@@ -25,9 +25,7 @@ type ResourceDoc struct {
 //inside the struct.
 type FieldDescription struct {
 	Name string
-	GoType string
-	DartType string
-	SQLType string
+	GoType, DartType, SqlType string
 	Array *FieldDescription
 	Struct *[]FieldDescription
 }
@@ -96,7 +94,7 @@ func (self *SimpleHandler) GenerateDoc(uriPath string) *ResourceDescription {
 		result.Index = true
 		result.CollectionURL = fmt.Sprintf("/%s/",doc.GETPlural)
 		result.CollectionDoc = doc.Index.IndexDoc()
-		result.GETSingular = doc.GETPlural
+		result.GETPlural = doc.GETPlural
 	}
 	return result
 }
@@ -118,9 +116,8 @@ func walkJsonType(t reflect.Type) *[]FieldDescription {
 		k := field.Type.Kind()
 		switch (k) {
 		case reflect.Bool, reflect.String, reflect.Float64, reflect.Int64:
-			g, dart, sql := toMultipleTypeNames(k)
-			result = append(result, FieldDescription{Name: name, GoType: g, DartType: dart, 
-				SQLType: sql})
+			g, d, s := toMultipleTypeNames(field.Type)
+			result = append(result, FieldDescription{Name: name, GoType: g, DartType:d, SqlType:s})
 		case reflect.Struct:
 			nested:=walkJsonType(t.Field(i).Type)
 			result = append(result, FieldDescription{Name: name, Struct: nested})
@@ -138,16 +135,22 @@ func walkJsonType(t reflect.Type) *[]FieldDescription {
 }
 
 //given a go type, compute the human readable type name for various systems
-func toMultipleTypeNames(k reflect.Kind) (string, string, string){
-	switch k {
-	case reflect.Bool:
+func toMultipleTypeNames(t reflect.Type) (string, string, string){
+	if t.PkgPath()!="seven5" {
+		panic(fmt.Sprintf("Should not be trying to serialize a structure that is not "+
+			" completely composed of seven5 types.  Type %s.%s is not from seven5.",
+			t.PkgPath(),t.Name()))
+	}
+	switch t.Name() {
+	case "Boolean":
 		return "bool", "bool", "int"
-	case reflect.String:
+	case "String255":
 		return "string", "String", "varchar(255)"
-	case reflect.Int64:
+	case "Integer", "Id":
 		return "int64", "int", "integer"
-	case reflect.Float64:
+	case "Floating":
 		return "float64", "double", "real"
 	}
-	panic(fmt.Sprintf("don't know how to convert %s to a dart and sql type!",k.String()))
+	panic(fmt.Sprintf("don't know how to convert %s.%s to a dart and sql type!",
+		t.PkgPath(),t.Name()))
 }

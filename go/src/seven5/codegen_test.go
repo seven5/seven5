@@ -75,8 +75,14 @@ func TestDartFields(T *testing.T) {
 	//people, _, _ := h.resolve(q)
 	doc:=h.GenerateDoc(person)
 	
-	decl:=doc.generateDartDecl()
+	decl:=doc.generateDart()
 	verifyHasString(T,"class Ox {",decl)
 	verifyHasString(T,"int Id;",decl)
 	verifyHasString(T,"bool IsLarge;",decl)
+	verifyHasString(T,"Ox();",decl)
+	verifyHasString(T,"Ox.copyFromJson(Map json)",decl)
+	verifyHasString(T,"static List<Ox> Index(",decl)
+	verifyHasString(T,"void Find(",decl)
+	verifyHasString(T,"static String indexURL = \"oxen\"",decl)
+	verifyHasString(T,"static String findURL = \"ox\"",decl)
 }

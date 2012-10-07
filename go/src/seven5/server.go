@@ -115,7 +115,7 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			}
 			//resource id is a number, try to find it
 			if resFind, ok := someResource.(Finder); ok {
-				return resFind.Find(num, header, queryParams)
+				return resFind.Find(Id(num), header, queryParams)
 			} else {
 				return NotImplemented()
 			}
