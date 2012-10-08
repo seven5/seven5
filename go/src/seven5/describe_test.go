@@ -12,7 +12,7 @@ type Rec1 struct {
 }
 type Rec2 struct {
 	Id Id
-	S  Rec1
+	S  *Rec1
 	D  String255
 	A  []Rec3
 }
@@ -26,7 +26,7 @@ type Rec3 struct {
 /*-------------------------------------------------------------------------*/
 /*                          VERIFICATION CODE                              */
 /*-------------------------------------------------------------------------*/
-func verifyNoNesting(T *testing.T, f... FieldDescription) {
+func verifyNoNesting(T *testing.T, f... *FieldDescription) {
 	for _, someField := range f {
 		if someField.Array!=nil || someField.Struct!=nil {
 			T.Errorf("Unexpected nesting in field description %+v",f)
@@ -67,19 +67,25 @@ func verifyDocSlices(T *testing.T, d *ResourceDescription, uri string, expectedC
 /*-------------------------------------------------------------------------*/
 
 func TestRecursiveTraversal(T *testing.T) {
-	d := walkJsonType(reflect.TypeOf(Rec2{}))
-	if len(*d) != 4 {
-		T.Errorf("expected 3 fields from Rec2 but found %d", len(*d))
+	d := WalkJsonType(reflect.TypeOf(Rec2{}))
+	if len(d.Struct) != 4 {
+		T.Errorf("expected 3 fields from Rec2 but found %d", len(d.Struct))
 	}
-	if len(*(*d)[1].Struct)!=2{
-		T.Errorf("expected 4 fields from Rec1 but found %d", len(*(*d)[1].Struct))
+	if len(d.Struct[1].Struct)!=2{
+		T.Errorf("expected 4 fields from Rec1 but found %d", len(d.Struct[1].Struct))
 	}
-	if (*d)[3].Array==nil{
-		T.Errorf("expected array type, but didn't find it: %+v", (*d)[3].Array)
+	if d.Struct[1].StructName!="Rec1" {
+		T.Errorf("Expected to find Rec1 nested in Rec2 but got %s", d.Struct[1].StructName)
+		
 	}
-	verifyNoNesting(T, (*d)[0], (*d)[2])
-	verifyNoNesting(T, (*(*d)[1].Struct)[0], (*(*d)[1].Struct)[1])
-	verifyNoNesting(T, (*(*d)[3].Array.Struct)[0],(*(*d)[3].Array.Struct)[1],(*(*d)[3].Array.Struct)[2])
+	if d.Struct[3].Array==nil{
+		T.Errorf("expected array type, but didn't find it: %+v", d.Struct[3].Array)
+	}
+	verifyNoNesting(T, d.Struct[0], d.Struct[2])
+	verifyNoNesting(T, d.Struct[1].Struct[0], d.Struct[1].Struct[1])
+	
+	fd:=d.Struct[3].Array
+	verifyNoNesting(T, fd.Struct[0],fd.Struct[1],fd.Struct[2])
 }
 
 func TestResolve(T *testing.T) {

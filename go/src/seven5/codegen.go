@@ -21,21 +21,25 @@ func (self *ResourceDescription) generateDart() string {
 
 const DART_CLASS_TMPL=`
 class {{.Name}} {
-	{{range .Fields}} {{.DartType}} {{.Name}};
+	{{range .Field.Struct}} {{.Dart}} {{.Name}};
 	{{end}}
-	
+
+	{{/* this is for the resources */}}
+	{{if .Field.IsResource}}
 	static String findURL = "{{.GETSingular}}";
 	static String indexURL = "{{.GETPlural}}";
 
 	static List<{{.Name}}> Index(successFunc, [errorFunc, headers, requestParameters]) {
 		Seven5Support.Index(indexURL, ()=>new List<{{.Name}}>(), 
-			()=>new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
+		()=>new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
 	}
 
 	void Find(int Id, successFunc, [errorFunc, headers, requestParameters]) {
 		Seven5Support.Find(Id, findURL, new ItalianCity(), successFunc, errorFunc, headers,
 			requestParameters);
 	}
+	{{end}}
+	
 	
 	//convenience constructor
 	{{.Name}}.fromJson(Map json) {
@@ -47,7 +51,7 @@ class {{.Name}} {
 	
 	//this is the "magic" that changes from untyped Json to typed object
 	{{.Name}}.copyFromJson(Map json) {
-		{{range .Fields}} this.{{.Name}} = json["{{.Name}}"]
+		{{range .Field.Struct}} this.{{.Name}} = json["{{.Name}}"]
 		{{end}}
 		return this;
 	}

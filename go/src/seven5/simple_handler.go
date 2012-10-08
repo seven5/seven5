@@ -196,8 +196,9 @@ func (self *SimpleHandler) Describe(uriPath string) *ResourceDescription {
 	}
 	dispatch := self.dispatch[path]
 	result.Name = reflect.TypeOf(dispatch.ResType).Name()
+	result.Field = dispatch.Field
 	
-	result.Fields = walkJsonType(reflect.TypeOf(dispatch.ResType))
+	//result.Fields = walkJsonType(reflect.TypeOf(dispatch.ResType))
 	
 	if dispatch.Find!= nil{
 		result.Find = true

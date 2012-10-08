@@ -4,14 +4,16 @@ import (
 	"fmt"
 	_ "github.com/russross/blackfriday"
 	"reflect"
+	"strings"
 )
 
 //Dispatch is used by the SimpleHandler to know what resources are currently loaded. 
 //The SimpleHandler maintains a list of all the interfaces that are currently in place
 //and what is known about each.  This is public because it is likely any implementation 
-//of Handler will need this to generated api/doc.
+//of Handler will need this to generate api/doc.
 type Dispatch struct {
 	ResType     interface{}
+	Field       *FieldDescription
 	GETSingular string
 	GETPlural   string
 	Index       Indexer
@@ -24,89 +26,158 @@ type Dispatch struct {
 //then there is a nested structure or array inside the struct and the type name should
 //be ignored.
 type FieldDescription struct {
+	//name is required
 	Name string
-	GoType, DartType, SqlType string
+	//type name must a simple type (from seven5) 
+	TypeName string
+	//arrays are composed of some number of a single _type_ ... if there is an array
+	//there should NOT be a TypeName or a Struct defn
 	Array *FieldDescription
-	Struct *[]FieldDescription
+	//struct name is separate from TypeName so we can disambiguate a struct 'Floating' from a
+	//base type of the same name
+	StructName string
+	//structs are zero or more different fields
+	Struct []*FieldDescription
+}
+
+//Dart returns the Dart name for a particular _type_ name or panics if it does not understand.
+func (self *FieldDescription) Dart() string {
+	switch self.TypeName {
+	case "Boolean":
+		return "bool"
+	case "Integer":
+		return "int"
+	case "Floating":
+		return "double"
+	case "String255":
+		return "String"
+	case "Textblob":
+		return "String"
+	case "Id":
+		return "int"
+	}
+	panic(fmt.Sprintf("unable to convert type %s to Dart type!", self.TypeName))
+}
+
+//IsResource returns true if the object described by this field description is a resource.
+//Resources have Id fields.
+func (self *FieldDescription) IsResource() bool {
+	if len(self.Struct) == 0 {
+		return false
+	}
+	hasId := false
+	for i := 0; i < len(self.Struct); i++ {
+		if self.Struct[i].Name == "Id" && self.Struct[i].TypeName == "Id" {
+			hasId = true
+			break
+		}
+	}
+	return hasId
 }
 
 //ResourceDescription is the full type passed over the wire to describe how a particular 
 //can be called and what fields the objects have that it manipulates.
 type ResourceDescription struct {
-	Name string
-	Index bool
-	Find bool
-	GETSingular string
-	GETPlural string
+	Name          string
+	Index         bool
+	Find          bool
+	GETSingular   string
+	GETPlural     string
 	CollectionDoc []string
-	ResourceDoc[] string
-	Fields *[]FieldDescription
+	ResourceDoc   []string
+	Field         *FieldDescription
 }
 
-//NewDispatch is called to create a new Dispatch instance from a given type.  The passed
-//value should be a struct (not a pointer to a struct) that describes the json exchanged 
-//between the client and server.  If the passed type isn't a struct, this function panics.
-//This code does not fill anything in the result other than the resource type.
+//NewDispatch is called to create a new Dispatch instance from a given resource
+//struct example (usually the zero value version).  This will panic if the type
+//is not a struct or pointer to a struct.  The top-most level struct must have a
+//field named "Id" of type "seven5.Id" or this code panics.  It does not check
+//nested structs for this property because we allow nested structs that are 
+//_not_ resources and if resources are nested the inner struct will be checked
+//when this function is called on it (as it is added to the URL mapping, typically).
 func NewDispatch(r interface{}) *Dispatch {
-	if r == nil || reflect.TypeOf(r).Kind() != reflect.Struct {
-		panic(fmt.Sprintf("Can't create a resource from an object that is not a struct (%T)!", r))
+	t := reflect.TypeOf(r)
+	fieldDescription := WalkJsonType(t)
+
+	if !fieldDescription.IsResource() {
+		panic(fmt.Sprintf("Resources such as %s must contain an Id field of type seven5.Id",
+			t.Name()))
 	}
-	return &Dispatch{ResType: r}
+	//ok, seems kosher but we need to figure out the name of it
+	if t.Kind() == reflect.Struct {
+		fieldDescription.Name = t.Name()
+	} else {
+		fieldDescription.Name = t.Elem().Name()
+	}
+
+	return &Dispatch{ResType: r, Field: fieldDescription}
 }
 
+//WalkJsonType is the recursive machine that creates a FieldDescription from 
+//a go type.  Given a type it returns a pointer to a FieldDescription struct whose
+//name is not filled in.  This is public because it's likely to be useful to
+//others.
+func WalkJsonType(t reflect.Type) *FieldDescription {
 
-
-//walkJsonType recursively walks the type structure provided.  This is called recursively 
-//if there is a nested struct or array. The top level type must be a struct, not a simple
-//type or array.  walkJsonType will panic if it finds something that cannot be correctly 
-//flattened to json, converted to Dart, and converted to SQL.
-func walkJsonType(t reflect.Type) *[]FieldDescription {
-	var result []FieldDescription
-	
-	if t.Kind() != reflect.Struct &&t.Kind() != reflect.Array {
-		panic(fmt.Sprintf("can't understand type %v as a json, top-level object", t))
-	}
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		name:= field.Name
-		k := field.Type.Kind()
-		switch (k) {
-		case reflect.Bool, reflect.String, reflect.Float64, reflect.Int64:
-			g, d, s := toMultipleTypeNames(field.Type)
-			result = append(result, FieldDescription{Name: name, GoType: g, DartType:d, SqlType:s})
-		case reflect.Struct:
-			nested:=walkJsonType(t.Field(i).Type)
-			result = append(result, FieldDescription{Name: name, Struct: nested})
-		case reflect.Slice:
-			elem:=t.Field(i).Type.Elem()
-			elemDesc:=walkJsonType(elem)
-			nested:=FieldDescription{Name: elem.Name(), Struct:elemDesc}
-			result = append(result, FieldDescription{Name: name, Array: &nested})
-		default:
-			panic(fmt.Sprintf("can't understand type field %s of type %s as part of a json struct", 
-				name, k.String()))
+	//is this a simple type? if so return a slice of size 1 describing it but without
+	//the name filled in (because the caller has to do that)
+	if t.PkgPath() == "seven5" {
+		switch t.Name() {
+		case "Floating", "String255", "Textblob", "Integer", "Id", "Boolean":
+			return &FieldDescription{Name: "Not_Known_Yet", TypeName: t.Name()}
 		}
 	}
-	return &result
-}
 
-//given a go type, compute the human readable type name for various systems
-func toMultipleTypeNames(t reflect.Type) (string, string, string){
-	if t.PkgPath()!="seven5" {
-		panic(fmt.Sprintf("Should not be trying to serialize a structure that is not "+
-			" completely composed of seven5 types.  Type %s.%s is not from seven5.",
-			t.PkgPath(),t.Name()))
+	//is this a slice? if so, return a slice of size 1 after recursing to get the type of
+	//each slice element
+	if t.Kind() == reflect.Slice {
+		nested := WalkJsonType(t.Elem())
+		return &FieldDescription{Name: "Not_Known_Yet", Array: nested}
 	}
-	switch t.Name() {
-	case "Boolean":
-		return "bool", "bool", "int"
-	case "String255":
-		return "string", "String", "varchar(255)"
-	case "Integer", "Id":
-		return "int64", "int", "integer"
-	case "Floating":
-		return "float64", "double", "real"
+
+	//is this a  struct or pointer to a struct? if so recurse through each field collecting
+	//up the field descriptions and return the resulting slice
+	if t.Kind() == reflect.Struct || (t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct) {
+		var structType reflect.Type
+		if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
+			structType = t.Elem()
+		} else {
+			structType = t
+		}
+		fieldCollection := []*FieldDescription{}
+		//walk each field trying to figure out its type
+		for i := 0; i < structType.NumField(); i++ {
+			//ignore fields marked with seven5:wireignore
+			f := structType.Field(i)
+			tagValue := f.Tag.Get("seven5")
+			values := strings.Split(tagValue, ",")
+			ignore := false
+			for _, v := range values {
+				if v == "wireignore" {
+					ignore = true
+					break
+				}
+			}
+			if ignore {
+				continue
+			}
+			//if we get here, we need recurse into the type
+			nested := WalkJsonType(f.Type)
+			nested.Name = f.Name
+			fieldCollection = append(fieldCollection, nested)
+		}
+		//covered all the fields now, so return the struct object
+		return &FieldDescription{Name: "Not Known Yet", StructName: structType.Name(),
+			Struct: fieldCollection}
 	}
-	panic(fmt.Sprintf("don't know how to convert %s.%s to a dart and sql type!",
-		t.PkgPath(),t.Name()))
+
+	switch t.Kind() {
+	case reflect.Bool, reflect.Float32, reflect.Float64, reflect.Int, reflect.Int32,
+		reflect.Int64, reflect.Int8, reflect.String, reflect.Uint, reflect.Uint16,
+		reflect.Uint32, reflect.Uint64, reflect.Uint8:
+		panic(fmt.Sprintf("Please use seven5 basic types (instead of %v) so it is not ambiguous"+
+			" how to translate them to Json, Dart, and SQL", t.Kind()))
+	}
+	panic(fmt.Sprintf("Unable to understand type definition %s for conversion "+
+		"to a Json/Dart/Sql format", t.Name()))
 }
