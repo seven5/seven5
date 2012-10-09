@@ -2,7 +2,7 @@ package seven5
 
 import (
 	"fmt"
-	_ "github.com/russross/blackfriday"
+//	_ "github.com/russross/blackfriday"
 	"reflect"
 	"strings"
 )
