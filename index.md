@@ -19,7 +19,7 @@ tagline: "Restful without remorse or pity."
 
   </div>
   <div class="span4">
-	<p>Seven5 has no templating language or other machinery to generate sever-side content; you shouldn't generate HTML, you should speak an API with a client. If you want to do things "the <em>Seven5</em> way," do your content generation on the <strong>client</strong> side.</p>
+	<p>Seven5 has no templating language or other machinery to deploy sever-side content; you shouldn't *generate HTML*, you should *speak an API* with a client. If you want to do things "the <em>Seven5</em> way," do your content generation on the <strong>client</strong> side.</p>  Our examples show the way.
 
 	<p>We want to know the exact code that will run in the production system and its exact resource usage, even under load.  For this reason, everything is compiled into the binary of the application for production usage--including static files.  We seek and destroy interpreters that run inside the server.</p>
 
