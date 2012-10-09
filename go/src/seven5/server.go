@@ -134,7 +134,6 @@ func StaticContent(h Handler, urlPath string, subdir string) {
 //bound.
 func GeneratedContent(h Handler, urlPath string) {
 	desc := h.Resources()
-	fmt.Printf("XXXX %sdart\n",urlPath)
 	h.ServeMux().HandleFunc(fmt.Sprintf("%sdart",urlPath), generateDartFunc(desc))
 }
 
@@ -163,7 +162,6 @@ func generateDartFunc(desc []*ResourceDescription) func (http.ResponseWriter, *h
 	for _,i:=range supportStructs {
 		text.WriteString(generateDartForSupportStruct(i))
 	}
-	fmt.Printf("YYY code is %d bytes\n",len(text.Bytes()))
 	return func (writer http.ResponseWriter, req *http.Request) {
 		_, err:=writer.Write(dartPrettyPrint(text.String()))
 		if err!=nil {
@@ -192,7 +190,7 @@ const (
 )
 //dartPrettyPrint is a very naive dart formatter. It doesn't understand much of the lexical
 //structure of dart but it's enough for our generated code (which doesn't do things like embed
-//{ inside a string)
+//{ inside a string and does has too many, not too few, line breaks)
 func dartPrettyPrint(raw string) []byte {
 	
 	state := WAITING_ON_NON_WS

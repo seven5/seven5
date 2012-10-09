@@ -108,9 +108,9 @@ const DART_CLASS_TMPL=`
 	{{range .Struct}}
 
 		{{if .StructName}}
-			this.{{.Name}} = new {{.StructName}}.fromJson(json["{{.Name}}"])
+			this.{{.Name}} = new {{.StructName}}.fromJson(json["{{.Name}}"]);
 		{{else}}
-			this.{{.Name}} = json["{{.Name}}"] 
+			this.{{.Name}} = json["{{.Name}}"];
 			{{end}}{{/* if */}}
 		{{end}} {{/* range */}}
 {{end}} {{/* define */}}
@@ -139,26 +139,26 @@ class {{.Name}} {
 	{{.Name}}();
 	
 	//this is the "magic" that changes from untyped Json to typed object
-	{{.Name}}.copyFromJson(Map json) {
+	copyFromJson(Map json) {
 		{{template "COPY_JSON_FIELDS" .Field}}
 		return this;
 	}
 }
 
 {{define "SUPPORT_STRUCT_TMPL"}}
-	class {{.Name}} {
+	class {{.StructName}} {
 		{{template "FIELD_DECL" .}}
 
 		//convenience constructor
-		{{.Name}}.fromJson(Map json) {
+		{{.StructName}}.fromJson(Map json) {
 			copyFromJson(json);
 		}
 	
 		//nothing to do in default constructor
-		{{.Name}}();
+		{{.StructName}}();
 	
 		//this is the "magic" that changes from untyped Json to typed object
-		{{.Name}}.copyFromJson(Map json) {
+		copyFromJson(Map json) {
 			{{template "COPY_JSON_FIELDS" .}}
 			return this;
 		}
