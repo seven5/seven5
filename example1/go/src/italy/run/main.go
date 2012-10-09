@@ -3,7 +3,7 @@ package main
 import (
 	"italy"
 	"net/http"
-	"seven5"
+	"github.com/seven5/seven5"
 	"fmt"
 )
 
