@@ -24,6 +24,7 @@ _cgo_export.*
 bin
 
 gb.cfg
+README.html
 
 #mac specific
 .DS_Store

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- Only works in dartium! Need to compile to JS to deploy -->
+<script type='application/dart' src='/dart/hello.dart'></script>
+
+<!-- Also, you'll need this to kickstart the Dart engine. -->
+
+<script type='text/javascript'>
+  if (navigator.webkitStartDart) {
+    navigator.webkitStartDart();
+  }
+</script>
+
+<link rel="stylesheet" type="text/css" href="/static/bootstrap/css/bootstrap.css"/>
+</head>
+
+<body>
+	
+<h3>Hello.</h3>
+
+</body>
+</html>
