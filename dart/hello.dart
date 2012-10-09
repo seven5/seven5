@@ -3,7 +3,7 @@
 #import("seven5.dart");
 
 //generated code derived from the go code
-#source("italiancity.dart");
+#source("../generated/dart");
 
 main() {
 	//note that Index() is a class method (static) because it referencs the entire

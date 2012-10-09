@@ -40,40 +40,6 @@ type FieldDescription struct {
 	Struct []*FieldDescription
 }
 
-//Dart returns the Dart name for a particular _type_ name or panics if it does not understand.
-func (self *FieldDescription) Dart() string {
-	switch self.TypeName {
-	case "Boolean":
-		return "bool"
-	case "Integer":
-		return "int"
-	case "Floating":
-		return "double"
-	case "String255":
-		return "String"
-	case "Textblob":
-		return "String"
-	case "Id":
-		return "int"
-	}
-	panic(fmt.Sprintf("unable to convert type %s to Dart type!", self.TypeName))
-}
-
-//IsResource returns true if the object described by this field description is a resource.
-//Resources have Id fields.
-func (self *FieldDescription) IsResource() bool {
-	if len(self.Struct) == 0 {
-		return false
-	}
-	hasId := false
-	for i := 0; i < len(self.Struct); i++ {
-		if self.Struct[i].Name == "Id" && self.Struct[i].TypeName == "Id" {
-			hasId = true
-			break
-		}
-	}
-	return hasId
-}
 
 //ResourceDescription is the full type passed over the wire to describe how a particular 
 //can be called and what fields the objects have that it manipulates.
@@ -99,7 +65,7 @@ func NewDispatch(r interface{}) *Dispatch {
 	t := reflect.TypeOf(r)
 	fieldDescription := WalkJsonType(t)
 
-	if !fieldDescription.IsResource() {
+	if !fieldDescription.HasId() {
 		panic(fmt.Sprintf("Resources such as %s must contain an Id field of type seven5.Id",
 			t.Name()))
 	}

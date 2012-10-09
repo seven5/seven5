@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"bytes"
 )
 
 //defines a new error type
@@ -133,16 +134,42 @@ func StaticContent(h Handler, urlPath string, subdir string) {
 //bound.
 func GeneratedContent(h Handler, urlPath string) {
 	desc := h.Resources()
-	h.ServeMux().HandleFunc(fmt.Sprintf("%sdart"), generateDartFunc(desc))
+	fmt.Printf("XXXX %sdart\n",urlPath)
+	h.ServeMux().HandleFunc(fmt.Sprintf("%sdart",urlPath), generateDartFunc(desc))
 }
 
 //generateDartFunc returns a function that outputs text string for all the dart code
 //in the system.
 func generateDartFunc(desc []*ResourceDescription) func (http.ResponseWriter, *http.Request) {
 	
-	for _,_ = range desc {
+	var text bytes.Buffer
+	resourceStructs:= []*FieldDescription{}
+	supportStructs:=[]*FieldDescription{}
+	
+	//generate code for known resources
+	for _,d := range desc {
+		text.WriteString(generateDartForResource(d))
+		resourceStructs = append(resourceStructs, d.Field)
 	}
-	return nil
+	//collect up supporting structs
+	for _,d := range desc {	
+		candidates:=collectStructs(d.Field)
+		for _, s:= range candidates {
+			if !containsType(resourceStructs,s) && !containsType(supportStructs,s) {
+				supportStructs = append(supportStructs, s)
+			}
+		}
+	}
+	for _,i:=range supportStructs {
+		text.WriteString(generateDartForSupportStruct(i))
+	}
+	fmt.Printf("YYY code is %d bytes\n",len(text.Bytes()))
+	return func (writer http.ResponseWriter, req *http.Request) {
+		_, err:=writer.Write(dartPrettyPrint(text.String()))
+		if err!=nil {
+			fmt.Printf("error writing generated code: %s\n",err)
+		}
+	}
 }
 
 //DefaultProjects adds the resources that we expect to be present for a typical
@@ -158,3 +185,57 @@ func DefaultProjectBindings(h Handler) http.Handler {
   GeneratedContent(h, "/generated/")
 	return h
 }
+
+const (
+	WAITING_ON_NON_WS = iota
+	WAITING_ON_EOL 
+)
+//dartPrettyPrint is a very naive dart formatter. It doesn't understand much of the lexical
+//structure of dart but it's enough for our generated code (which doesn't do things like embed
+//{ inside a string)
+func dartPrettyPrint(raw string) []byte {
+	
+	state := WAITING_ON_NON_WS
+	indent :=0
+	var result bytes.Buffer
+	
+	for i:=0; i<len(raw); i++ {
+		c := raw[i]
+		switch state {
+		case WAITING_ON_NON_WS:
+			if c=='\t' || c==' ' || c=='\n'  {
+				continue
+			}
+			switch c {
+			case '{':
+				indent+=2
+			case '}':
+				indent-=2
+			}
+			for j:=0; j<indent; j++ {
+				result.WriteString(" ")
+			}
+			result.Write([]byte{c})
+			state=WAITING_ON_EOL
+			continue
+		case WAITING_ON_EOL:
+			if c=='\n' {
+				result.WriteString("\n")
+				state=WAITING_ON_NON_WS
+				continue
+			}
+			switch c {
+			case '{':
+				indent+=2
+			case '}':
+				indent-=2
+			}
+			result.Write([]byte{c})
+			continue
+		}
+	}
+	return result.Bytes()
+}
+
+
+

@@ -20,14 +20,15 @@ type ItalianCity struct {
 	Name seven5.String255
 	Population seven5.Integer
 	Province seven5.String255
-	Location LatLng
+	Location *LatLng
 }
 
 //sample data to work with... so no need for DB
 var cityData = []*ItalianCity{
-	&ItalianCity{Id:0,Name:"Turin", Province:"Piedmont", Population:900569},
-	&ItalianCity{1,"Milan", 3083955, "Lombardy"},
-	&ItalianCity{2,"Genoa",800709,"Liguria"},
+	&ItalianCity{Id:0,Name:"Turin", Province:"Piedmont", Population:900569, 
+		Location:&LatLng{45.066667, 7.7} },
+	&ItalianCity{1,"Milan", 3083955, "Lombardy", &LatLng{45.464167, 9.190278}},
+	&ItalianCity{2,"Genoa",800709,"Liguria", &LatLng{44.411111, 8.932778}},
 }
 
 
@@ -55,7 +56,7 @@ func (STATELESS *ItalianCitiesResource) Index(headers map[string]string,
 		}
 	}
 	for _, v := range cityData {
-		if hasPrefix && !strings.HasPrefix(v.Name, prefix) {
+		if hasPrefix && !strings.HasPrefix(string(v.Name), prefix) {
 				continue
 		}
 		result = append(result, v)
@@ -86,11 +87,12 @@ func (STATELESS *ItalianCitiesResource) IndexDoc() []string {
 //given an id, find the object it referencs and return JSON for it. This ignores
 //the query parameters but understands the header 'Round' for rounding pop figures to
 //100K boundaries.
-func (STATELESS *ItalianCityResource) Find(id int64, hdrs map[string]string, 
+func (STATELESS *ItalianCityResource) Find(id seven5.Id, hdrs map[string]string, 
 	query map[string]string) (string,*seven5.Error) {
 	
 	r, hasRound := hdrs["Round"] //note the capital is always there on headers
-	if id<0 || id>=int64(len(cityData)) {
+	n := int64(id)
+	if n<0 || n>=int64(len(cityData)) {
 		return seven5.BadRequest(fmt.Sprintf("id must be from 0 to %d",len(cityData)-1))
 	}
 	pop:= cityData[id].Population
@@ -102,7 +104,7 @@ func (STATELESS *ItalianCityResource) Find(id int64, hdrs map[string]string,
 		}
 	} 
 	data := cityData[id]
-	forClient := &ItalianCity{data.Id, data.Name, pop, data.Province}
+	forClient := &ItalianCity{data.Id, data.Name, pop, data.Province, data.Location}
 	return seven5.JsonResult(forClient,true)
 }
 
@@ -124,7 +126,7 @@ func main() {
 	
 	//this is the _same object_ as h, but just using a different type to make
 	//it more "clean" when used with the built in http package.
-	asHttp:=seven5.AddDefaultLayout(h)
+	asHttp:=seven5.DefaultProjectBindings(h)
 	
 	//normal http calls for running a server in go... ListenAndServe never should return
 	//err:=http.ListenAndServe(":3003",logHTTP(asHttp))
