@@ -70,14 +70,14 @@ func TestDartFullResource(T *testing.T) {
 	//people, _, _ := h.resolve(q)
 	doc:=h.Describe(person)
 	
-	decl:=doc.generateDart()
+	decl:=generateDartForResource(doc)
 	verifyHasString(T,"class Ox {",decl)
 	verifyHasString(T,"int Id;",decl)
 	verifyHasString(T,"bool IsLarge;",decl)
 	verifyHasString(T,"Ox();",decl)
-	verifyHasString(T,"Ox.copyFromJson(Map json)",decl)
+	verifyHasString(T,"Ox.fromJson(Map json)",decl)
 	verifyHasString(T,"static List<Ox> Index(",decl)
 	verifyHasString(T,"void Find(",decl)
-	verifyHasString(T,"static String indexURL = \"oxen\"",decl)
-	verifyHasString(T,"static String findURL = \"ox\"",decl)
+	verifyHasString(T,"static String indexURL = \"/oxen/\"",decl)
+	verifyHasString(T,"static String findURL = \"/ox/\"",decl)
 }
