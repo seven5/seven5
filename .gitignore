@@ -6,8 +6,9 @@
 # Folders
 _obj
 _test
-bin
-pkg
+example*/go/bin
+example*/go/pkg
+example*/go/src/github.com
 
 # Architecture specific extensions/prefixes
 *.[568vq]
