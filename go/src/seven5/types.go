@@ -17,7 +17,8 @@ type Textblob string
 //Integer is at least a 64 bit integer.  
 type Integer int64
 //Id is unique identifier for objects.  Ids are never negative but may be zero.  It
-//is at least 64 bits wide.
+//is at least 64 bits wide.  Any struct that has this type as a member must have that
+//member named "Id" and must be a resource.
 type Id int64
 //Boolean is either true or false. 
 type Boolean bool
