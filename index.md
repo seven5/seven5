@@ -40,7 +40,7 @@ tagline: "Restful without remorse or pity."
 <h3>What exactly <em>is</em> Seven5 then?</h3>
 
 <p>
-Seven5 could be called many things but prefer to think of it as a set of strategies and a code generator.  Building a modern web application has a lot of parts that are  boilerplate, repetitive and niggling, already solved by others, or just boring.  <em>Seven5</em> generates Dart, SQL, and HTML that is linked together with your application to eliminate this type of work.  
+Seven5 could be called many things, but we prefer to think of it as an encoding of a set of strategies and a code generator.  Building a modern web application has a lot of parts that are stupid boilerplate, repetitive and niggling, already solved by others, or just boring.  <em>Seven5</em> generates Dart, SQL, and HTML that is linked together with your application to eliminate this type of work.  
 </p>
 
 </div>
