@@ -87,7 +87,7 @@ func WalkJsonType(t reflect.Type) *FieldDescription {
 
 	//is this a simple type? if so return a slice of size 1 describing it but without
 	//the name filled in (because the caller has to do that)
-	if t.PkgPath() == "seven5" {
+	if strings.HasSuffix(t.PkgPath(), "seven5")  {
 		switch t.Name() {
 		case "Floating", "String255", "Textblob", "Integer", "Id", "Boolean":
 			return &FieldDescription{Name: "Not_Known_Yet", TypeName: t.Name()}
