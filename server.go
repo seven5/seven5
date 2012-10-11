@@ -140,13 +140,21 @@ func GeneratedContent(h Handler, urlPath string) {
 //Seven5Content maps /seven5/ to be the place where static content contained _inside_
 //the seven5 can viewed such as /seven5/seven5.dart for the seven5 support library.
 func Seven5Content(h Handler, urlPath string) {
-	h.ServeMux().HandleFunc("/seven5/seven5.dart", 
-		func (writer http.ResponseWriter, request *http.Request) {
-			_, err:=writer.Write([]byte(seven5_dart))
-			if err!=nil {
-				fmt.Printf("error writing constant code (seven5_dart): %s\n",err)
-			}
-		});
+	h.ServeMux().HandleFunc("/seven5/seven5.dart", generateStringPrinter(seven5_dart))
+	h.ServeMux().HandleFunc("/favico.ico", generateBinPrinter(gopher_ico))
+}
+
+func generateStringPrinter(content string) func (http.ResponseWriter, *http.Request) {
+	return generateBinPrinter([]byte(content))
+}
+
+func generateBinPrinter(content []byte) func (http.ResponseWriter, *http.Request) {
+	return func (writer http.ResponseWriter, req *http.Request) {
+		_, err:=writer.Write(content)
+		if err!=nil {
+			fmt.Printf("error writing constant binary string: %s\n",err)
+		}
+	}
 }
 
 //generateDartFunc returns a function that outputs text string for all the dart code
@@ -174,12 +182,7 @@ func generateDartFunc(desc []*ResourceDescription) func (http.ResponseWriter, *h
 	for _,i:=range supportStructs {
 		text.WriteString(generateDartForSupportStruct(i))
 	}
-	return func (writer http.ResponseWriter, req *http.Request) {
-		_, err:=writer.Write(dartPrettyPrint(text.String()))
-		if err!=nil {
-			fmt.Printf("error writing generated code: %s\n",err)
-		}
-	}
+	return generateBinPrinter(text.Bytes())
 }
 
 //DefaultProjects adds the resources that we expect to be present for a typical
