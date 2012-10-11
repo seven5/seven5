@@ -137,6 +137,18 @@ func GeneratedContent(h Handler, urlPath string) {
 	h.ServeMux().HandleFunc(fmt.Sprintf("%sdart",urlPath), generateDartFunc(desc))
 }
 
+//Seven5Content maps /seven5/ to be the place where static content contained _inside_
+//the seven5 can viewed such as /seven5/seven5.dart for the seven5 support library.
+func Seven5Content(h Handler, urlPath string) {
+	h.ServeMux().HandleFunc("/seven5/seven5.dart", 
+		func (writer http.ResponseWriter, request *http.Request) {
+			_, err:=writer.Write([]byte(seven5_dart))
+			if err!=nil {
+				fmt.Printf("error writing constant code (seven5_dart): %s\n",err)
+			}
+		});
+}
+
 //generateDartFunc returns a function that outputs text string for all the dart code
 //in the system.
 func generateDartFunc(desc []*ResourceDescription) func (http.ResponseWriter, *http.Request) {
@@ -181,6 +193,7 @@ func DefaultProjectBindings(h Handler) http.Handler {
 	StaticContent(h, "/static/", "static")
   StaticContent(h, "/dart/", "dart")
   GeneratedContent(h, "/generated/")
+  Seven5Content(h, "/seven5/")
 	return h
 }
 

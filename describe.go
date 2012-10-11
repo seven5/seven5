@@ -141,8 +141,8 @@ func WalkJsonType(t reflect.Type) *FieldDescription {
 	case reflect.Bool, reflect.Float32, reflect.Float64, reflect.Int, reflect.Int32,
 		reflect.Int64, reflect.Int8, reflect.String, reflect.Uint, reflect.Uint16,
 		reflect.Uint32, reflect.Uint64, reflect.Uint8:
-		panic(fmt.Sprintf("Please use seven5 basic types (instead of %v) so it is not ambiguous"+
-			" how to translate them to Json, Dart, and SQL", t.Kind()))
+		panic(fmt.Sprintf("Please use seven5 basic types (instead of %v in pkg %s) so it is not ambiguous"+
+			" how to translate them to Json, Dart, and SQL", t.Kind(), t.PkgPath()))
 	}
 	panic(fmt.Sprintf("Unable to understand type definition %s for conversion "+
 		"to a Json/Dart/Sql format", t.Name()))
