@@ -51,7 +51,7 @@ project *examples* from github.
 
 ``` console
 cd /tmp #can be anywhere
-git clone -b examples git clone -b examples git@github.com:seven5/seven5.git examples
+git clone -b examples git@github.com:seven5/seven5.git examples
 ```
 
 This should create a directory `examples` with all the project source code, including this file in `/path/to/examples/example1/README.md`.

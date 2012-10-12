@@ -3,10 +3,10 @@ package italy
 //This file is to show you some of the key ideas about testing seven5 apps on the server side.
 
 import (
-	// "github.com/seven5/seven5"
 	"encoding/json"
+	"github.com/seven5/seven5"
 	"net/http"
-	"seven5"
+	//	"seven5"
 	"strings"
 	"testing"
 )
@@ -52,7 +52,7 @@ func TestIdNum(T *testing.T) {
 }
 
 //utility routine to get the city or list of cities from json
-func decodeJson(T *testing.T, jsonBlob string, ptr interface{}) interface{}  {
+func decodeJson(T *testing.T, jsonBlob string, ptr interface{}) interface{} {
 	dec := json.NewDecoder(strings.NewReader(jsonBlob))
 	if err := dec.Decode(ptr); err != nil {
 		T.Fatalf("Error doing json decoding: %s", err)
@@ -63,13 +63,13 @@ func decodeJson(T *testing.T, jsonBlob string, ptr interface{}) interface{}  {
 //make a map for use as a header or query parameter set
 func makeMap(key string, value string) map[string]string {
 	result := make(map[string]string)
-	result[key]=value
+	result[key] = value
 	return result
 }
 
 //check that a given header with a given value produces a rounded or unrounded result
 func checkRoundingVariant(T *testing.T, msg string, key string, value string, rounded bool, id seven5.Id) {
-	result, err := cityResource.Find(id, makeMap(key,value), emptyMap)
+	result, err := cityResource.Find(id, makeMap(key, value), emptyMap)
 	if err != nil {
 		T.Fatalf("Can't find italian city %v: %s", id, err)
 	}
@@ -118,20 +118,20 @@ func checkMaxVariant(T *testing.T, msg string, key string, value string, expecte
 	}
 	var cities []ItalianCity
 	cities = *(decodeJson(T, result, &cities).(*[]ItalianCity))
-	if len(cities)!=expected {
+	if len(cities) != expected {
 		T.Errorf("Expected %d but got %d results for '%s'!", expected, len(cities), msg)
 	}
 }
-	
+
 //check that a given header with a given value produces a filtered list of cities
 func checkFilteringVariant(T *testing.T, msg string, key string, value string, expected int) {
-	result, err := citiesResource.Index(makeMap(key,value), emptyMap)
+	result, err := citiesResource.Index(makeMap(key, value), emptyMap)
 	if err != nil {
 		T.Fatalf("Can't index all italian cities for '%s': %s", msg, err)
 	}
 	var cities []ItalianCity
 	cities = *(decodeJson(T, result, &cities).(*[]ItalianCity))
-	if len(cities)!=expected {
+	if len(cities) != expected {
 		T.Errorf("Expected %d but got %d results for '%s'!", expected, len(cities), msg)
 	}
 }
