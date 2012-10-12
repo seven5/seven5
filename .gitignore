@@ -9,6 +9,8 @@ _test
 example*/go/bin
 example*/go/pkg
 example*/go/src/github.com
+example*/go/src/seven5
+example*/go/src/seven5tool
 
 # Architecture specific extensions/prefixes
 *.[568vq]

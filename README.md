@@ -131,6 +131,7 @@ You may to try running the tests of seven5 or example1 like this:
 $ go test github.com/seven5/seven5
 ok  	github.com/seven5/seven5	0.043s
 $ go test italy
+ok  	italy	0.041s
 
 ```
 #### gocode
@@ -209,18 +210,18 @@ the javascript (sic) console where the test output is printed:
 
 ``` console
 city length is 3 undefined:1
-number of cities returned from Index: 3 undefined:1
-    city returned from Index(): [0] Turin undefined:1
-    city returned from Index(): [1] Milan undefined:1
-    city returned from Index(): [2] Genoa undefined:1
-result of 'Index' (GET): 200 OK undefined:1
-city returned from Find() was Turin with Id 0 undefined:1
-object that was found was Instance of 'ItalianCity' undefined:1
-result of 'Find' (GET) was 200 OK undefined:1
-city length is 1 undefined:1
-city length is 2 undefined:1
-city length is 1 undefined:1
-city length is 0 undefined:1
+number of cities returned from Index: 3 
+    city returned from Index(): [0] Turin 
+    city returned from Index(): [1] Milan 
+    city returned from Index(): [2] Genoa 
+result of 'Index' (GET): 200 OK 
+city returned from Find() was Turin with Id 0 
+object that was found was Instance of 'ItalianCity' 
+result of 'Find' (GET) was 200 OK 
+city length is 1 
+city length is 2 
+city length is 1 
+city length is 0 
 Failed to load resource: the server responded with a status of 400 (Bad Request) http://localhost:3003/italiancities/?max=two
 Failed to load resource: the server responded with a status of 400 (Bad Request) http://localhost:3003/italiancity/16
 ``` 
