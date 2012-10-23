@@ -1,23 +1,27 @@
 package seven5
 
 import (
-	"text/template"
 	"bytes"
 	"fmt"
+	"strings"
+	"text/template"
 )
 
 var t *template.Template
 
 //init creates the template needed for Dart code generation.
 func init() {
-	t = template.Must(template.New("DART_CLASS_TMPL").Parse(DART_CLASS_TMPL))
+	fnMap := template.FuncMap{
+		"tolower": strings.ToLower,
+	}
+	t = template.Must(template.New("DART_CLASS_TMPL").Funcs(fnMap).Parse(DART_CLASS_TMPL))
 }
 
 //contains type checks a slice of FieldDescriptions to see if a candidate type is
 //present in the slice. Comparison is based on StructName.
 func containsType(all []*FieldDescription, candidate *FieldDescription) bool {
-	for i:=0; i<len(all);i++ {
-		if all[i].StructName==candidate.StructName {
+	for i := 0; i < len(all); i++ {
+		if all[i].StructName == candidate.StructName {
 			return true
 		}
 	}
@@ -27,11 +31,11 @@ func containsType(all []*FieldDescription, candidate *FieldDescription) bool {
 //collectStructs is a recursive walk of FieldDescription structure to find all 
 //types that are known as structs.  This full list is needed to generate code.
 func collectStructs(current *FieldDescription) []*FieldDescription {
-	result:=[]*FieldDescription{}
-	if current.StructName!="" {
+	result := []*FieldDescription{}
+	if current.StructName != "" {
 		result = append(result, current)
-		for _, c:=range current.Struct {
-			for _, f:=range collectStructs(c) {
+		for _, c := range current.Struct {
+			for _, f := range collectStructs(c) {
 				if !containsType(result, f) {
 					result = append(result, f)
 				}
@@ -43,16 +47,16 @@ func collectStructs(current *FieldDescription) []*FieldDescription {
 
 func generateDartForResource(r *ResourceDescription) string {
 	var buffer bytes.Buffer
-	if err:=t.ExecuteTemplate(&buffer, "DART_CLASS_TMPL", r); err!=nil {
-			return err.Error()
+	if err := t.ExecuteTemplate(&buffer, "DART_CLASS_TMPL", r); err != nil {
+		return err.Error()
 	}
 	return buffer.String()
 }
 
 func generateDartForSupportStruct(f *FieldDescription) string {
 	var buffer bytes.Buffer
-	if err:=t.ExecuteTemplate(&buffer, "SUPPORT_STRUCT_TMPL", f); err!=nil {
-			return err.Error()
+	if err := t.ExecuteTemplate(&buffer, "SUPPORT_STRUCT_TMPL", f); err != nil {
+		return err.Error()
 	}
 	return buffer.String()
 }
@@ -73,10 +77,10 @@ func (self *FieldDescription) Dart() string {
 	case "Id":
 		return "int"
 	}
-	if self.Array!=nil {
-		return "List<"+self.Array.Dart()+">"
+	if self.Array != nil {
+		return "List<" + self.Array.Dart() + ">"
 	}
-	if self.StructName!="" {
+	if self.StructName != "" {
 		return self.StructName
 	}
 	panic(fmt.Sprintf("unable to convert type %s to Dart type!", self.TypeName))
@@ -97,7 +101,7 @@ func (self *FieldDescription) HasId() bool {
 	return ok
 }
 
-const DART_CLASS_TMPL=`
+const DART_CLASS_TMPL = `
 {{define "FIELD_DECL"}}
 	{{range .Struct}} 
 		{{.Dart}} {{.Name}};
@@ -118,15 +122,14 @@ const DART_CLASS_TMPL=`
 class {{.Name}} {
 	{{template "FIELD_DECL" .Field}}
 
-	static String findURL = "/{{.GETSingular}}/";
-	static String indexURL = "/{{.GETPlural}}/";
+	static String resourceURL = "/{{tolower .Name}}/";
 
 	static List<{{.Name}}> Index(successFunc, [errorFunc, headers, requestParameters]) {
-		Seven5Support.Index(indexURL, ()=>new List<{{.Name}}>(), ()=>new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
+		Seven5Support.Index(resourceURL, ()=>new List<{{.Name}}>(), ()=>new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
 	}
 
 	void Find(int Id, successFunc, [errorFunc, headers, requestParameters]) {
-		Seven5Support.Find(Id, findURL, new ItalianCity(), successFunc, errorFunc, headers, requestParameters);
+		Seven5Support.Find(Id, resourceURL, new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
 	}
 	
 	

@@ -3,6 +3,7 @@ package seven5
 import (
 	"testing"
 	"fmt"
+	"net/http"
 )
 
 /*-------------------------------------------------------------------------*/
@@ -77,46 +78,29 @@ func verifyJsonContent(T *testing.T, json string, expected string, msg string){
 var emptyMap = make(map[string]string)
 
 
-func TestResourceMappingForIndex(T *testing.T) {
-	h := NewSimpleHandler()
-		
-	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{}, Ox{})
-	
-	errorMap :=map[string]int{
-		"oxen": 404,
-		"/oxen": 404,
-		"/oxen/": 404,
-		"/people": 404,
-		"people": 404,
-		"cars": 404,
-	}
-	
-	verifyDispatchError(T, h, errorMap)
-	
-	json, err := h.Dispatch("GET","/people/", emptyMap, emptyMap)
-	verifyNoError(T,json,err,"GET /people/")
-	verifyJsonContent(T,json,"[]", "GET /people/")	
-}
-
-func TestResourceMappingForFinder(T *testing.T) {
+func TestResourceMappingForIndexerFinder(T *testing.T) {
 	h := NewSimpleHandler()
 
-	h.AddFindAndIndex("ox",&ExampleFinder_correct{},"",nil,Ox{})
-	h.AddFindAndIndex("",nil,"people",&ExampleIndexer_correct{},Ox{})
+	h.AddFindAndIndex("ox",&ExampleFinder_correct{},&ExampleIndexer_correct{},Ox{})
+	h.AddFindAndIndex("fart",&ExampleFinder_correct{},nil,Ox{})
+
+	json, err := h.Dispatch("GET","/ox/", emptyMap, emptyMap)
+	verifyNoError(T,json,err,"GET /ox/")
+	verifyJsonContent(T,json,"[]", "GET /ox/")	
 
 
 	errorMap :=map[string]int{
-		"/oxen/": 404,
-		"/ox/": 501, // not implemented because this is written like a plural
-		"/oxen/123": 404,
-		"/ox/123": 404, //too large an id
-		"/people/123": 501, //name is registered but not implemented (not Finder)
-		"/person/123": 404, 
+		"/oxen/": http.StatusNotFound,
+		"/ox/fart": http.StatusBadRequest,
+		"/oxen/123": http.StatusNotFound,
+		"/ox/123": http.StatusNotFound, //too large an id
+		"/fart/": http.StatusNotImplemented, //name is registered but not implemented (no Finder)
+		"/fart/123": http.StatusNotFound,  //to large, same as /ox/123
 	}
 
 	verifyDispatchError(T, h, errorMap)
 
-	json, err := h.Dispatch("GET","/ox/0", emptyMap, emptyMap)
+	json, err = h.Dispatch("GET","/ox/0", emptyMap, emptyMap)
 	verifyNoError(T,json,err, "GET /ox/0")
 	verifyJsonContent(T,json,"{\"Id\":0,\"IsLarge\":true}", "GET /ox/0")	
 }

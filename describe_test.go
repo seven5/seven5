@@ -90,7 +90,7 @@ func TestRecursiveTraversal(T *testing.T) {
 
 func TestResolve(T *testing.T) {
 	h:=NewSimpleHandler()
-	h.AddFindAndIndex("person",&ExampleFinder_correct{},"people",&ExampleIndexer_correct{}, Ox{})
+	h.AddFindAndIndex("person",&ExampleFinder_correct{},&ExampleIndexer_correct{}, Ox{})
 	res, id, _ := h.resolve("/person/123")
 	if res!="/person/" || id!="123" {
 		T.Errorf("Unable to resolve /person/123 correctly (res=%s and id=%s)!",res,id)
@@ -99,27 +99,22 @@ func TestResolve(T *testing.T) {
 	if res!="/person/" || id!="" {
 		T.Errorf("Unable to resolve /person/ correctly (res=%s and id=%s)!",res,id)
 	}
-	res, id, _ = h.resolve("/people/456")
-	if res!="/people/" || id!="456" {
-		T.Errorf("Unable to resolve /people/456 correctly (res=%s and id=%s)!",res,id)
+	res, id, _ = h.resolve("/person/456")
+	if res!="/person/" || id!="456" {
+		T.Errorf("Unable to resolve /person/456 correctly (res=%s and id=%s)!",res,id)
 	}
 }
 
 func TestDescribe(T *testing.T) {
 	h:=NewSimpleHandler()
-	h.AddFindAndIndex("person",&ExampleFinder_correct{},"people",&ExampleIndexer_correct{}, Ox{})
+	h.AddFindAndIndex("person",&ExampleFinder_correct{},&ExampleIndexer_correct{}, Ox{})
 	
 	p:="/person/129"
-	q:="/people/"
 	
 	person, _, _ := h.resolve(p)
-	people, _, _ := h.resolve(q)
 	verifyHaveCollectionAndRes(T,h.Describe(person),p)
-	verifyHaveCollectionAndRes(T,h.Describe(people),q)
 	
 	verifyDocSlices(T,h.Describe(person),p,[]string{"FOO","bar","Baz"},
-		[]string{"How can you lose an ox?","fleazil","frack for love"})
-	verifyDocSlices(T,h.Describe(people),q,[]string{"FOO","bar","Baz"},
 		[]string{"How can you lose an ox?","fleazil","frack for love"})
 	
 }

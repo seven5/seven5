@@ -14,8 +14,7 @@ import (
 type Dispatch struct {
 	ResType     interface{}
 	Field       *FieldDescription
-	GETSingular string
-	GETPlural   string
+	ResourceName string
 	Index       Indexer
 	Find        Finder
 }
@@ -47,8 +46,7 @@ type ResourceDescription struct {
 	Name          string
 	Index         bool
 	Find          bool
-	GETSingular   string
-	GETPlural     string
+	ResourceName   string
 	CollectionDoc []string
 	ResourceDoc   []string
 	Field         *FieldDescription
@@ -61,7 +59,9 @@ type ResourceDescription struct {
 //nested structs for this property because we allow nested structs that are 
 //_not_ resources and if resources are nested the inner struct will be checked
 //when this function is called on it (as it is added to the URL mapping, typically).
-func NewDispatch(r interface{}) *Dispatch {
+//The two functions (which can be nil) should be a indexer and finder function for
+//the particular type passed as first parameter.
+func NewDispatch(r interface{}, i Indexer, f Finder) *Dispatch {
 	t := reflect.TypeOf(r)
 	fieldDescription := WalkJsonType(t)
 
@@ -76,7 +76,7 @@ func NewDispatch(r interface{}) *Dispatch {
 		fieldDescription.Name = t.Elem().Name()
 	}
 
-	return &Dispatch{ResType: r, Field: fieldDescription}
+	return &Dispatch{ResType: r, Field: fieldDescription, Index: i, Find:f}
 }
 
 //WalkJsonType is the recursive machine that creates a FieldDescription from 

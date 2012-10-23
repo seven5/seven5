@@ -24,7 +24,7 @@ type Handler interface {
 	//GET /plural/ calls the Indexer.  r should be a struct that describes the json exchanged
 	//between the client and server.  This struct should have only simple field types or
 	//substructs that are similarly composed.  
-	AddFindAndIndex(singular string, finder Finder, plural string, indexer Indexer, r interface{})
+	AddFindAndIndex(singular string, finder Finder, indexer Indexer, r interface{})
 	//ServeHttp allows this type to be used as an http.Handler in the http.ListenAndServe method.  
 	//However, all manipulations of the mapping (such as adding resources) must have been completed
 	//before this object is used as an http.Handler because there are no concurrency guarantees

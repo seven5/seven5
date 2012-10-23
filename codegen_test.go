@@ -61,10 +61,9 @@ func TestStructCollection(T *testing.T) {
 
 func TestDartFullResource(T *testing.T) {
 	h:=NewSimpleHandler()
-	h.AddFindAndIndex("ox",&ExampleFinder_correct{},"oxen",&ExampleIndexer_correct{}, Ox{})
+	h.AddFindAndIndex("ox",&ExampleFinder_correct{},&ExampleIndexer_correct{}, Ox{})
 	
 	p:="/ox/129"
-	//q:="/oxen/"
 	
 	person, _, _ := h.resolve(p)
 	//people, _, _ := h.resolve(q)
@@ -78,6 +77,5 @@ func TestDartFullResource(T *testing.T) {
 	verifyHasString(T,"Ox.fromJson(Map json)",decl)
 	verifyHasString(T,"static List<Ox> Index(",decl)
 	verifyHasString(T,"void Find(",decl)
-	verifyHasString(T,"static String indexURL = \"/oxen/\"",decl)
-	verifyHasString(T,"static String findURL = \"/ox/\"",decl)
+	verifyHasString(T,"static String resourceURL = \"/ox/\"",decl)
 }
