@@ -1,29 +1,29 @@
 package main
 
 import (
+	"github.com/seven5/seven5"
 	"italy"
 	"net/http"
-  "github.com/seven5/seven5"
 	//"seven5"
 	"fmt"
 )
 
 func main() {
-	
+
 	h := seven5.NewSimpleHandler()
 	h.AddFindAndIndex("italiancity", &italy.ItalianCityResource{},
-		"italiancities", &italy.ItalianCitiesResource{}, italy.ItalianCity{})
-	
+		&italy.ItalianCitiesResource{}, italy.ItalianCity{})
+
 	//this is the _same object_ as h, but just using a different type to make
 	//it more "clean" when used with the built in http package.
-	asHttp:=seven5.DefaultProjectBindings(h)
-	
+	asHttp := seven5.DefaultProjectBindings(h, "italy")
+
 	//normal http calls for running a server in go... ListenAndServe never should return
 	//err:=http.ListenAndServe(":3003",logHTTP(asHttp))
-	
+
 	//use this verson, not the one above, if you want to log HTTP requests to the terminal
-	err:=http.ListenAndServe(":3003",logHTTP(asHttp))
-	
+	err := http.ListenAndServe(":3003", logHTTP(asHttp))
+
 	fmt.Printf("Error! Returned from ListenAndServe(): %s", err)
 }
 
@@ -34,4 +34,3 @@ func logHTTP(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, r)
 	})
 }
-
