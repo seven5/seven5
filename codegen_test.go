@@ -61,7 +61,7 @@ func TestStructCollection(T *testing.T) {
 
 func TestDartFullResource(T *testing.T) {
 	h:=NewSimpleHandler()
-	h.AddFindAndIndex("ox",&ExampleFinder_correct{},&ExampleIndexer_correct{}, Ox{})
+	h.AddResource(Ox{},&ExampleFinder_correct{})
 	
 	p:="/ox/129"
 	

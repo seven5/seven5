@@ -2,7 +2,7 @@ package seven5
 
 import (
 	"fmt"
-//	_ "github.com/russross/blackfriday"
+	//	_ "github.com/russross/blackfriday"
 	"reflect"
 	"strings"
 )
@@ -12,11 +12,13 @@ import (
 //and what is known about each.  This is public because it is likely any implementation 
 //of Handler will need this to generate api/doc.
 type Dispatch struct {
-	ResType     interface{}
-	Field       *FieldDescription
+	ResType      interface{}
+	Field        *FieldDescription
 	ResourceName string
-	Index       Indexer
-	Find        Finder
+	Index        Indexer
+	Find         Finder
+	Post         Poster
+	Put          Puter
 }
 
 //Field description gives information about a particular field and this is part of what 
@@ -39,16 +41,21 @@ type FieldDescription struct {
 	Struct []*FieldDescription
 }
 
-
 //ResourceDescription is the full type passed over the wire to describe how a particular 
 //can be called and what fields the objects have that it manipulates.
 type ResourceDescription struct {
 	Name          string
 	Index         bool
 	Find          bool
-	ResourceName   string
+	Post          bool
+	Put           bool
+	Delete        bool
+	ResourceName  string
 	CollectionDoc []string
 	ResourceDoc   []string
+	CreateDoc     []string
+	PutDoc        []string
+	DeleteDoc     []string
 	Field         *FieldDescription
 }
 
@@ -59,9 +66,9 @@ type ResourceDescription struct {
 //nested structs for this property because we allow nested structs that are 
 //_not_ resources and if resources are nested the inner struct will be checked
 //when this function is called on it (as it is added to the URL mapping, typically).
-//The two functions (which can be nil) should be a indexer and finder function for
-//the particular type passed as first parameter.
-func NewDispatch(r interface{}, i Indexer, f Finder) *Dispatch {
+//The REST interface implementations should be passed as the later parameters, and
+//these can be nil.
+func NewDispatch(r interface{}, i Indexer, f Finder, p Poster, put Puter) *Dispatch {
 	t := reflect.TypeOf(r)
 	fieldDescription := WalkJsonType(t)
 
@@ -76,7 +83,7 @@ func NewDispatch(r interface{}, i Indexer, f Finder) *Dispatch {
 		fieldDescription.Name = t.Elem().Name()
 	}
 
-	return &Dispatch{ResType: r, Field: fieldDescription, Index: i, Find:f}
+	return &Dispatch{ResType: r, Field: fieldDescription, Index: i, Find: f, Post: p, Put: put}
 }
 
 //WalkJsonType is the recursive machine that creates a FieldDescription from 
@@ -87,7 +94,7 @@ func WalkJsonType(t reflect.Type) *FieldDescription {
 
 	//is this a simple type? if so return a slice of size 1 describing it but without
 	//the name filled in (because the caller has to do that)
-	if strings.HasSuffix(t.PkgPath(), "seven5")  {
+	if strings.HasSuffix(t.PkgPath(), "seven5") {
 		switch t.Name() {
 		case "Floating", "String255", "Textblob", "Integer", "Id", "Boolean":
 			return &FieldDescription{Name: "Not_Known_Yet", TypeName: t.Name()}

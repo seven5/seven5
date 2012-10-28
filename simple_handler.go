@@ -1,12 +1,15 @@
 package seven5
 
 import (
-	"net/http"
 	"fmt"
-	"strings"
-	"strconv"
+	"net/http"
 	"reflect"
+	"strconv"
+	"strings"
+	"io"
 )
+
+const MAX_FORM_SIZE=16*1024
 
 //SimpleHandler is the default implementation of the Handler interface that ignores multiple values for
 //headers and query params because these are both rare and error-prone.  All resources need to be
@@ -18,11 +21,10 @@ type SimpleHandler struct {
 	dispatch map[string]*Dispatch
 }
 
-
 //NewSimpleHandler creates a new SimpleHandler with an empty URL space. 
 func NewSimpleHandler() *SimpleHandler {
 	return &SimpleHandler{
-		mux: http.NewServeMux(),
+		mux:      http.NewServeMux(),
 		dispatch: make(map[string]*Dispatch)}
 }
 
@@ -32,23 +34,26 @@ func (self *SimpleHandler) ServeMux() *http.ServeMux {
 	return self.mux
 }
 
-//AddIndexAndFind maps the (singular) resourceName into the url space.  The name should not include 
-//any slashes or spaces as this will trigger armageddon and destroy all life on this planet.  If either
-//interface value is nil, it is ignored for dispatching.  The final interface should be a struct
-//(not a pointer to a struct) that describes the json values exchanged over the wire.  The Finder
-//and Indexer are expected (but not required) to be marshalling these values as returned objects.
-//The Finder and Indexer are called _only_ in response to a GET method on the appropriate URI.
+//AddExplicitResourceMethods maps the (singular) resourceName into the url space.  The name should not include 
+//any slashes or spaces as this will trigger armageddon and destroy all life on this planet.  The second
+//parameter is the underlying type that is passed over the wire; it must be a struct or a pointer to one.
+//This second parameter must have a field of type seven5.Id called Id.  All other fields must also be
+//public and the types of these fields must be from the seven5 package (since the types must be flattenable
+//nicely to JSON and mapped directly to Go, Dart, and SQL types). 
 //
-//The marshalling done in seven5.JsonResult uses the go json package, so the struct field tags using
-//"json" will be respected.  The struct must contain an seven5.Id field called Id.  The url space uses
-//lowercase only, and the resource name will be converted.  If resourceName is omitted (is "")
-//this function computes the capital of North Ossetia and immediately ignores it.
-func (self *SimpleHandler) AddFindAndIndex(resourceName string, finder Finder,
-	indexer Indexer, r interface{}) {
+//The latter parameters are seven5 interfaces that represent each of the REST methods that are exposed to
+//clients.  Any of these can be nil; nil values cause the server to respond with 501 (Not Implemented).  
+//This method is functionally equivalent to a call on AddResource but allows each of the REST interfaces
+//to be explicitly tied to an implementation.
+//
+//This method is public in case you want to access it instead of the AddResource() method visible through
+//the Handler interface.
+func (self *SimpleHandler) AddExplicitResourceMethods(resourceName string, r interface{},
+	indexer Indexer, finder Finder, poster Poster, puter Puter) {
 
- 	d:= NewDispatch(r, indexer, finder)
+	d := NewDispatch(r, indexer, finder, poster, puter)
 
-	if resourceName=="" || strings.Index(resourceName, " ")!=-1 || strings.Index(resourceName, "/")!=-1 {
+	if resourceName == "" || strings.Index(resourceName, " ") != -1 || strings.Index(resourceName, "/") != -1 {
 		panic(fmt.Sprintf("bad resource name: '%s', no spaces or slashes allowed", resourceName))
 	}
 
@@ -57,14 +62,73 @@ func (self *SimpleHandler) AddFindAndIndex(resourceName string, finder Finder,
 	self.dispatch[withSlashes] = d
 }
 
+//AddResourceByName maps the (singular) resourceName into the url space.  The name should not include 
+//any slashes or spaces as this will trigger armageddon and destroy all life on this planet.  The second
+//parameter is the underlying type that is passed over the wire; it must be a struct or a pointer to one.
+//This second parameter must have a field of type seven5.Id called Id.  All other fields must also be
+//public and the types of these fields must be from the seven5 package (since the types must be flattenable
+//nicely to JSON and mapped directly to Go, Dart, and SQL types). 
+//
+//The last parameters must implement 0 or more of the REST resource interfaces of seven5 such as Indexer,
+//Finder, or Poster.  If any of the interfaces are not implemented by the object, the server will
+//return 501 (Not Implemented).
+func (self *SimpleHandler) AddResourceByName(resourceName string, r interface{}, resourceImpl interface{}) {
+	indexer, _ := resourceImpl.(Indexer)
+	finder, _ := resourceImpl.(Finder)
+	poster, _ := resourceImpl.(Poster)
+	puter, _ := resourceImpl.(Puter)
+	self.AddExplicitResourceMethods(resourceName, r, indexer, finder, poster, puter)
+}
+
+//AddResource maps a resource into the url space.  The name of the resource is derived from the name
+//of the struct (which is converted to lower case and should be singular).  The first parameter must have a 
+//field of type seven5.Id called Id.  All other fields must also be public and the types of these fields must 
+//be from the seven5 package (since the types must be flattenable nicely to JSON and mapped directly to 
+//Go, Dart, and SQL types). 
+//
+//The second parameters must implement 0 or more of the REST resource interfaces of seven5 such as Indexer,
+//Finder, or Poster.  If any of the interfaces are not implemented by the object, the server will
+//return 501 (Not Implemented).
+func (self *SimpleHandler) AddResource(overTheWireSingular interface{}, implementation interface{}) {
+	t := reflect.TypeOf(overTheWireSingular)
+	if t.Kind() == reflect.Struct {
+		self.AddResourceByName(strings.ToLower(t.Name()), overTheWireSingular, implementation)
+	} else if t.Kind() == reflect.Ptr {
+		self.AddResourceByName(strings.ToLower(t.Elem().Name()), overTheWireSingular, implementation)
+	} else {
+		panic(fmt.Sprintf("Type of %s must be struct or pointer to struct!", overTheWireSingular))
+	}
+}
+
 //ServeHTTP allows this object to act like an http.Handler. ServeHTTP data is passed to Dispatch
 //after some minimal processing.  This is not used in tests, only when on a real network.
 func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	hdr := ToSimpleMap(req.Header)
-	qparams := ToSimpleMap(map[string][]string(req.URL.Query()))
-	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams)
-	if err!=nil && err.StatusCode==http.StatusNotFound {
-		self.mux.ServeHTTP(writer,req)
+	defer req.Body.Close()
+	
+	if err:=req.ParseForm(); err!=nil {
+		http.Error(writer, fmt.Sprintf("can't parse form data:%s",err), http.StatusBadRequest)
+		return
+	}
+	
+	qparams := ToSimpleMap(map[string][]string(req.Form))
+	
+	limitedData:=make([]byte,MAX_FORM_SIZE)
+	curr:=0
+	for curr<len(limitedData){
+		n, err:=req.Body.Read(limitedData[curr:])
+		if err!=nil && err==io.EOF {
+			break
+		}
+		if err!=nil {
+			http.Error(writer, fmt.Sprintf("can't read form data:%s", err), http.StatusInternalServerError)
+			return
+		}
+		curr+=n
+	}
+	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams, string(limitedData[0:curr]))
+	if err != nil && err.StatusCode == http.StatusNotFound {
+		self.mux.ServeHTTP(writer, req)
 	} else {
 		DumpOutput(writer, json, err)
 	}
@@ -75,13 +139,13 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 //It generates some errors itself if, for example a 404 or 501 is needed.
 //I borrowed lots of ideas and inspiration from "github.com/Kissaki/rest2go"
 func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[string]string,
-	queryParams map[string]string) (string, *Error) {
+	queryParams map[string]string, body string) (string, *Error) {
 
 	matched, id, d := self.resolve(uriPath)
 	if matched == "" {
 		return NotFound()
 	}
-	switch method {
+	switch strings.ToUpper(method) {
 	case "GET":
 		if len(id) == 0 {
 			if d.Index != nil {
@@ -92,20 +156,50 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			}
 		} else {
 			// Find by ID
-			var num int64
-			var err error
-			if num, err = strconv.ParseInt(id, 10, 64); err != nil {
-				return BadRequest("resource ids must be non-negative integers")
+			num, errMessage := ParseId(id)
+			if errMessage!="" {
+				return BadRequest(errMessage)
 			}
 			//resource id is a number, try to find it
-			if d.Find!=nil {
+			if d.Find != nil {
 				return d.Find.Find(Id(num), header, queryParams)
 			} else {
 				return NotImplemented()
 			}
 		}
+	case "POST":
+		if id!="" {
+			return BadRequest("can't POST to a particular resource, did you mean PUT?")
+		}
+		if d==nil {
+			return NotFound()
+		}
+		return d.Post.Post(header, queryParams, body)
+	case "PUT":
+		if id=="" {
+			return BadRequest("PUT requires a resource id")
+		}
+		if d==nil {
+			return NotFound()
+		}
+		num, errMessage := ParseId(id)
+		if errMessage!="" {
+			return BadRequest(errMessage)
+		}
+		return d.Put.Put(num, header, queryParams, body)
 	}
+	
 	return "", &Error{http.StatusNotImplemented, "", "Not implemented yet"}
+}
+
+//parseId returns the id contained in a string or an error message about why the id is bad.
+func ParseId(candidate string) (Id, string) {
+	var num int64
+	var err error
+	if num, err = strconv.ParseInt(candidate, 10, 64); err != nil {
+		return Id(0),fmt.Sprintf("resource ids must be non-negative integers (was %s): %s",candidate, err)
+	}
+	return Id(num),""
 }
 
 //resolve is used to find the matching resource for a particular request.  It returns the match
@@ -145,13 +239,13 @@ func (self *SimpleHandler) resolve(path string) (string, string, *Dispatch) {
 //be types in these descriptors that are _not_ resources but for which code must still
 //be generated.
 func (self *SimpleHandler) Resources() []*ResourceDescription {
-	result:=[]*ResourceDescription{}
-	for k,_ := range self.dispatch {
-		contains:=false
-		target:=self.Describe(k)
-		for _, i:= range result {
-			if i.Name==target.Name {
-				contains=true
+	result := []*ResourceDescription{}
+	for k, _ := range self.dispatch {
+		contains := false
+		target := self.Describe(k)
+		for _, i := range result {
+			if i.Name == target.Name {
+				contains = true
 				break
 			}
 		}
@@ -182,25 +276,28 @@ func isLiveDocRequest(req *http.Request) bool {
 func (self *SimpleHandler) Describe(uriPath string) *ResourceDescription {
 	result := &ResourceDescription{}
 	path, _, _ := self.resolve(uriPath)
-	
+
 	//no such path?
-	if path=="" {
+	if path == "" {
 		return nil
 	}
 	d := self.dispatch[path]
 	result.Name = reflect.TypeOf(d.ResType).Name()
 	result.Field = d.Field
-	
+
 	//result.Fields = walkJsonType(reflect.TypeOf(dispatch.ResType))
-	
-	if d.Find!= nil{
+
+	if d.Find != nil {
 		result.Find = true
 		result.ResourceDoc = d.Find.FindDoc()
 	}
-	if d.Index!= nil{
+	if d.Index != nil {
 		result.Index = true
 		result.CollectionDoc = d.Index.IndexDoc()
 	}
+	if d.Post != nil {
+		result.Post = true
+		result.CreateDoc = d.Post.PostDoc()
+	}
 	return result
 }
-

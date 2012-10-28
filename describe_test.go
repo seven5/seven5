@@ -90,7 +90,7 @@ func TestRecursiveTraversal(T *testing.T) {
 
 func TestResolve(T *testing.T) {
 	h:=NewSimpleHandler()
-	h.AddFindAndIndex("person",&ExampleFinder_correct{},&ExampleIndexer_correct{}, Ox{})
+	h.AddResourceByName("person", Ox{}, &ExampleFinder_correct{})
 	res, id, _ := h.resolve("/person/123")
 	if res!="/person/" || id!="123" {
 		T.Errorf("Unable to resolve /person/123 correctly (res=%s and id=%s)!",res,id)
@@ -107,7 +107,7 @@ func TestResolve(T *testing.T) {
 
 func TestDescribe(T *testing.T) {
 	h:=NewSimpleHandler()
-	h.AddFindAndIndex("person",&ExampleFinder_correct{},&ExampleIndexer_correct{}, Ox{})
+	h.AddExplicitResourceMethods("person",Ox{},&ExampleIndexer_correct{}, &ExampleFinder_correct{}, nil, nil)
 	
 	p:="/person/129"
 	

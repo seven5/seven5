@@ -46,6 +46,31 @@ type Finder interface {
 	FindDoc() []string 
 }
 
+//Poster indicates that the recevier can create new instances of the correct type.  The poster
+//_must_ return a new instance of the resource, complete with a previously unassigned id.
+//The instance returned should include all the necessary fields set to default (acceptable) values.
+//Most implementations will take a body that is json to have the client indicate paramters
+//needed for creation.  This call is obviously not idempotent, but idempotent is a cool word anyway.
+type Poster interface {
+	//Returns a new object in the string return (json encoded).  The body is used by most clients
+	//to indicate parameters for the creation of the object.
+	Post(headers map[string]string, queryParams map[string]string, body string) (string,*Error)
+	//Find returns doc for respectively, returned resource, accepted headers, accepted query parameters
+	//and body parameter.  Four total entries in the resultings slice of strings.  Strings can and should
+	//be markdown encoded.
+	PostDoc() []string 
+}
 
-
-
+//Puter indicates that the recevier can change values of fields on a type (via PUT).  This call must 
+//return the full object with all updated values.  This must be called on a particular instance named by the
+//id. Typically the caller sends the new values as json in the body, although we parse the body
+//as an HTTP form (up to a given size limit) and put the parsed values in queryParams. 
+//This call should be idempotent, because idempotency is fun to say.
+type Puter interface {
+	//Returns the new values.
+	Put(id Id, headers map[string]string, queryParams map[string]string, body string) (string,*Error)
+	//Find returns doc for respectively, returned values, accepted headers, accepted query parameters
+	//and body parameter.  Four total entries in the resultings slice of strings.  Strings can and should
+	//be markdown encoded.
+	PutDoc() []string 
+}
