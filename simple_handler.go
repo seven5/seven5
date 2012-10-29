@@ -49,9 +49,9 @@ func (self *SimpleHandler) ServeMux() *http.ServeMux {
 //This method is public in case you want to access it instead of the AddResource() method visible through
 //the Handler interface.
 func (self *SimpleHandler) AddExplicitResourceMethods(resourceName string, r interface{},
-	indexer Indexer, finder Finder, poster Poster, puter Puter) {
+	indexer Indexer, finder Finder, poster Poster, puter Puter, deleter Deleter) {
 
-	d := NewDispatch(r, indexer, finder, poster, puter)
+	d := NewDispatch(r, indexer, finder, poster, puter, deleter)
 
 	if resourceName == "" || strings.Index(resourceName, " ") != -1 || strings.Index(resourceName, "/") != -1 {
 		panic(fmt.Sprintf("bad resource name: '%s', no spaces or slashes allowed", resourceName))
@@ -77,7 +77,8 @@ func (self *SimpleHandler) AddResourceByName(resourceName string, r interface{},
 	finder, _ := resourceImpl.(Finder)
 	poster, _ := resourceImpl.(Poster)
 	puter, _ := resourceImpl.(Puter)
-	self.AddExplicitResourceMethods(resourceName, r, indexer, finder, poster, puter)
+	deleter, _ := resourceImpl.(Deleter)
+	self.AddExplicitResourceMethods(resourceName, r, indexer, finder, poster, puter, deleter)
 }
 
 //AddResource maps a resource into the url space.  The name of the resource is derived from the name
@@ -145,7 +146,8 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 	if matched == "" {
 		return NotFound()
 	}
-	switch strings.ToUpper(method) {
+	method = strings.ToUpper(method)
+	switch method {
 	case "GET":
 		if len(id) == 0 {
 			if d.Index != nil {
@@ -174,10 +176,14 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 		if d==nil {
 			return NotFound()
 		}
+		if d.Post==nil {
+			return NotImplemented()
+		}
 		return d.Post.Post(header, queryParams, body)
-	case "PUT":
+	//these two are really similar
+	case "PUT", "DELETE":
 		if id=="" {
-			return BadRequest("PUT requires a resource id")
+			return BadRequest(fmt.Sprintf("%s requires a resource id", method))
 		}
 		if d==nil {
 			return NotFound()
@@ -186,7 +192,17 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 		if errMessage!="" {
 			return BadRequest(errMessage)
 		}
-		return d.Put.Put(num, header, queryParams, body)
+		if method=="PUT" {
+			if d.Put==nil {
+				return NotImplemented()
+			}
+			return d.Put.Put(num, header, queryParams, body)
+		} else {
+			if d.Delete==nil {
+				return NotImplemented()
+			}
+			return d.Delete.Delete(num, header, queryParams)
+		}
 	}
 	
 	return "", &Error{http.StatusNotImplemented, "", "Not implemented yet"}

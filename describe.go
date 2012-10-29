@@ -19,6 +19,7 @@ type Dispatch struct {
 	Find         Finder
 	Post         Poster
 	Put          Puter
+	Delete       Deleter
 }
 
 //Field description gives information about a particular field and this is part of what 
@@ -68,7 +69,7 @@ type ResourceDescription struct {
 //when this function is called on it (as it is added to the URL mapping, typically).
 //The REST interface implementations should be passed as the later parameters, and
 //these can be nil.
-func NewDispatch(r interface{}, i Indexer, f Finder, p Poster, put Puter) *Dispatch {
+func NewDispatch(r interface{}, i Indexer, f Finder, p Poster, put Puter, d Deleter) *Dispatch {
 	t := reflect.TypeOf(r)
 	fieldDescription := WalkJsonType(t)
 
@@ -83,7 +84,7 @@ func NewDispatch(r interface{}, i Indexer, f Finder, p Poster, put Puter) *Dispa
 		fieldDescription.Name = t.Elem().Name()
 	}
 
-	return &Dispatch{ResType: r, Field: fieldDescription, Index: i, Find: f, Post: p, Put: put}
+	return &Dispatch{ResType: r, Field: fieldDescription, Index: i, Find: f, Post: p, Put: put, Delete: d}
 }
 
 //WalkJsonType is the recursive machine that creates a FieldDescription from 

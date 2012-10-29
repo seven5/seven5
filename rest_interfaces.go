@@ -70,7 +70,19 @@ type Puter interface {
 	//Returns the new values.
 	Put(id Id, headers map[string]string, queryParams map[string]string, body string) (string,*Error)
 	//Find returns doc for respectively, returned values, accepted headers, accepted query parameters
-	//and body parameter.  Four total entries in the resultings slice of strings.  Strings can and should
+	//and body parameter.  Four total entries in the resulting slice of strings.  Strings can and should
 	//be markdown encoded.
 	PutDoc() []string 
+}
+
+//Delete indicates that the implementor can delete instances of the resource type.  This call should 
+//return the full object state at the time of the delete.  This must be called on a particular instance 
+//named by the id and that object is terminated with extreme predjudice. 
+//This call is not idempotent, yet is potent.
+type Deleter interface {
+	//Returns the values at the time of the deletion.
+	Delete(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)
+	//Find returns doc for respectively, returned values, accepted headers, and accepted query parameters.
+	//Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
+	DeleteDoc() []string 
 }

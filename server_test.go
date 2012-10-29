@@ -6,25 +6,57 @@ import (
 	"net/http"
 	"encoding/json"
 	"strings"
-	"bytes"
 )
 
 /*-------------------------------------------------------------------------*/
-type ExampleIndexer_correct struct {
+type Ox struct {
+	Id Id
+	IsLarge Boolean
 }
 
-func (STATELESS *ExampleIndexer_correct) Index(headers map[string]string,queryParams map[string]string) (string,*Error)  {
-		return "[]",nil
+/*-------------------------------------------------------------------------*/
+var oxList []*Ox
+var oxCounter = 0
+
+func haveOx(id Id) bool {
+	for _, i := range oxList {
+		if i.Id == id {
+			return true
+		}
+	}
+	return false
 }
-func (STATELESS *ExampleIndexer_correct) IndexDoc() []string{
+
+func deleteOx(index int, slice []*Ox) []*Ox {
+    switch index {
+        case 0: slice = slice[1:]
+        case len(slice)-1: slice = slice[:len(slice)-1]
+        default: slice = append(slice[:index], slice[index+1:]...)
+    }
+    return slice
+}
+
+
+/*-------------------------------------------------------------------------*/
+type oxIndexer struct {
+}
+
+func (STATELESS *oxIndexer) Index(headers map[string]string,queryParams map[string]string) (string,*Error)  {
+	if len(oxList)==0 {
+		return "[]",nil
+	}
+	return JsonResult(&oxList, false)
+}
+
+func (STATELESS *oxIndexer) IndexDoc() []string{
 	return []string{"FOO","bar","Baz"}
 }
 
 /*-------------------------------------------------------------------------*/
-type ExamplePoster_correct struct {
+type oxPoster struct {
 }
 
-func (STATELESS *ExamplePoster_correct) Post(headers map[string]string, queryParams map[string]string,
+func (STATELESS *oxPoster) Post(headers map[string]string, queryParams map[string]string,
 	body string) (string,*Error)  {
 	
 	var BodyOx Ox
@@ -34,18 +66,23 @@ func (STATELESS *ExamplePoster_correct) Post(headers map[string]string, queryPar
 	if err!=nil {
 		return BadRequest(fmt.Sprintf("Could not understand json body: %s", err))
 	}
-	//we "create" a new ox and return the value of IsLarge sent in the body
-	return JsonResult(&Ox{456,BodyOx.IsLarge},false);
+	newBoy := &Ox{Id(oxCounter), BodyOx.IsLarge}
+	oxCounter++
+	oxList = append(oxList, newBoy)
+	
+	//we "create" a new ox and return the object
+	return JsonResult(&newBoy,false);
 }
 
-func (STATELESS *ExamplePoster_correct) PostDoc() []string{
+func (STATELESS *oxPoster) PostDoc() []string{
 	return []string{"Grik","grak","frik", "fleazil"}
 }
+
 /*-------------------------------------------------------------------------*/
-type ExamplePuter_correct struct {
+type oxPuter struct {
 }
 
-func (STATELESS *ExamplePuter_correct) Put(id Id, headers map[string]string, queryParams map[string]string,
+func (STATELESS *oxPuter) Put(id Id, headers map[string]string, queryParams map[string]string,
 	body string) (string,*Error)  {
 
 	//check that the id in the params matches the id supplied, if it exists
@@ -59,52 +96,76 @@ func (STATELESS *ExamplePuter_correct) Put(id Id, headers map[string]string, que
 			return BadRequest(fmt.Sprintf("You supplied two different ids in the url and form: %d and %d!", id, parsedId))
 		}
 	}
-	//return the "new" values... we just echo them for this test
+	if !haveOx(id) {
+		return NotFound()
+	}
+
+	//we are using form data here
 	size, ok:=queryParams["IsLarge"]
 	if !ok {
-		return BadRequest("You can't send a PUT to the Ox without a size! Nothing to change! (Maybe try GET?)")
+		return BadRequest("You can't send a PUT to the ox without a size! Nothing to change! (Maybe try GET?)")
 	}
 	size=strings.ToLower(size)
 	if size!="false" && size!="true" {
 		return BadRequest(fmt.Sprintf("Bad Boolean value for IsLarge: %s", size))
 	}
-	sent:=Ox{id, false}
+	updatedOx:=Ox{id, false}
 	if size=="true" {
-		sent.IsLarge = true
+		updatedOx.IsLarge = true
 	}
 	
-	//prepare response
-	var buffer bytes.Buffer
-	enc:=json.NewEncoder(&buffer)
-	if err:=enc.Encode(&sent); err!=nil {
-		return InternalErr(err)
-	}
+	return JsonResult(&updatedOx, false)
 	
-	return buffer.String(),nil
 }
 
-func (STATELESS *ExamplePuter_correct) PutDoc() []string{
-	return []string{"leia","jawa","query params are used and assumed to be a form", "body isn't used by this Put"}
+func (STATELESS *oxPuter) PutDoc() []string{
+	return []string{"leia","jawa","query params are used and assumed to be form data", "body isn't used by this Put"}
 }
 
 /*-------------------------------------------------------------------------*/
-type Ox struct {
-	Id Id
-	IsLarge Boolean
+type oxDelete struct {
 }
 
-type ExampleFinder_correct struct {
+func (STATELESS *oxDelete) Delete(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)  {
+	
+	if !haveOx(id) {
+		return NotFound()
+	}
+	var result *Ox
+	for i, cand:=range oxList {
+		if cand.Id == id {
+			result = cand
+			oxList = deleteOx(i, oxList)
+			break
+		}
+	}
+	return JsonResult(&result, false)
 }
 
-func (STATELESS *ExampleFinder_correct)	Find(id Id, headers map[string]string, 
-	queryParams map[string]string) (string,*Error) {
-		switch (int64(id)) {
-		case 0,1:
-			return JsonResult(&Ox{id,true},false);
-		}	
-		return NotFound();
+func (STATELESS *oxDelete) DeleteDoc() []string {
+	return []string{"mickey","minnie","pluto"}
 }
-func (STATELESS *ExampleFinder_correct)	FindDoc() []string {
+
+/*-------------------------------------------------------------------------*/
+type oxFinder struct {
+}
+
+func (STATELESS *oxFinder)	Find(id Id, headers map[string]string, queryParams map[string]string) (string,*Error) {
+	
+	if !haveOx(id) {
+		return NotFound()
+	}
+	var result *Ox
+	for _, cand:=range oxList {
+		if cand.Id == id {
+			result = cand
+			break
+		}
+	}
+	return JsonResult(&result, false)
+}
+
+func (STATELESS *oxFinder) FindDoc() []string {
 	return []string{"How can you lose an ox?","fleazil","frack for love"}
 }
 /*-------------------------------------------------------------------------*/
@@ -151,8 +212,8 @@ var emptyMap = make(map[string]string)
 func TestResourceMappingForIndexerFinder(T *testing.T) {
 	h := NewSimpleHandler()
 
-	h.AddExplicitResourceMethods("ox",&Ox{}, &ExampleIndexer_correct{},&ExampleFinder_correct{},nil,nil)
-	h.AddExplicitResourceMethods("fart", Ox{}, nil, &ExampleFinder_correct{},nil, nil)
+	h.AddExplicitResourceMethods("ox",&Ox{}, &oxIndexer{},&oxFinder{},nil,nil,nil)
+	h.AddExplicitResourceMethods("fart", Ox{}, nil, &oxFinder{},nil, nil, nil)
 
 	json, err := h.Dispatch("GET","/ox/", emptyMap, emptyMap, "")
 	verifyNoError(T,json,err,"GET /ox/")
@@ -170,38 +231,76 @@ func TestResourceMappingForIndexerFinder(T *testing.T) {
 
 	verifyDispatchError(T, h, errorMap, "GET")
 
+	oxList = []*Ox{ 
+		&Ox{0, true},
+	}
+
 	json, err = h.Dispatch("GET","/ox/0", emptyMap, emptyMap, "")
 	verifyNoError(T,json,err, "GET /ox/0")
 	verifyJsonContent(T,json,"{\"Id\":0,\"IsLarge\":true}", "GET /ox/0")	
+	
+	oxList = nil
 }
 
 
 func TestResourceMappingForPosterAndPuter(T *testing.T) {
 	h := NewSimpleHandler()
 
-	h.AddExplicitResourceMethods("ox",&Ox{}, nil, nil, &ExamplePoster_correct{}, &ExamplePuter_correct{})
+	h.AddExplicitResourceMethods("ox",&Ox{}, nil, nil, &oxPoster{}, &oxPuter{}, nil)
 	errorMap :=map[string]int{
 		"/ox/123": http.StatusBadRequest,  //can't post to a particular object (that should be PUT)
 	}
 	verifyDispatchError(T, h, errorMap, "POST")
 
+	ct := 0
 	for _,size:=range []bool{false, true} {
 		json, err := h.Dispatch("POST","/ox/", emptyMap, emptyMap, fmt.Sprintf("{ \"IsLarge\":%v }",size))
 		verifyNoError(T,json,err, "POST /ox/")
-		verifyJsonContent(T,json, fmt.Sprintf("{\"Id\":456,\"IsLarge\":%v}", size), "POST /ox/")	
+		verifyJsonContent(T,json, fmt.Sprintf("{\"Id\":%d,\"IsLarge\":%v}", ct, size), "POST /ox/")	
 
-		crap, err := h.Dispatch("PUT","/ox/456", emptyMap, map[string]string{"Garbage":"break json parse"}, "")
+		crap, err := h.Dispatch("PUT", fmt.Sprintf("/ox/%d", ct), emptyMap, 
+			map[string]string{"Garbage":"break json parse"}, "")
 		if crap!="" {
 			T.Errorf("Not expecting a return value from a Put with bad content: %s", crap)
 		}
 		verifyErrorCode(T, err, http.StatusBadRequest, "Bad Form Data For PUT")
 
-		//loop to show we can make valid
+		//loop to show we can make either large or small ox
 		for _, i := range []string{"1st call","2nd call"} {
-			json, err := h.Dispatch("PUT","/ox/456", emptyMap, map[string]string{"Id":"456","IsLarge":fmt.Sprintf("%v",!size)}, "")
-			verifyNoError(T,json,err, fmt.Sprintf("PUT /ox/456 (%s)",i))
-			verifyJsonContent(T,json, fmt.Sprintf("{\"Id\":456,\"IsLarge\":%v}", !size), fmt.Sprintf("PUT /ox/456 (%s)",i))	
+			json, err := h.Dispatch("PUT", fmt.Sprintf("/ox/%d", ct), emptyMap, 
+				map[string]string{"Id": fmt.Sprintf("%d", ct),"IsLarge":fmt.Sprintf("%v",!size)}, "")
+			verifyNoError(T,json,err, fmt.Sprintf("PUT /ox/%d (%s)",ct, i))
+			verifyJsonContent(T,json, fmt.Sprintf("{\"Id\":%d,\"IsLarge\":%v}", ct, !size), 
+				fmt.Sprintf("PUT /ox/%d (%s)",ct, i))	
 		}
+		ct++
 	}
+	
+	oxList = nil
 }
 
+func TestResourceMappingForDeleter(T *testing.T) {
+	h := NewSimpleHandler()
+
+	h.AddExplicitResourceMethods("ox",&Ox{}, nil, nil, nil, nil, &oxDelete{})
+	
+	oxList = []*Ox {
+		&Ox{456,true},
+		&Ox{459,true},
+	}
+	
+	errorMap :=map[string]int{
+		"/ox/": http.StatusBadRequest,  //can't del to a collection object 
+		"/nope/102": http.StatusNotFound,  //can't del to a non existent resource
+	}
+	verifyDispatchError(T, h, errorMap, "DELETE")
+
+	json, err := h.Dispatch("DELETE","/ox/456", emptyMap, emptyMap, "")
+	verifyNoError(T,json,err, "DELETE /ox/456")
+	verifyJsonContent(T,json,"{\"Id\":456,\"IsLarge\":true}", "DELETE /ox/456")	
+	
+	//check semantics!
+	if len(oxList)!=1 {
+		T.Errorf("Attempt to delete ox 456 failed! Ox list is not size 0!")
+	}
+}
