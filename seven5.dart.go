@@ -1,5 +1,6 @@
 package seven5
 const seven5_dart=`
+
 #library("seven5");           // Declare that this is a library.
 #import("dart:json");
 #import("dart:html");
@@ -20,16 +21,22 @@ class Seven5Support {
 		return "${url}?${buff.toString()}";
 	}
 	
-	//typeless implementation of loading list of objects from json
-	static Index(String indexURL, createList, createInstance, successFunc, errorFunc, 
-		headers, params){
-		HttpRequest req = new HttpRequest();
-		req.open("GET", encodeURL(indexURL, params));
+	static void addHeaders(Map headers, HttpRequest req) {
 		if (headers!=null) {
 			for (var k in headers.getKeys()){
 				req.setRequestHeader(k,headers[k]);
 			}
 		}
+	}
+	
+	static void Index(String indexURL, Function createList, Function createInstance, Function successFunc, Function errorFunc, 
+		Map headers, Map params){
+		HttpRequest req = new HttpRequest();
+		
+		req.open("GET", encodeURL(indexURL, params));
+		
+		Seven5Support.addHeaders(headers,req);
+		
 		req.on.load.add(function (HttpRequestProgressEvent progressEvent) {
 			if (req.status/100==2) {
 				List raw = JSON.parse(req.responseText);
@@ -48,15 +55,16 @@ class Seven5Support {
 		});
 		req.send();
 	}
-	//typeless implementation of loading single object from json
-	static Find(id, findURL, obj, successFunc, errorFunc, headers, params){
+	//resourceCallWithObjectResult is called to make a call on the resource and pass the result through to the 
+	//success function as parameter.  POST, PUT, DELETE, and FIND all use this code because they all expect a
+	//single object as the result of their call (in the success case).
+	static void resourceCallWithObjectResult(String method, String encodedURL, dynamic obj, Function successFunc, 
+		Function errorFunc, Map headers, String body){
 		HttpRequest req = new HttpRequest();
-		req.open("GET", encodeURL("${findURL}${id}", params));
-		if (headers!=null) {
-			for (var k in headers.getKeys()){
-				req.setRequestHeader(k,headers[k]);
-			}
-		}
+		req.open(method, encodedURL);
+		
+		Seven5Support.addHeaders(headers,req);
+		
 		req.on.load.add(function (HttpRequestProgressEvent progressEvent) {
 			if (req.status/100==2) {
 				obj.copyFromJson(JSON.parse(req.responseText));
@@ -67,7 +75,32 @@ class Seven5Support {
 				}
 			}
 		});
-		req.send();
+		req.send(body);
 	}
-}
-`
+	//singleInstance is used by PUT, DELETE, and FIND because they _address_ a particular object as well as
+	//expecting as a single object as a return value.
+	static void singleInstance(String method, int id, String resURL, dynamic obj, Function successFunc, Function errorFunc,
+		Map headers, Map params, String bodyContent) { 
+		Seven5Support.resourceCallWithObjectResult(method, encodeURL("${resURL}${id}", params), obj, successFunc, errorFunc, 
+			headers, bodyContent);
+	}
+	
+	static void Put(String bodyContent, int id, String resURL, dynamic obj, Function successFunc, Function errorFunc, 
+		Map headers, Map params){
+			Seven5Support.singleInstance("PUT", id, resURL, obj, successFunc, errorFunc, headers, params, bodyContent);
+	}
+	static void Delete(int id, String resURL, dynamic obj, Function successFunc, Function errorFunc, 
+		Map headers, Map params){
+			Seven5Support.singleInstance("DELETE", id, resURL, obj, successFunc, errorFunc, headers, params, null);
+	}
+	static void Find(int id, String resURL, dynamic obj, Function successFunc, Function errorFunc, 
+		Map headers, Map params){
+			Seven5Support.singleInstance("GET", id, resURL, obj, successFunc, errorFunc, headers, params, null);
+	}
+	
+	static void Post(String bodyContent, String resURL, dynamic obj, Function successFunc, Function errorFunc, 
+		Map headers, Map params){
+			Seven5Support.resourceCallWithObjectResult("POST", encodeURL("${resURL}", params), obj, successFunc, 
+			errorFunc, headers, bodyContent);
+	}
+}`

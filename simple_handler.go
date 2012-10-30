@@ -78,6 +78,7 @@ func (self *SimpleHandler) AddResourceByName(resourceName string, r interface{},
 	poster, _ := resourceImpl.(Poster)
 	puter, _ := resourceImpl.(Puter)
 	deleter, _ := resourceImpl.(Deleter)
+	
 	self.AddExplicitResourceMethods(resourceName, r, indexer, finder, poster, puter, deleter)
 }
 

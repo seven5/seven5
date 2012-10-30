@@ -1,5 +1,8 @@
 package seven5
 
+import (
+	"strings"
+)
 //Seven5 has it own types so it is unambiguous what is desired for types that need to be 
 //converted to external representations in json, dart, and SQL.  The go code defines the
 //"true" type and the other choices come from it.
@@ -23,3 +26,6 @@ type Id int64
 //Boolean is either true or false. 
 type Boolean bool
 
+func TrimSpace(s String255) String255 {
+	return String255(strings.TrimSpace(string(s)))
+}

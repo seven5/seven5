@@ -14,7 +14,7 @@ func init() {
 	fnMap := template.FuncMap{
 		"tolower": strings.ToLower,
 	}
-	t = template.Must(template.New("DART_CLASS_TMPL").Funcs(fnMap).Parse(DART_CLASS_TMPL))
+	t = template.Must(template.New("CLASSDECL_TMPL").Funcs(fnMap).Parse(classdecl_tmpl))
 }
 
 //contains type checks a slice of FieldDescriptions to see if a candidate type is
@@ -47,7 +47,7 @@ func collectStructs(current *FieldDescription) []*FieldDescription {
 
 func generateDartForResource(r *ResourceDescription) string {
 	var buffer bytes.Buffer
-	if err := t.ExecuteTemplate(&buffer, "DART_CLASS_TMPL", r); err != nil {
+	if err := t.ExecuteTemplate(&buffer, "CLASSDECL_TMPL", r); err != nil {
 		return err.Error()
 	}
 	return buffer.String()
@@ -101,70 +101,3 @@ func (self *FieldDescription) HasId() bool {
 	return ok
 }
 
-const DART_CLASS_TMPL = `
-{{define "FIELD_DECL"}}
-	{{range .Struct}} 
-		{{.Dart}} {{.Name}};
-	{{end}}	
-{{end}}
-
-{{define "COPY_JSON_FIELDS"}}
-	{{range .Struct}}
-
-		{{if .StructName}}
-			this.{{.Name}} = new {{.StructName}}.fromJson(json["{{.Name}}"]);
-		{{else}}
-			this.{{.Name}} = json["{{.Name}}"];
-			{{end}}{{/* if */}}
-		{{end}} {{/* range */}}
-{{end}} {{/* define */}}
-
-class {{.Name}} {
-	{{template "FIELD_DECL" .Field}}
-
-	static String resourceURL = "/{{tolower .Name}}/";
-
-	static List<{{.Name}}> Index(successFunc, [errorFunc, headers, requestParameters]) {
-		Seven5Support.Index(resourceURL, ()=>new List<{{.Name}}>(), ()=>new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
-	}
-
-	void Find(int Id, successFunc, [errorFunc, headers, requestParameters]) {
-		Seven5Support.Find(Id, resourceURL, new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
-	}
-	
-	
-	//convenience constructor
-	{{.Name}}.fromJson(Map json) {
-		copyFromJson(json);
-	}
-	
-	//nothing to do in default constructor
-	{{.Name}}();
-	
-	//this is the "magic" that changes from untyped Json to typed object
-	copyFromJson(Map json) {
-		{{template "COPY_JSON_FIELDS" .Field}}
-		return this;
-	}
-}
-
-{{define "SUPPORT_STRUCT_TMPL"}}
-	class {{.StructName}} {
-		{{template "FIELD_DECL" .}}
-
-		//convenience constructor
-		{{.StructName}}.fromJson(Map json) {
-			copyFromJson(json);
-		}
-	
-		//nothing to do in default constructor
-		{{.StructName}}();
-	
-		//this is the "magic" that changes from untyped Json to typed object
-		copyFromJson(Map json) {
-			{{template "COPY_JSON_FIELDS" .}}
-			return this;
-		}
-	}
-{{end}} {{/*define*/}}
-`
