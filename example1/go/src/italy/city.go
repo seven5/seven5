@@ -3,6 +3,7 @@ package italy
 import (
 	"github.com/seven5/seven5"
 	//"seven5"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -23,6 +24,29 @@ type ItalianCity struct {
 	Location   *LatLng
 }
 
+//haveCity returns <0 to mean not found, otherwise returns index of city found.
+func haveCity(id seven5.Id) int {
+	for i, c := range cityData {
+		if c.Id == id {
+			return i
+		}
+	}
+	return -828
+}
+
+//remove city at an index
+func deleteCity(index int, slice []*ItalianCity) []*ItalianCity {
+	switch index {
+	case 0:
+		slice = slice[1:]
+	case len(slice) - 1:
+		slice = slice[:len(slice)-1]
+	default:
+		slice = append(slice[:index], slice[index+1:]...)
+	}
+	return slice
+}
+
 //sample data to work with... so no need for DB
 var cityData = []*ItalianCity{
 	&ItalianCity{Id: 0, Name: "Turin", Province: "Piedmont", Population: 900569,
@@ -31,17 +55,15 @@ var cityData = []*ItalianCity{
 	&ItalianCity{2, "Genoa", 800709, "Liguria", &LatLng{44.411111, 8.932778}},
 }
 
-//rest resource for the city list, no data used internally because it is stateless
-type ItalianCitiesResource struct {
-}
+var cityCount = 3 //we init with 0,1,2 and don't re-use
 
-//rest resource for a particular city, stateless
+//rest resource for a particular city, STATELESS!
 type ItalianCityResource struct {
 }
 
 //Index returns a list of italian cities, filtered by the prefix header and the maximum
 //number returned controlled by the max parameter.  
-func (STATELESS *ItalianCitiesResource) Index(headers map[string]string,
+func (STATELESS *ItalianCityResource) Index(headers map[string]string,
 	qp map[string]string) (string, *seven5.Error) {
 
 	result := []*ItalianCity{}
@@ -68,7 +90,7 @@ func (STATELESS *ItalianCitiesResource) Index(headers map[string]string,
 }
 
 //used to create dynamic documentation/api
-func (STATELESS *ItalianCitiesResource) IndexDoc() []string {
+func (STATELESS *ItalianCityResource) IndexDoc() []string {
 	return []string{"" +
 		"The resource `/italiancities/` returns a list of known cities in Italy.  Each element of the list is" +
 		"a resource of type italiancity that can be fetched individually at `/italiancity/id`.",
@@ -115,5 +137,156 @@ func (STATELESS *ItalianCityResource) FindDoc() []string {
 		"The header 'Round' can be used to get population values rounded to the nearest 100K." +
 			"Legal values are true, false, and omitted (which means false).",
 		"Ignores query parameters.",
+	}
+}
+
+//Returns the values at the time of the deletion if successful.
+func (STATELESS *ItalianCityResource) Delete(id seven5.Id, headers map[string]string, queryParams map[string]string) (string, *seven5.Error) {
+	destroy := haveCity(id)
+
+	if destroy < 0 {
+		return seven5.NotFound()
+	}
+
+	target := cityData[destroy]
+	cityData = deleteCity(destroy, cityData)
+
+	return seven5.JsonResult(&target, true)
+}
+
+//Find returns doc for respectively, returned values, accepted headers, and accepted query parameters.
+//Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
+func (STATELESS *ItalianCityResource) DeleteDoc() []string {
+	return []string{"We return an instance of ItalianCity if the delete was successful.",
+		"Headers are ignored.",
+		"Query Parameters are ignored.",
+	}
+}
+
+func (STATELESS *ItalianCityResource) validateCityData(body string, isPut bool, prev *ItalianCity) (*ItalianCity, string) {
+	var bodyCity ItalianCity
+	dec := json.NewDecoder(strings.NewReader(body))
+
+	if err := dec.Decode(&bodyCity); err != nil {
+		return nil, "Could not understand json body"
+	}
+
+	if isPut {
+		if bodyCity.Id < 0 {
+			return nil, "Must provide an id in body payload of PUT!"
+		}
+	} else {
+		if bodyCity.Id >= 0 {
+			return nil, "Cannot supply the Id in POST! Server assigns the Id field!"
+		}
+	}
+
+	bodyCity.Name = seven5.TrimSpace(bodyCity.Name)
+	if bodyCity.Name == "" {
+		if isPut {
+			bodyCity.Name = prev.Name
+		} else {
+			return nil, "No name of city provided!"
+		}
+	}
+
+	bodyCity.Province = seven5.TrimSpace(bodyCity.Province)
+	if bodyCity.Province == "" {
+		if isPut {
+			bodyCity.Province = prev.Province
+		} else {
+			return nil, "No province of city provided!"
+		}
+	}
+
+	if bodyCity.Population < 1 {
+		if isPut {
+			bodyCity.Population = prev.Population
+		} else {
+			return nil, "No population of city provided!"
+		}
+	}
+
+	if bodyCity.Location.Latitude < -90.0 || bodyCity.Location.Latitude > 90.0 {
+		if isPut {
+			bodyCity.Location.Latitude = prev.Location.Latitude
+		} else {
+			return nil, "Out of bounds latitude!"
+		}
+	}
+
+	if bodyCity.Location.Longitude < -180.0 || bodyCity.Location.Longitude > 180.0 {
+		if isPut {
+			bodyCity.Location.Longitude = prev.Location.Longitude
+		} else {
+			return nil, "Out of bounds longitude!"
+		}
+	}
+
+	return &bodyCity, ""
+}
+
+//Poster takes the object in the body and tries to create a new instance from it.  The resulting instance
+//is returned if successful.
+func (STATELESS *ItalianCityResource) Post(headers map[string]string, queryParams map[string]string, body string) (string, *seven5.Error) {
+	//we re-validate the fields because it's possible the client is doing something nasty and is too lazy
+	//or just evil, and is sendnig us bad data
+	bodyCity, err := STATELESS.validateCityData(body, false, nil)
+	if err != "" {
+		return seven5.BadRequest(err)
+	}
+	//body city is now ready, except needs an id
+	bodyCity.Id = seven5.Id(cityCount)
+	cityCount++
+
+	cityData = append(cityData, bodyCity)
+
+	return seven5.JsonResult(&bodyCity, true)
+}
+
+//Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
+func (STATELESS *ItalianCityResource) PostDoc() []string {
+	return []string{"We return an instance of ItalianCity if the create was successful.",
+		"Headers are ignored.",
+		"Query Parameters are ignored.",
+		"This body should be json for an italian city with all the fields of the resource filled in, " +
+			"except the Id which will be assigned in this method.",
+	}
+}
+
+//Puter takes the object in the body and tries to update the object with the fields provided.
+func (STATELESS *ItalianCityResource) Put(id seven5.Id, headers map[string]string, queryParams map[string]string,
+	body string) (string, *seven5.Error) {
+
+	var city *ItalianCity
+	for _, cand := range cityData {
+		if cand.Id == id {
+			city = cand
+			break
+		}
+	}
+	if city == nil {
+		return seven5.NotFound()
+	}
+
+	//we re-validate the fields because it's possible the client is doing something nasty and is too lazy
+	//or just evil, and is sendnig us bad data
+	bodyCity, err := STATELESS.validateCityData(body, true, city)
+	if err != "" {
+		return seven5.BadRequest(err)
+	}
+	//body city is now ready, except needs an id
+	*city = *bodyCity
+	return seven5.JsonResult(&bodyCity, true)
+}
+
+//Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
+func (STATELESS *ItalianCityResource) PutDoc() []string {
+	return []string{
+		"We the full set of values for the object if the change is successful.",
+		"Headers are ignored.",
+		"Query Parameters are ignored.",
+		"The body must have an Id field that matches the id used in the URL.  Values that are omitted (zero valued) " +
+			"are not changed.",
 	}
 }

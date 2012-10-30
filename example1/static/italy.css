@@ -5,3 +5,17 @@
 .gray {
 	background-color: lightgray;
 }
+
+.inputH4 {
+	  margin: 10px 0;
+	  font-family: inherit;
+	  font-weight: bold;
+	  line-height: 1;
+	  color: inherit;
+	  text-rendering: optimizelegibility;
+	  font-weight: normal;
+	  line-height: 1;
+	  color: #999999;
+	  font-size: 18px;
+	  line-height: 20px;	
+}

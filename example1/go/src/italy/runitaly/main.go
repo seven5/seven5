@@ -11,8 +11,7 @@ import (
 func main() {
 
 	h := seven5.NewSimpleHandler()
-	h.AddFindAndIndex("italiancity", &italy.ItalianCityResource{},
-		&italy.ItalianCitiesResource{}, italy.ItalianCity{})
+	h.AddResource(italy.ItalianCity{}, &italy.ItalianCityResource{})
 
 	//this is the _same object_ as h, but just using a different type to make
 	//it more "clean" when used with the built in http package.
