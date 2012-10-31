@@ -1,0 +1,55 @@
+package seven5tool
+const lib_tmpl=`
+package {{.base}}
+
+import (
+	"github.com/seven5/seven5"
+	"errors"
+)
+
+//normally, you'll have the base type of a resource here, often same name as package
+//must have an "Id" declared
+type {{.name}} struct {
+	Id seven5.Id
+}
+
+
+//some sample data can be help
+var {{.name}}Data = []*{{.name}}{}
+
+
+//rest resource for the your type, should be stateless
+type {{.name}}Resource struct {
+}
+
+//code for implementing your resource goes here
+
+//Index returns either a json array of objects or an error.  
+//headers is a map from header name to value (not values, as in HTTP).
+//queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
+func (self {{.name}}Resource) Index(headers map[string]string,queryParams map[string]string) (string,*seven5.Error)  {
+	return seven5.InternalErr(errors.New("haven't written Index() yet"))
+}
+
+//IndexDoc returns doc for, respectively: collection, headers, query params.  Returned doc strings can
+//and should be markdown encoded.
+func (self {{.name}}Resource) IndexDoc() []string {
+	return []string{"result of index", "headers", "query parameters"}
+}
+
+//Find returns either a json object representing the objects values or an error.  This will be
+//called for a URL like /foo/127 with 127 converted to a seven5.id (int64) and passed as id.  
+//id will be non-negative
+//headers is a map from header name to value (not values, as in HTTP)
+//queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
+
+func (self {{.name}}Resource) Find(id seven5.Id, headers map[string]string, queryParams map[string]string) (string,*seven5.Error) {
+	return seven5.InternalErr(errors.New("haven't written Find() yet"))
+}
+
+//FindDoc returns doc for, respectively: resource, headers, query params.  Returned doc strings can
+//and should be markdown encoded.
+func (self {{.name}}Resource) FindDoc() []string {
+	return []string{"result of find", "headers", "query parameters"}
+}
+`
