@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"github.com/seven5/seven5"
 	"net/http"
-	//"seven5"
 	"strings"
 	"testing"
 )
@@ -36,7 +35,6 @@ func checkResultCode(T *testing.T, msg string, result string, err *seven5.Error,
 
 //NOTE: you can create these server resources anytime/anywhere, because they are stateless
 var cityResource = &ItalianCityResource{}
-var citiesResource = &ItalianCitiesResource{}
 
 //test that if you give a correct id you don't get an error, but you do get error on bad id
 func TestIdNum(T *testing.T) {
@@ -112,7 +110,7 @@ func TestRounding(T *testing.T) {
 
 //check that a given query parameter correctly affects the resulting number of results
 func checkMaxVariant(T *testing.T, msg string, key string, value string, expected int) {
-	result, err := citiesResource.Index(emptyMap, makeMap(key, value))
+	result, err := cityResource.Index(emptyMap, makeMap(key, value))
 	if err != nil {
 		T.Fatalf("Can't index all italian cities for '%s': %s", msg, err)
 	}
@@ -125,7 +123,7 @@ func checkMaxVariant(T *testing.T, msg string, key string, value string, expecte
 
 //check that a given header with a given value produces a filtered list of cities
 func checkFilteringVariant(T *testing.T, msg string, key string, value string, expected int) {
-	result, err := citiesResource.Index(makeMap(key, value), emptyMap)
+	result, err := cityResource.Index(makeMap(key, value), emptyMap)
 	if err != nil {
 		T.Fatalf("Can't index all italian cities for '%s': %s", msg, err)
 	}
