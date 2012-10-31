@@ -3,10 +3,16 @@ layout: page
 title: For The Impatient
 tagline: "Don't read the directions."
 ---
+# Seven5
+
+## An opinionated, stiff web framework written in Go and Dart
+
+* Seven5 is RESTful with remorse or pity.
+* Seven5 is fiercely reactionary towards the forces of dynamism.
 
 ## For the impatient, start really fast here
 
-### Install Prereqs
+### Install Prerequisites
 
 * [Go](http://golang.org/doc/install)
 * [Dartium](http://www.dartlang.org/dartium/)
@@ -29,12 +35,10 @@ $ export PATH=$PATH:$GOPATH/bin
 
 {% endhighlight %}
 
-### Get seven5tool and seven5 library sources
+### Get seven5tool and seven5 library sources, build everything
 
 {% highlight console %}
 $ go get github.com/seven5/seven5tool
-$ go get github.com/seven5/seven5
-$ go install github.com/seven5/seven5tool/seven5tool
 {% endhighlight %}
 
 ### Build sample app
@@ -52,7 +56,7 @@ $ runitaly
 
 ### Run Dartium 
 
-The example below is the version of the command to run Dartium on OS X.  It's better, but not mandatory, if you run it with enable_type_checks and enable_asserts turned on, as this enforces the type checking.
+The example below is the version of the command to run Dartium on OS X.  It's better, but not mandatory, if you run it with `enable_type_checks` and `enable_asserts` turned on, as this enforces the type checking.
 
 {% highlight console %}
 $ DART_FLAGS='--enable_type_checks --enable_asserts' /path/to/dart/../Chromium.app/Contents/MacOS/Chromium 
@@ -69,7 +73,7 @@ $ open http://localhost:3003/static/italy
 
 #### Screenshot of running app
 
-The screenshot below shows running GET on the collection, `/italiancity/` in the URL space.
+The screenshot below shows the output of `http://localhost:3003/static/italy.html`.  Under the covers, this is running GET on the collection resource, `/italiancity/` in the URL space, then formatting the JSON result into HTML.
 
 ![Italy Application Screengrab](/seven5/images/italy-snap.png)
 
@@ -111,7 +115,7 @@ Here's what the output looks like when you have the google maps API turned on:
 
 ### The "wire" structure of an italian city
 
-In the file `go/src/italy/city.go` the structure that is passed over the wire is defined.  This is the resource type that is referenced in the URL space at `italiancity`:
+In the file `go/src/italy/city.go` the structure that is passed over the wire is defined.  This is the type, called the _wire type_ in _Seven5_, that is input and output in the URL space at `italiancity`:
 
 {% highlight go %}
 //sub structure used for a latitude, longitude pair
@@ -120,7 +124,7 @@ type LatLng struct {
   Longitude seven5.Floating
 }
 
-//rest resource for a single city, properties must be public for JSON encoder
+//rest wire type for a single city, properties must be public for JSON encoder
 type ItalianCity struct {
   Id         seven5.Id
   Name       seven5.String255
@@ -131,7 +135,7 @@ type ItalianCity struct {
 
 {% endhighlight %}
 
-You'll note that all the types must come from the seven5 definitions, such as `seven5.String255`.  This is to ease the translation between Go, Json, SQL, and Dart.  The set of types that can be used is *severely* restricted to prevent any confusion over the type mappings.
+You'll note that all the types must come from the seven5 definitions, such as `seven5.String255`.  This is to ease the translation between Go, Json, SQL, and Dart.  The set of types that can be used is *severely* restricted to prevent any confusion over the type mappings.  Note that this restriction applies _only_ to wire types, not implementation types.  Implementation types are usually called _resource types_ in _Seven5_ and typically are named `FooResource` if they are the implementation of the wire type `Foo`. 
 
 #### The generated dart code
 
@@ -194,6 +198,8 @@ Follow the tools recommendation and reset your `GOPATH` and `PATH` for developme
 
 {% highlight console %}
 $ go install myproject/runmyproject
+$ cd myproject/go/src
+$ ls
 {% endhighlight %}
 
-#### Enjoy.
+#### Begin hacking. Enjoy.
