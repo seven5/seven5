@@ -75,7 +75,6 @@ func TestDartFullResource(T *testing.T) {
 	verifyHasString(T,"bool IsLarge;",decl)
 	verifyHasString(T,"Ox();",decl)
 	verifyHasString(T,"Ox.fromJson(Map json)",decl)
-	verifyHasString(T,"static List<Ox> Index(",decl)
 	verifyHasString(T,"void Find(",decl)
 	verifyHasString(T,"static String resourceURL = \"/ox/\"",decl)
 }
