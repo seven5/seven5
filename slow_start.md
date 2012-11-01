@@ -26,7 +26,7 @@ HTTP, and similar because it is assumed that the reader already knows these thin
 assumes that you would prefer to use command-line tools and your own text editor instead of the graphical
 tools like Eclipse.  There is an Eclipse plugin for go development and a fairly complete Dart 
 programming environment implemented as an Eclipse "product".  These are beyond the scope of this document.
-Finally, we assume the reader is familiar with git as a source code control tool, at least at a basic
+Finally, we assume the reader is familiar with *git* as a source code control tool, at least at a basic
 level.
 
 This document is not intended as a reference, it is intended to be read _in order_ because many of the parts
@@ -34,7 +34,7 @@ are inter-related.
 
 ### Get the codez
 
-You need to [download and install go](http://golang.org/doc/install#install) and its support tools.  We are going
+You need to [download and install go](http://golang.org/doc/install) and its support tools.  We are going
 to be using the "traditional" go tools, not the gcc-based tools referred to in that document as `gccgo`.  You
 don't need to do configuration yet, we'll do that in a minute, just verify that the program `go` is in
 your `PATH`:
@@ -47,11 +47,12 @@ $ which go
 You also need to [download Dart](http://www.dartlang.org/docs/editor/);  the page referenced
 is for downloading the dart editor but that's the easiest way to get all the tools in one download.  
 We are going to be using the [Dartium](http://www.dartlang.org/dartium/) browser during development--
-which is really just Chrome plus the Dart VM.  No Dart tools will be in your `PATH` yet.
+which is really just Chromium (which is really Chrome) plus the Dart VM.  No Dart tools will be in your 
+`PATH` yet.
 
 ### Examples
 
-You need to `git clone` the seven5 project *examples* from github.  Examples is actually a branch called,
+You need to `git clone` the seven5 project *examples* from github.  The examples are actually a branch called,
 of course, `examples` in the main seven5 repository. 
 
 {% highlight console %}
@@ -59,7 +60,7 @@ cd /tmp #can be anywhere
 git clone -b examples git@github.com:seven5/seven5.git examples
 {% endhighlight %}
 
-This should create a directory `examples` with all the project source code; try 
+This should create a directory `examples` with all the source code for a project called _italy_; try 
 `ls examples/example1/go/src/italy` to see some of the go source code for our italian city example.
 
 ### Your environment
@@ -88,16 +89,15 @@ $ which dart2js
 many things including compile projects, understand dependencies and when they are "out of date", download 
 packages from the internet, and run tests.  In simplest terms, `GOPATH` tells
 go where your personal, go source code repository is.  Inside that repository must be three directories,
-`bin`, `pkg`, and `src`.  You'll see this structure if you look inside the `go` directory of `/path/to/example/example1/go`.
+`bin`, `pkg`, and `src`.  You'll see this structure if you look inside the `go` directory of `/path/to/example/example1/go`; at first it may only have the `src` directory until some libraries and binaries are built.
 
-`bin` is for the built executables, either executables from your code, or code you have downloaded from the internet.  These are
-placed in `bin` so it's easy to get them all with one addition to your `PATH` variable, as we did above
+`bin` is for the built executables, either executables from your code, or code you have downloaded from the internet.  These are placed in `bin` so it's easy to get them all with one addition to your `PATH` variable, as we did above
 in our script.  `pkg` is for your, or other peoples', libraries; these are kept as `.a` files inside this 
 directory although the structure underneath `pkg` varies based on operating system and processor that the 
 library was compiled on.  
 
 The `src` directory is the most interesting. Inside `/path/to/examples/example1/go/src/italy` is the code for the quite simple _library_ called `italy`.  This is the server-side code for the first example,
-except for the `main()` function to actually run it. The main function is in `/path/to/examples/example1/go/src/italy/runexample1` in the file `main.go`.  The names of executables are derived from their _directories_ so the command you'll use to start a server for example1 is `runexample1`.
+except for the `main()` function to actually run it. The main function is in `/path/to/examples/example1/go/src/italy/runitaly` in the file `main.go`.  The names of executables are derived from their _directories_ so the command you'll use to start a server for example1 is `runitaly`.
 
 More details about `GOPATH` can be obtained with `go help gopath` from the command line.
 
@@ -108,24 +108,15 @@ like this:
 
 {% highlight console %}
 $ go get github.com/seven5/seven5tool
-$ go get github.com/seven5/seven5
 {% endhighlight %}
 
->>> That last command will finish surprisingly fast.  It takes about 5.8 seconds on a home network with
-    my laptop.  Of that, only 0.6 seconds was time actually doing computing, the rest is network delay.
-    go is written in Go.
+>>> That last command will finish surprisingly fast.  It takes about 9.3 seconds on a home network with
+    my laptop.  Of that, only 1.6 seconds was time actually doing computing, the rest is network delay.
+    go is written in Go.  
 
-Now, you can look inside  `/path/to/examples/example1/go/src/github.com/seven5` to see the code that was 
+Now, you can look inside  `/path/to/examples/example1/go/src/github.com` to see the code that was 
 downloaded, compiled, and installed. There are two github projects here, `seven5` and 
-`seven5tool`.  The first is the seven5 library proper and the latter is the library to support the seven5tool.  
-In general, `go get` is smart enough to download dependencies as well as the particular project requested but
-in this case there is no code dependency between these two projects.
-
-Let's install the seven5tool:
-
-{% highlight console %}
-$ go install github.com/seven5/seven5tool/seven5tool
-{% endhighlight %}
+`seven5tool`.  The first is the seven5 library proper as well as the library that implements the seven5tool commands.  The latter is the seven5tool's driver program (which makes it easier to bootstrap _Seven5_ with one command, as above).  The command above built two libraries (`seven5.a` and `seven5tool.a`) as well as the `seven5tool` binary.
 
 You should now be able to use the seven5tool from the command line, because `$GOPATH/bin` is in
 your `PATH`:
@@ -176,7 +167,7 @@ themselves because of the presence of gocode.
 
 ### Project layout
 
-Besides the `go` subdirectory in `/path/to/examples/example1/go` explained above, there are also the subdirectories `dart`, and `static`.  
+Besides the `go` subdirectory in `/path/to/examples/example1/go` explained above, there are also the subdirectories `dart`, and `static` of `/path/to/examples/example1`.  
 
 * `dart` contains your dart source code for the front-end of the application.
 * `static` contains html and css files needed to make the web application work in a browser. Files in `static` should be static.
@@ -202,11 +193,11 @@ directory, it derives the source locations and so forth from `GOPATH`.
 
 Assuming you have set things up as above,
 you can run the server by building and running the program `runexample1`. `go install` _does_ check 
-if there are _local_ dependencies that need building, so the command below both builds the executable `runexample1` and builds the library `italy.a` since `runexample1` uses that library.
+if there are _local_ dependencies that need building, so the command below both builds the executable `runitaly` and builds the library `italy.a` since `runitaly` uses that library.
 
 {% highlight console %}
-$ go install italy/runexample1
-$ runexample1
+$ go install italy/runitaly
+$ runitaly
 {% endhighlight %}
 
 ### Running the debug browser
@@ -224,28 +215,7 @@ The command above runs Dartium in checked mode so asserts work and you have full
 
 >>> This is probably quite different on linux or windows.
 
-Once you have the browser open, you can hit the server on this URL, `http://localhost:3003/static/italy.html`
-which runs a very simple Dart program.  You will see "Hello" in the browser but most of the action is in
-the javascript (sic) console where the test output is printed:
-
-{% highlight console %}
-city length is 3 undefined:1
-number of cities returned from Index: 3 
-    city returned from Index(): [0] Turin 
-    city returned from Index(): [1] Milan 
-    city returned from Index(): [2] Genoa 
-result of 'Index' (GET): 200 OK 
-city returned from Find() was Turin with Id 0 
-object that was found was Instance of 'ItalianCity' 
-result of 'Find' (GET) was 200 OK 
-city length is 1 
-city length is 2 
-city length is 1 
-city length is 0 
-Failed to load resource: the server responded with a status of 400 (Bad Request) http://localhost:3003/italiancities/?max=two
-Failed to load resource: the server responded with a status of 400 (Bad Request) http://localhost:3003/italiancity/16
-{% endhighlight %}
-
+Once you have the browser open, you can hit the server on this URL, `http://localhost:3003/static/italy.html` which is the entry point for the italy example application.
 
 ### Developing with a text editor/command line
 
