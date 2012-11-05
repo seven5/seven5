@@ -179,7 +179,12 @@ genoa.Find(16, null, (result) {
 
 ### Build doc browser project
 
+In a new terminal window, change to the directory where your examples were put and reset `GOPATH` for example2.
+
 {% highlight console %}
+$ cd /path/to/examples/example2/go
+$ export GOPATH=`pwd`
+$ export PATH=$GOPATH/bin
 $ go install rundocbrowser
 {% endhighlight %}
 
@@ -191,9 +196,9 @@ First start the documentation browser's back-end.  At the moment, this exposes n
 $ rundocbrowser
 {% endhighlight %}
 
-Go to `http://localhost:3004/static/docbrowser.html` in your browser to start the docbrowser application. Be sure to note that the port is *3004* not 3003 which is the standard for seven5 development.  This is to allow the docbrowser to access running instances of seven5 applications running on port 3003.
+Go to `http://localhost:3004/static/docbrowser.html` in your browser to start the docbrowser application. Be sure to note that the port is *3004* not 3003 which is the standard for seven5 development.  This is to allow the docbrowser to access running instances of seven5 applications on port 3003.
 
-Make sure that you have the italy example running:
+Make sure that you have the italy example running.  This probably means returning to your first terminal window:
 
 {% highlight console %}
 $ runitaly
@@ -208,7 +213,7 @@ Type 'italiancity' into the field on the docbrowser.  When you hit return, the d
 
 ### Use 'seven5tool' to create a new project
 
-This assumes that you followed the directions above in terms of setting environment variables and such.
+This assumes that you followed the directions above in terms of setting environment variables and such.  In your first (italy example1) terminal window:
 
 {% highlight console %}
 $ mkdir /tmp/bar
