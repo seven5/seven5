@@ -35,7 +35,7 @@ $ export PATH=$PATH:$GOPATH/bin
 
 {% endhighlight %}
 
-### Get seven5tool and seven5 library sources, build everything
+### Get seven5tool and seven5 library sources, build libraries/tools
 
 {% highlight console %}
 $ go get github.com/seven5/seven5tool
@@ -176,6 +176,35 @@ genoa.Find(16, null, (result) {
 	assert(result.status==400);
 });
 {% endhighlight %}
+
+### Build doc browser project
+
+{% highlight console %}
+$ go install rundocbrowser
+{% endhighlight %}
+
+### Use doc browser 
+
+First start the documentation browser's back-end.  At the moment, this exposes no resources.
+
+{% highlight console %}
+$ rundocbrowser
+{% endhighlight %}
+
+Go to `http://localhost:3004/static/docbrowser.html` in your browser to start the docbrowser application. Be sure to note that the port is *3004* not 3003 which is the standard for seven5 development.  This is to allow the docbrowser to access running instances of seven5 applications running on port 3003.
+
+Make sure that you have the italy example running:
+
+{% highlight console %}
+$ runitaly
+{% endhighlight %}
+
+You'll see something like this:
+
+![DocBrowser snap](/seven5/images/docbrowser-snap.png)
+
+Type 'italiancity' into the field on the docbrowser.  When you hit return, the documentation browser queries the running seven5 application (italy), gets the embedded documentation for the resource, and then formats that for display.
+
 
 ### Use 'seven5tool' to create a new project
 
