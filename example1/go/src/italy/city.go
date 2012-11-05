@@ -2,9 +2,9 @@ package italy
 
 import (
 	"github.com/seven5/seven5"
-	//"seven5"
 	"encoding/json"
 	"fmt"
+	//"seven5"
 	"strconv"
 	"strings"
 )
@@ -90,17 +90,15 @@ func (STATELESS *ItalianCityResource) Index(headers map[string]string,
 }
 
 //used to create dynamic documentation/api
-func (STATELESS *ItalianCityResource) IndexDoc() []string {
-	return []string{"" +
-		"The resource `/italiancities/` returns a list of known cities in Italy.  Each element of the list is" +
-		"a resource of type italiancity that can be fetched individually at `/italiancity/id`.",
-		"italiancities ignores the headers supplied in the GET request.",
-		"italiancities ignores the query parameters supplied in the URL to GET.",
-
-		"The resource /italiancities/ understands the header 'prefix' and if this header is supplied " +
+func (STATELESS *ItalianCityResource) IndexDoc() *seven5.BaseDocSet {
+	return &seven5.BaseDocSet{
+		Headers: "This resource collection understands the header 'prefix' and if this header is supplied " +
 			"only cities whose Name field begins with the prefix given will be returned.",
 
-		"The resource /italiancities/ allows a query parameter 'max' to control the maximum number " +
+		Result: "This resource collection returns a list of known cities in Italy.  Each element of the list is" +
+			"a resource of type italiancity that can be fetched individually at `/italiancity/id`.",
+
+		QueryParameters: "The resource collection allows a query parameter 'max' to control the maximum number " +
 			"of cities returned.  No guarantee is made about the order of the returned items. Max must " +
 			"be a positive integer (not zero).",
 	}
@@ -131,12 +129,14 @@ func (STATELESS *ItalianCityResource) Find(id seven5.Id, hdrs map[string]string,
 }
 
 //used to generate documentation/api
-func (STATELESS *ItalianCityResource) FindDoc() []string {
-	return []string{"" +
-		"A resource representing a specific italian city at `/italiancity/123`.",
-		"The header 'Round' can be used to get population values rounded to the nearest 100K." +
+func (STATELESS *ItalianCityResource) FindDoc() *seven5.BaseDocSet {
+	return &seven5.BaseDocSet{
+		Result: "A description of an italian city. ",
+
+		Headers: "The header 'Round' can be used to get population values rounded to the nearest 100K." +
 			"Legal values are true, false, and omitted (which means false).",
-		"Ignores query parameters.",
+
+		QueryParameters: "ignored.",
 	}
 }
 
@@ -156,10 +156,14 @@ func (STATELESS *ItalianCityResource) Delete(id seven5.Id, headers map[string]st
 
 //Find returns doc for respectively, returned values, accepted headers, and accepted query parameters.
 //Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
-func (STATELESS *ItalianCityResource) DeleteDoc() []string {
-	return []string{"We return an instance of ItalianCity if the delete was successful.",
-		"Headers are ignored.",
-		"Query Parameters are ignored.",
+func (STATELESS *ItalianCityResource) DeleteDoc() *seven5.BaseDocSet {
+	return &seven5.BaseDocSet{
+
+		Result: "The instance of ItalianCity, if the delete was successful.",
+
+		Headers: "ignored.",
+
+		QueryParameters: "ignored.",
 	}
 }
 
@@ -245,12 +249,17 @@ func (STATELESS *ItalianCityResource) Post(headers map[string]string, queryParam
 }
 
 //Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
-func (STATELESS *ItalianCityResource) PostDoc() []string {
-	return []string{"We return an instance of ItalianCity if the create was successful.",
-		"Headers are ignored.",
-		"Query Parameters are ignored.",
-		"This body should be json for an italian city with all the fields of the resource filled in, " +
-			"except the Id which will be assigned in this method.",
+func (STATELESS *ItalianCityResource) PostDoc() *seven5.BodyDocSet {
+	return &seven5.BodyDocSet{
+		Result: "An instance of ItalianCity, if the create was successful.  The newly assigned Id value will be returned " +
+			"as part of this instance.",
+
+		Headers: "ignored.",
+
+		QueryParameters: "ignored.",
+
+		Body: "The body supplied should be json for an italian city with all the fields of the resource filled in, " +
+			"except the Id which should be omitted or set to a negative (nonsense) value.",
 	}
 }
 
@@ -281,12 +290,16 @@ func (STATELESS *ItalianCityResource) Put(id seven5.Id, headers map[string]strin
 }
 
 //Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
-func (STATELESS *ItalianCityResource) PutDoc() []string {
-	return []string{
-		"We the full set of values for the object if the change is successful.",
-		"Headers are ignored.",
-		"Query Parameters are ignored.",
-		"The body must have an Id field that matches the id used in the URL.  Values that are omitted (zero valued) " +
+func (STATELESS *ItalianCityResource) PutDoc() *seven5.BodyDocSet {
+	return &seven5.BodyDocSet{
+
+		Result: "The full set of values for the modified object, if the change is successful.",
+
+		Headers: "Headers are ignored.",
+
+		QueryParameters: "Query Parameters are ignored.",
+
+		Body: "The body must have an Id field that matches the id used in the URL.  Values that are omitted (zero valued) " +
 			"are not changed.",
 	}
 }
