@@ -80,6 +80,7 @@ func embedfileFn(argv []string, l *log.Logger) {
 		name:=filepath.Base(i)
 		name=strings.Replace(name, ".", "_", -1)
 		name=strings.Replace(name, " ", "_", -1)
+		name=strings.Replace(name, "-", "_", -1)
 		if binary {
 			decl:=fmt.Sprintf("var %s = []byte{",name)
 			out.Write([]byte(decl))

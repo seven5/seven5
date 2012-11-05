@@ -42,22 +42,22 @@ type FieldDescription struct {
 	Struct []*FieldDescription
 }
 
-//ResourceDescription is the full type passed over the wire to describe how a particular 
+//APIDoc is the full type passed over the wire to describe how a particular resource
 //can be called and what fields the objects have that it manipulates.
-type ResourceDescription struct {
-	Name          string
-	Index         bool
-	Find          bool
-	Post          bool
-	Put           bool
-	Delete        bool
-	ResourceName  string
-	CollectionDoc []string
-	ResourceDoc   []string
-	CreateDoc     []string
-	PutDoc        []string
-	DeleteDoc     []string
-	Field         *FieldDescription
+type APIDoc struct {
+	Name         string
+	Index        bool
+	Find         bool
+	Post         bool
+	Put          bool
+	Delete       bool
+	ResourceName string
+	FindDoc      *BaseDocSet
+	IndexDoc     *BaseDocSet
+	PostDoc      *BodyDocSet
+	PutDoc       *BodyDocSet
+	DeleteDoc    *BaseDocSet
+	Field        *FieldDescription
 }
 
 //NewDispatch is called to create a new Dispatch instance from a given resource
@@ -69,13 +69,13 @@ type ResourceDescription struct {
 //when this function is called on it (as it is added to the URL mapping, typically).
 //The REST interface implementations should be passed as the later parameters, and
 //these can be nil.
-func NewDispatch(r interface{}, i Indexer, f Finder, p Poster, put Puter, d Deleter) *Dispatch {
+func NewDispatch(singularName string, r interface{}, i Indexer, f Finder, p Poster, put Puter, d Deleter) *Dispatch {
 	t := reflect.TypeOf(r)
 	fieldDescription := WalkJsonType(t)
 
 	if !fieldDescription.HasId() {
 		panic(fmt.Sprintf("Resources such as %s must contain an Id field of type seven5.Id",
-			t.Name()))
+			singularName))
 	}
 	//ok, seems kosher but we need to figure out the name of it
 	if t.Kind() == reflect.Struct {
@@ -84,7 +84,7 @@ func NewDispatch(r interface{}, i Indexer, f Finder, p Poster, put Puter, d Dele
 		fieldDescription.Name = t.Elem().Name()
 	}
 
-	return &Dispatch{ResType: r, Field: fieldDescription, Index: i, Find: f, Post: p, Put: put, Delete: d}
+	return &Dispatch{ResType: r, ResourceName: singularName, Field: fieldDescription, Index: i, Find: f, Post: p, Put: put, Delete: d}
 }
 
 //WalkJsonType is the recursive machine that creates a FieldDescription from 

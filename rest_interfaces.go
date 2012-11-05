@@ -3,7 +3,7 @@ package seven5
 import (
 )
 
-//Error represents an error response from the implementation of a resource.  These should never be
+//Error represents an error response from the implementation of a resource.  These should never need to be
 //constructed by hand, use the helper functions like seven5.BadRequest("you called it wrong")
 //In some sense, this is actually "non-200" return codes because it is also used on
 //resource creation (201) and so forth.
@@ -17,6 +17,26 @@ type Error struct {
 	Message string
 }
 
+//BaseDocSet represents documentation about the parts of a resource that are the same among all requests. All
+//requests in Seven5 return at least a BaseDocSet since they all can accept Headers, Query Parameters and
+//return a json value (Result).
+type BaseDocSet struct {
+	Headers string
+	QueryParameters string
+	Result string
+}
+
+//BodyDocSet is a slight addition to the BaseDocSet so that the value can represent additionally documentation
+//about the body parameter.  It would be nice if we could nest a BaseDocSet inside this object but we can't because
+//the current JSON marshal/unmarshal does not understand anonymous nested structs. Sigh.
+type BodyDocSet struct {
+	Headers string
+	QueryParameters string
+	Result string
+	Body string
+}
+
+
 //Indexer indicates that the struct can return a list of resources.  Implementing structs should return 
 //a list of resources from the Index() method.  Implementations should not hold state.  Index will be 
 //called to create a response for a GET.
@@ -25,9 +45,8 @@ type Indexer interface {
   //headers is a map from header name to value (not values, as in HTTP).
   //queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
 	Index(headers map[string]string,queryParams map[string]string) (string,*Error)  
-	//IndexDoc returns doc for, respectively: collection, headers, query params.  Returned doc strings can
-	//and should be markdown encoded.
-	IndexDoc() []string
+	//IndexDoc returns documentation information about the parameters and return results of the Index() call.
+	IndexDoc() *BaseDocSet
 }
 
 
@@ -41,9 +60,8 @@ type Finder interface {
   //headers is a map from header name to value (not values, as in HTTP)
   //queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
 	Find(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)
-	//FindDoc returns doc for, respectively: resource, headers, query params.  Returned doc strings can
-	//and should be markdown encoded.
-	FindDoc() []string 
+	//FindDoc returns documentation information about the parameters and results the Find call.
+	FindDoc() *BaseDocSet
 }
 
 //Poster indicates that the recevier can create new instances of the correct type.  The poster
@@ -55,10 +73,8 @@ type Poster interface {
 	//Returns a new object in the string return (json encoded).  The body is used by most clients
 	//to indicate parameters for the creation of the object.
 	Post(headers map[string]string, queryParams map[string]string, body string) (string,*Error)
-	//Find returns doc for respectively, returned resource, accepted headers, accepted query parameters
-	//and body parameter.  Four total entries in the resultings slice of strings.  Strings can and should
-	//be markdown encoded.
-	PostDoc() []string 
+	//PostDoc returns information about the parameters to and results from the Post() call.
+	PostDoc() *BodyDocSet
 }
 
 //Puter indicates that the recevier can change values of fields on a type (via PUT).  This call must 
@@ -69,10 +85,8 @@ type Poster interface {
 type Puter interface {
 	//Returns the new values.
 	Put(id Id, headers map[string]string, queryParams map[string]string, body string) (string,*Error)
-	//Find returns doc for respectively, returned values, accepted headers, accepted query parameters
-	//and body parameter.  Four total entries in the resulting slice of strings.  Strings can and should
-	//be markdown encoded.
-	PutDoc() []string 
+	//PutDoc returns information about the parameters to and results from the Put() call.
+	PutDoc() *BodyDocSet
 }
 
 //Delete indicates that the implementor can delete instances of the resource type.  This call should 
@@ -82,7 +96,6 @@ type Puter interface {
 type Deleter interface {
 	//Returns the values at the time of the deletion.
 	Delete(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)
-	//Find returns doc for respectively, returned values, accepted headers, and accepted query parameters.
-	//Three total entries in the resulting slice of strings.  Strings can and should be markdown encoded.
-	DeleteDoc() []string 
+	//DeleteDoc returns information about the parameters to and results of the Delete() call.
+	DeleteDoc() *BaseDocSet 
 }

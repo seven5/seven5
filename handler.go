@@ -48,14 +48,14 @@ type Handler interface {
 	//around the data structures internal to this object.
 	ServeHTTP(http.ResponseWriter, *http.Request)
 	//Describe generates a structure that describes the resource, suitable for generation of 
-	//documentation or construction of an API.
-	Describe(uriPath string) *ResourceDescription
+	//documentation or construction of an API in a client programming language.
+	Describe(uriPath string) *APIDoc
 	//ServerMux returns the underlying server multiplexer this object is based on.  If you want
 	//to add other resources to the Handler you can do this by adding them to the returned mux.
 	//Because this object is going to usually be "invoked" with ServeHTTP(), adding of resources
 	//must be done before the call ServeHTTP to function properly.
 	ServeMux() *http.ServeMux
-	//Resources returns a slice of *ResourceDescription that describe all the resources known
+	//APIs returns a slice of *APIDoc that describe all the resources known
 	//to the handler.  This is useful during code generation.
-	Resources() []*ResourceDescription
+	APIs() []*APIDoc
 }

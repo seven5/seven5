@@ -1,16 +1,16 @@
 package seven5
 
 import (
-	"testing"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"encoding/json"
 	"strings"
+	"testing"
 )
 
 /*-------------------------------------------------------------------------*/
 type Ox struct {
-	Id Id
+	Id      Id
 	IsLarge Boolean
 }
 
@@ -28,28 +28,34 @@ func haveOx(id Id) bool {
 }
 
 func deleteOx(index int, slice []*Ox) []*Ox {
-    switch index {
-        case 0: slice = slice[1:]
-        case len(slice)-1: slice = slice[:len(slice)-1]
-        default: slice = append(slice[:index], slice[index+1:]...)
-    }
-    return slice
+	switch index {
+	case 0:
+		slice = slice[1:]
+	case len(slice) - 1:
+		slice = slice[:len(slice)-1]
+	default:
+		slice = append(slice[:index], slice[index+1:]...)
+	}
+	return slice
 }
-
 
 /*-------------------------------------------------------------------------*/
 type oxIndexer struct {
 }
 
-func (STATELESS *oxIndexer) Index(headers map[string]string,queryParams map[string]string) (string,*Error)  {
-	if len(oxList)==0 {
-		return "[]",nil
+func (STATELESS *oxIndexer) Index(headers map[string]string, queryParams map[string]string) (string, *Error) {
+	if len(oxList) == 0 {
+		return "[]", nil
 	}
 	return JsonResult(&oxList, false)
 }
 
-func (STATELESS *oxIndexer) IndexDoc() []string{
-	return []string{"FOO","bar","Baz"}
+func (STATELESS *oxIndexer) IndexDoc() *BaseDocSet {
+	return &BaseDocSet{
+		`FOO`,
+		`Bar`,
+		`Baz`,
+	}
 }
 
 /*-------------------------------------------------------------------------*/
@@ -57,25 +63,30 @@ type oxPoster struct {
 }
 
 func (STATELESS *oxPoster) Post(headers map[string]string, queryParams map[string]string,
-	body string) (string,*Error)  {
-	
+	body string) (string, *Error) {
+
 	var BodyOx Ox
-	
-	decoder:=json.NewDecoder(strings.NewReader(body))
-	err:=decoder.Decode(&BodyOx)
-	if err!=nil {
+
+	decoder := json.NewDecoder(strings.NewReader(body))
+	err := decoder.Decode(&BodyOx)
+	if err != nil {
 		return BadRequest(fmt.Sprintf("Could not understand json body: %s", err))
 	}
 	newBoy := &Ox{Id(oxCounter), BodyOx.IsLarge}
 	oxCounter++
 	oxList = append(oxList, newBoy)
-	
+
 	//we "create" a new ox and return the object
-	return JsonResult(&newBoy,false);
+	return JsonResult(&newBoy, false)
 }
 
-func (STATELESS *oxPoster) PostDoc() []string{
-	return []string{"Grik","grak","frik", "fleazil"}
+func (STATELESS *oxPoster) PostDoc() *BodyDocSet {
+	return &BodyDocSet{
+		`Grik`,
+		`Grak`,
+		`Frobnitz`,
+		`fleazil`,
+	}
 }
 
 /*-------------------------------------------------------------------------*/
@@ -83,16 +94,16 @@ type oxPuter struct {
 }
 
 func (STATELESS *oxPuter) Put(id Id, headers map[string]string, queryParams map[string]string,
-	body string) (string,*Error)  {
+	body string) (string, *Error) {
 
 	//check that the id in the params matches the id supplied, if it exists
 	formId, ok := queryParams["Id"]
 	if ok {
-		parsedId, err:=ParseId(formId)
-		if err!="" {
+		parsedId, err := ParseId(formId)
+		if err != "" {
 			return BadRequest(err)
 		}
-		if id!=parsedId {
+		if id != parsedId {
 			return BadRequest(fmt.Sprintf("You supplied two different ids in the url and form: %d and %d!", id, parsedId))
 		}
 	}
@@ -101,38 +112,45 @@ func (STATELESS *oxPuter) Put(id Id, headers map[string]string, queryParams map[
 	}
 
 	//we are using form data here
-	size, ok:=queryParams["IsLarge"]
+	size, ok := queryParams["IsLarge"]
 	if !ok {
 		return BadRequest("You can't send a PUT to the ox without a size! Nothing to change! (Maybe try GET?)")
 	}
-	size=strings.ToLower(size)
-	if size!="false" && size!="true" {
+	size = strings.ToLower(size)
+	if size != "false" && size != "true" {
 		return BadRequest(fmt.Sprintf("Bad Boolean value for IsLarge: %s", size))
 	}
-	updatedOx:=Ox{id, false}
-	if size=="true" {
+	updatedOx := Ox{id, false}
+	if size == "true" {
 		updatedOx.IsLarge = true
 	}
-	
+
 	return JsonResult(&updatedOx, false)
-	
+
 }
 
-func (STATELESS *oxPuter) PutDoc() []string{
-	return []string{"leia","jawa","query params are used and assumed to be form data", "body isn't used by this Put"}
+func (STATELESS *oxPuter) PutDoc() *BodyDocSet {
+	return &BodyDocSet{
+		`leia`,
+		`luke`,
+		`query params are used and assumed to be form data (usually from a real html form)`,
+
+		`body isn't used by this Puter`,
+	}
+
 }
 
 /*-------------------------------------------------------------------------*/
-type oxDelete struct {
+type oxDeleter struct {
 }
 
-func (STATELESS *oxDelete) Delete(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)  {
-	
+func (STATELESS *oxDeleter) Delete(id Id, headers map[string]string, queryParams map[string]string) (string, *Error) {
+
 	if !haveOx(id) {
 		return NotFound()
 	}
 	var result *Ox
-	for i, cand:=range oxList {
+	for i, cand := range oxList {
 		if cand.Id == id {
 			result = cand
 			oxList = deleteOx(i, oxList)
@@ -142,21 +160,25 @@ func (STATELESS *oxDelete) Delete(id Id, headers map[string]string, queryParams 
 	return JsonResult(&result, false)
 }
 
-func (STATELESS *oxDelete) DeleteDoc() []string {
-	return []string{"mickey","minnie","pluto"}
+func (STATELESS *oxDeleter) DeleteDoc() *BaseDocSet {
+	return &BaseDocSet{
+		`mickey`,
+		`minnie`,
+		`pluto`,
+	}
 }
 
 /*-------------------------------------------------------------------------*/
 type oxFinder struct {
 }
 
-func (STATELESS *oxFinder)	Find(id Id, headers map[string]string, queryParams map[string]string) (string,*Error) {
-	
+func (STATELESS *oxFinder) Find(id Id, headers map[string]string, queryParams map[string]string) (string, *Error) {
+
 	if !haveOx(id) {
 		return NotFound()
 	}
 	var result *Ox
-	for _, cand:=range oxList {
+	for _, cand := range oxList {
 		if cand.Id == id {
 			result = cand
 			break
@@ -165,14 +187,19 @@ func (STATELESS *oxFinder)	Find(id Id, headers map[string]string, queryParams ma
 	return JsonResult(&result, false)
 }
 
-func (STATELESS *oxFinder) FindDoc() []string {
-	return []string{"How can you lose an ox?","fleazil","frack for love"}
+func (STATELESS *oxFinder) FindDoc() *BaseDocSet {
+	return &BaseDocSet{
+		"How can you lose an ox?",
+		"awk",
+		"sed",
+	}
 }
+
 /*-------------------------------------------------------------------------*/
 /*                            SHARED VERIFIERS                             */
 /*-------------------------------------------------------------------------*/
 func verifyErrorCode(T *testing.T, err *Error, expected int, msg string) {
-	if err==nil {
+	if err == nil {
 		T.Errorf("expected error with code %d but got no error at all (%s)", expected, msg)
 		return
 	}
@@ -182,24 +209,24 @@ func verifyErrorCode(T *testing.T, err *Error, expected int, msg string) {
 }
 
 func verifyDispatchError(T *testing.T, h Handler, errorMap map[string]int, method string) {
-	for k,v := range errorMap {
-		json, err := h.Dispatch( method,k, emptyMap, emptyMap, "")
-		if json!="" {
-			T.Errorf("expected no json result on an error : GET %s",k)
+	for k, v := range errorMap {
+		json, err := h.Dispatch(method, k, emptyMap, emptyMap, "")
+		if json != "" {
+			T.Errorf("expected no json result on an error : GET %s", k)
 			continue
 		}
-		verifyErrorCode(T,err,v, fmt.Sprintf("%s %s",method, k))
+		verifyErrorCode(T, err, v, fmt.Sprintf("%s %s", method, k))
 	}
 }
 
-func verifyNoError(T *testing.T, json string, err *Error, msg string){
-	if err!=nil || json=="" {
-		T.Fatalf("didn't expect error on %s but got %+v",msg, err);
+func verifyNoError(T *testing.T, json string, err *Error, msg string) {
+	if err != nil || json == "" {
+		T.Fatalf("didn't expect error on %s but got %+v", msg, err)
 	}
 }
-func verifyJsonContent(T *testing.T, json string, expected string, msg string){
-	if strings.TrimSpace(json)!=strings.TrimSpace(expected) {
-		T.Fatalf("expected json of '%s' but got '%s' from %s",expected, json,msg);
+func verifyJsonContent(T *testing.T, json string, expected string, msg string) {
+	if strings.TrimSpace(json) != strings.TrimSpace(expected) {
+		T.Fatalf("expected json of '%s' but got '%s' from %s", expected, json, msg)
 	}
 }
 
@@ -208,99 +235,96 @@ func verifyJsonContent(T *testing.T, json string, expected string, msg string){
 /*-------------------------------------------------------------------------*/
 var emptyMap = make(map[string]string)
 
-
 func TestResourceMappingForIndexerFinder(T *testing.T) {
 	h := NewSimpleHandler()
 
-	h.AddExplicitResourceMethods("ox",&Ox{}, &oxIndexer{},&oxFinder{},nil,nil,nil)
-	h.AddExplicitResourceMethods("fart", Ox{}, nil, &oxFinder{},nil, nil, nil)
+	h.AddExplicitResourceMethods("ox", &Ox{}, &oxIndexer{}, &oxFinder{}, nil, nil, nil)
+	h.AddExplicitResourceMethods("fart", Ox{}, nil, &oxFinder{}, nil, nil, nil)
 
-	json, err := h.Dispatch("GET","/ox/", emptyMap, emptyMap, "")
-	verifyNoError(T,json,err,"GET /ox/")
-	verifyJsonContent(T,json,"[]", "GET /ox/")	
+	json, err := h.Dispatch("GET", "/ox/", emptyMap, emptyMap, "")
+	verifyNoError(T, json, err, "GET /ox/")
+	verifyJsonContent(T, json, "[]", "GET /ox/")
 
-
-	errorMap :=map[string]int{
-		"/oxen/": http.StatusNotFound,
-		"/ox/fart": http.StatusBadRequest,
+	errorMap := map[string]int{
+		"/oxen/":    http.StatusNotFound,
+		"/ox/fart":  http.StatusBadRequest,
 		"/oxen/123": http.StatusNotFound,
-		"/ox/123": http.StatusNotFound, //too large an id
-		"/fart/": http.StatusNotImplemented, //name is registered but not implemented (no Finder)
-		"/fart/123": http.StatusNotFound,  //to large, same as /ox/123
+		"/ox/123":   http.StatusNotFound,       //too large an id
+		"/fart/":    http.StatusNotImplemented, //name is registered but not implemented (no Finder)
+		"/fart/123": http.StatusNotFound,       //to large, same as /ox/123
 	}
 
 	verifyDispatchError(T, h, errorMap, "GET")
 
-	oxList = []*Ox{ 
+	oxList = []*Ox{
 		&Ox{0, true},
 	}
 
-	json, err = h.Dispatch("GET","/ox/0", emptyMap, emptyMap, "")
-	verifyNoError(T,json,err, "GET /ox/0")
-	verifyJsonContent(T,json,"{\"Id\":0,\"IsLarge\":true}", "GET /ox/0")	
-	
+	json, err = h.Dispatch("GET", "/ox/0", emptyMap, emptyMap, "")
+	verifyNoError(T, json, err, "GET /ox/0")
+	verifyJsonContent(T, json, "{\"Id\":0,\"IsLarge\":true}", "GET /ox/0")
+
 	oxList = nil
 }
-
 
 func TestResourceMappingForPosterAndPuter(T *testing.T) {
 	h := NewSimpleHandler()
 
-	h.AddExplicitResourceMethods("ox",&Ox{}, nil, nil, &oxPoster{}, &oxPuter{}, nil)
-	errorMap :=map[string]int{
-		"/ox/123": http.StatusBadRequest,  //can't post to a particular object (that should be PUT)
+	h.AddExplicitResourceMethods("ox", &Ox{}, nil, nil, &oxPoster{}, &oxPuter{}, nil)
+	errorMap := map[string]int{
+		"/ox/123": http.StatusBadRequest, //can't post to a particular object (that should be PUT)
 	}
 	verifyDispatchError(T, h, errorMap, "POST")
 
 	ct := 0
-	for _,size:=range []bool{false, true} {
-		json, err := h.Dispatch("POST","/ox/", emptyMap, emptyMap, fmt.Sprintf("{ \"IsLarge\":%v }",size))
-		verifyNoError(T,json,err, "POST /ox/")
-		verifyJsonContent(T,json, fmt.Sprintf("{\"Id\":%d,\"IsLarge\":%v}", ct, size), "POST /ox/")	
+	for _, size := range []bool{false, true} {
+		json, err := h.Dispatch("POST", "/ox/", emptyMap, emptyMap, fmt.Sprintf("{ \"IsLarge\":%v }", size))
+		verifyNoError(T, json, err, "POST /ox/")
+		verifyJsonContent(T, json, fmt.Sprintf("{\"Id\":%d,\"IsLarge\":%v}", ct, size), "POST /ox/")
 
-		crap, err := h.Dispatch("PUT", fmt.Sprintf("/ox/%d", ct), emptyMap, 
-			map[string]string{"Garbage":"break json parse"}, "")
-		if crap!="" {
+		crap, err := h.Dispatch("PUT", fmt.Sprintf("/ox/%d", ct), emptyMap,
+			map[string]string{"Garbage": "break json parse"}, "")
+		if crap != "" {
 			T.Errorf("Not expecting a return value from a Put with bad content: %s", crap)
 		}
 		verifyErrorCode(T, err, http.StatusBadRequest, "Bad Form Data For PUT")
 
 		//loop to show we can make either large or small ox
-		for _, i := range []string{"1st call","2nd call"} {
-			json, err := h.Dispatch("PUT", fmt.Sprintf("/ox/%d", ct), emptyMap, 
-				map[string]string{"Id": fmt.Sprintf("%d", ct),"IsLarge":fmt.Sprintf("%v",!size)}, "")
-			verifyNoError(T,json,err, fmt.Sprintf("PUT /ox/%d (%s)",ct, i))
-			verifyJsonContent(T,json, fmt.Sprintf("{\"Id\":%d,\"IsLarge\":%v}", ct, !size), 
-				fmt.Sprintf("PUT /ox/%d (%s)",ct, i))	
+		for _, i := range []string{"1st call", "2nd call"} {
+			json, err := h.Dispatch("PUT", fmt.Sprintf("/ox/%d", ct), emptyMap,
+				map[string]string{"Id": fmt.Sprintf("%d", ct), "IsLarge": fmt.Sprintf("%v", !size)}, "")
+			verifyNoError(T, json, err, fmt.Sprintf("PUT /ox/%d (%s)", ct, i))
+			verifyJsonContent(T, json, fmt.Sprintf("{\"Id\":%d,\"IsLarge\":%v}", ct, !size),
+				fmt.Sprintf("PUT /ox/%d (%s)", ct, i))
 		}
 		ct++
 	}
-	
+
 	oxList = nil
 }
 
 func TestResourceMappingForDeleter(T *testing.T) {
 	h := NewSimpleHandler()
 
-	h.AddExplicitResourceMethods("ox",&Ox{}, nil, nil, nil, nil, &oxDelete{})
-	
-	oxList = []*Ox {
-		&Ox{456,true},
-		&Ox{459,true},
+	h.AddExplicitResourceMethods("ox", &Ox{}, nil, nil, nil, nil, &oxDeleter{})
+
+	oxList = []*Ox{
+		&Ox{456, true},
+		&Ox{459, true},
 	}
-	
-	errorMap :=map[string]int{
-		"/ox/": http.StatusBadRequest,  //can't del to a collection object 
-		"/nope/102": http.StatusNotFound,  //can't del to a non existent resource
+
+	errorMap := map[string]int{
+		"/ox/":      http.StatusBadRequest, //can't del to a collection object 
+		"/nope/102": http.StatusNotFound,   //can't del to a non existent resource
 	}
 	verifyDispatchError(T, h, errorMap, "DELETE")
 
-	json, err := h.Dispatch("DELETE","/ox/456", emptyMap, emptyMap, "")
-	verifyNoError(T,json,err, "DELETE /ox/456")
-	verifyJsonContent(T,json,"{\"Id\":456,\"IsLarge\":true}", "DELETE /ox/456")	
-	
+	json, err := h.Dispatch("DELETE", "/ox/456", emptyMap, emptyMap, "")
+	verifyNoError(T, json, err, "DELETE /ox/456")
+	verifyJsonContent(T, json, "{\"Id\":456,\"IsLarge\":true}", "DELETE /ox/456")
+
 	//check semantics!
-	if len(oxList)!=1 {
+	if len(oxList) != 1 {
 		T.Errorf("Attempt to delete ox 456 failed! Ox list is not size 0!")
 	}
 }
