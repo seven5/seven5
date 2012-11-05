@@ -86,14 +86,20 @@ void displayAPI(Map apiMap, String path) {
 	int i=0;
 	for (i=0; i<funcs.length;++i) {
 		DivElement result = makeAPISegment(funcs[i], methods[i], "${path}${id[i]}", hasBody[i], apiMap["${funcs[i]}Doc"]);
-		result.classes.add("row");
-		apiDiv.nodes.add(result);		
+		if (result!=null) {
+			result.classes.add("row");
+			apiDiv.nodes.add(result);		
+		}
 	}
 }
 
 
 
 DivElement makeAPISegment(String heading, String method, String path, bool hasBody, Map apiDoc) {
+	
+	if (apiDoc==null) {
+		return null;
+	}
 	DivElement result = new DivElement();
 	
 	DivElement parent = new DivElement();
