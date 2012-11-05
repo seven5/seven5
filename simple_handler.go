@@ -2,14 +2,14 @@ package seven5
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
-	"io"
 )
 
-const MAX_FORM_SIZE=16*1024
+const MAX_FORM_SIZE = 16 * 1024
 
 //SimpleHandler is the default implementation of the Handler interface that ignores multiple values for
 //headers and query params because these are both rare and error-prone.  All resources need to be
@@ -51,12 +51,13 @@ func (self *SimpleHandler) ServeMux() *http.ServeMux {
 func (self *SimpleHandler) AddExplicitResourceMethods(resourceName string, r interface{},
 	indexer Indexer, finder Finder, poster Poster, puter Puter, deleter Deleter) {
 
-	d := NewDispatch(r, indexer, finder, poster, puter, deleter)
 
 	if resourceName == "" || strings.Index(resourceName, " ") != -1 || strings.Index(resourceName, "/") != -1 {
 		panic(fmt.Sprintf("bad resource name: '%s', no spaces or slashes allowed", resourceName))
 	}
-
+	
+	d := NewDispatch(resourceName, r, indexer, finder, poster, puter, deleter)
+		
 	withSlashes := fmt.Sprintf("/%s/", strings.ToLower(resourceName))
 	self.mux.Handle(withSlashes, self)
 	self.dispatch[withSlashes] = d
@@ -78,7 +79,7 @@ func (self *SimpleHandler) AddResourceByName(resourceName string, r interface{},
 	poster, _ := resourceImpl.(Poster)
 	puter, _ := resourceImpl.(Puter)
 	deleter, _ := resourceImpl.(Deleter)
-	
+
 	self.AddExplicitResourceMethods(resourceName, r, indexer, finder, poster, puter, deleter)
 }
 
@@ -107,26 +108,26 @@ func (self *SimpleHandler) AddResource(overTheWireSingular interface{}, implemen
 func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	hdr := ToSimpleMap(req.Header)
 	defer req.Body.Close()
-	
-	if err:=req.ParseForm(); err!=nil {
-		http.Error(writer, fmt.Sprintf("can't parse form data:%s",err), http.StatusBadRequest)
+
+	if err := req.ParseForm(); err != nil {
+		http.Error(writer, fmt.Sprintf("can't parse form data:%s", err), http.StatusBadRequest)
 		return
 	}
-	
+
 	qparams := ToSimpleMap(map[string][]string(req.Form))
-	
-	limitedData:=make([]byte,MAX_FORM_SIZE)
-	curr:=0
-	for curr<len(limitedData){
-		n, err:=req.Body.Read(limitedData[curr:])
-		if err!=nil && err==io.EOF {
+
+	limitedData := make([]byte, MAX_FORM_SIZE)
+	curr := 0
+	for curr < len(limitedData) {
+		n, err := req.Body.Read(limitedData[curr:])
+		if err != nil && err == io.EOF {
 			break
 		}
-		if err!=nil {
+		if err != nil {
 			http.Error(writer, fmt.Sprintf("can't read form data:%s", err), http.StatusInternalServerError)
 			return
 		}
-		curr+=n
+		curr += n
 	}
 	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams, string(limitedData[0:curr]))
 	if err != nil && err.StatusCode == http.StatusNotFound {
@@ -160,7 +161,7 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 		} else {
 			// Find by ID
 			num, errMessage := ParseId(id)
-			if errMessage!="" {
+			if errMessage != "" {
 				return BadRequest(errMessage)
 			}
 			//resource id is a number, try to find it
@@ -171,41 +172,41 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			}
 		}
 	case "POST":
-		if id!="" {
+		if id != "" {
 			return BadRequest("can't POST to a particular resource, did you mean PUT?")
 		}
-		if d==nil {
+		if d == nil {
 			return NotFound()
 		}
-		if d.Post==nil {
+		if d.Post == nil {
 			return NotImplemented()
 		}
 		return d.Post.Post(header, queryParams, body)
 	//these two are really similar
 	case "PUT", "DELETE":
-		if id=="" {
+		if id == "" {
 			return BadRequest(fmt.Sprintf("%s requires a resource id", method))
 		}
-		if d==nil {
+		if d == nil {
 			return NotFound()
 		}
 		num, errMessage := ParseId(id)
-		if errMessage!="" {
+		if errMessage != "" {
 			return BadRequest(errMessage)
 		}
-		if method=="PUT" {
-			if d.Put==nil {
+		if method == "PUT" {
+			if d.Put == nil {
 				return NotImplemented()
 			}
 			return d.Put.Put(num, header, queryParams, body)
 		} else {
-			if d.Delete==nil {
+			if d.Delete == nil {
 				return NotImplemented()
 			}
 			return d.Delete.Delete(num, header, queryParams)
 		}
 	}
-	
+
 	return "", &Error{http.StatusNotImplemented, "", "Not implemented yet"}
 }
 
@@ -214,9 +215,9 @@ func ParseId(candidate string) (Id, string) {
 	var num int64
 	var err error
 	if num, err = strconv.ParseInt(candidate, 10, 64); err != nil {
-		return Id(0),fmt.Sprintf("resource ids must be non-negative integers (was %s): %s",candidate, err)
+		return Id(0), fmt.Sprintf("resource ids must be non-negative integers (was %s): %s", candidate, err)
 	}
-	return Id(num),""
+	return Id(num), ""
 }
 
 //resolve is used to find the matching resource for a particular request.  It returns the match
@@ -255,8 +256,8 @@ func (self *SimpleHandler) resolve(path string) (string, string, *Dispatch) {
 //Resources returns a slice of descriptions of all known resources.  Note that there may
 //be types in these descriptors that are _not_ resources but for which code must still
 //be generated.
-func (self *SimpleHandler) Resources() []*ResourceDescription {
-	result := []*ResourceDescription{}
+func (self *SimpleHandler) APIs() []*APIDoc {
+	result := []*APIDoc{}
 	for k, _ := range self.dispatch {
 		contains := false
 		target := self.Describe(k)
@@ -290,8 +291,8 @@ func isLiveDocRequest(req *http.Request) bool {
 
 //Describe walks through the registered resources to find the one requested 
 //and the compute the description of it. 
-func (self *SimpleHandler) Describe(uriPath string) *ResourceDescription {
-	result := &ResourceDescription{}
+func (self *SimpleHandler) Describe(uriPath string) *APIDoc {
+	result := &APIDoc{}
 	path, _, _ := self.resolve(uriPath)
 
 	//no such path?
@@ -301,20 +302,27 @@ func (self *SimpleHandler) Describe(uriPath string) *ResourceDescription {
 	d := self.dispatch[path]
 	result.Name = reflect.TypeOf(d.ResType).Name()
 	result.Field = d.Field
-
-	//result.Fields = walkJsonType(reflect.TypeOf(dispatch.ResType))
-
+	result.ResourceName = strings.Replace(path,"/","",-1)
+	
 	if d.Find != nil {
 		result.Find = true
-		result.ResourceDoc = d.Find.FindDoc()
+		result.FindDoc = d.Find.FindDoc()
 	}
 	if d.Index != nil {
 		result.Index = true
-		result.CollectionDoc = d.Index.IndexDoc()
+		result.IndexDoc = d.Index.IndexDoc()
 	}
 	if d.Post != nil {
 		result.Post = true
-		result.CreateDoc = d.Post.PostDoc()
+		result.PostDoc = d.Post.PostDoc()
+	}
+	if d.Put != nil {
+		result.Put = true
+		result.PutDoc = d.Put.PutDoc()
+	}
+	if d.Delete != nil {
+		result.Delete = true
+		result.DeleteDoc = d.Delete.DeleteDoc()
 	}
 	return result
 }

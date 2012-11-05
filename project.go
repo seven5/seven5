@@ -1,13 +1,14 @@
 package seven5
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
 	"os"
 	"path/filepath"
-	"net/http"
-	"fmt"
 	"strings"
-	"log"
-	"bytes"
 )
 
 //ProjDirectoryFromGOPATH computes a directory inside the project level of a seven5 project
@@ -20,7 +21,7 @@ import (
 //         pkg/
 //         src/
 //               foo/
-//    web/
+//    static/
 // 
 func ProjDirectoryFromGOPATH(rootDir string) (string, error) {
 	env := os.Getenv("GOPATH")
@@ -36,7 +37,7 @@ func ProjDirectoryFromGOPATH(rootDir string) (string, error) {
 
 // ProjRootDirFromPath returns the directory of the project's go source dir root.
 func ProjRootDirFromPath(projectName string) (string, error) {
-	return ProjDirectoryFromGOPATH(filepath.Join("go","src", projectName))
+	return ProjDirectoryFromGOPATH(filepath.Join("go", "src", projectName))
 }
 
 //StaticContent adds an http handler for static content in a subdirectory
@@ -54,8 +55,9 @@ func StaticContent(h Handler, urlPath string, subdir string) {
 //the generated code at the point of call, so it should be called after resources are already
 //bound.
 func GeneratedContent(h Handler, urlPath string) {
-	desc := h.Resources()
+	desc := h.APIs()
 	h.ServeMux().HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(desc))
+	h.ServeMux().HandleFunc(fmt.Sprintf("%sapi/", urlPath), generateAPIDocPrinter(h))
 }
 
 //Seven5Content maps /seven5/ to be the place where static content contained _inside_
@@ -63,7 +65,13 @@ func GeneratedContent(h Handler, urlPath string) {
 func Seven5Content(h Handler, urlPath string, projectName string) {
 	h.ServeMux().HandleFunc(fmt.Sprintf("%sseven5.dart", urlPath),
 		generateStringPrinter(seven5_dart, "text/plain"))
-	if projectName!="" {
+	h.ServeMux().HandleFunc(fmt.Sprintf("%sbootstrap/css/bootstrap.css", urlPath),
+		generateStringPrinter(bootstrap_css, "text/css"))
+	h.ServeMux().HandleFunc(fmt.Sprintf("%sbootstrap/img/glyphicons-halflings.png", urlPath),
+		generateBinPrinter(glyphicons_halflings_png, "image/png"))
+	h.ServeMux().HandleFunc(fmt.Sprintf("%sbootstrap/img/glyphicons-halflings-white.png", urlPath),
+		generateBinPrinter(glyphicons_halflings_white_png, "image/png"))
+	if projectName != "" {
 		h.ServeMux().HandleFunc(fmt.Sprintf("%spublicsetting/%s/", urlPath, projectName), publicSettingHandler)
 	}
 }
@@ -73,6 +81,7 @@ func Seven5Content(h Handler, urlPath string, projectName string) {
 func SetIcon(h Handler, binaryIcon []byte) {
 	h.ServeMux().HandleFunc("/favicon.ico", generateBinPrinter(binaryIcon, "image/x-icon"))
 }
+
 func generateStringPrinter(content string, contentType string) func(http.ResponseWriter, *http.Request) {
 	return generateBinPrinter([]byte(content), contentType)
 }
@@ -87,9 +96,88 @@ func generateBinPrinter(content []byte, contentType string) func(http.ResponseWr
 	}
 }
 
+func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http.Request) {
+	rez := h.APIs()
+
+	return func(writer http.ResponseWriter, req *http.Request) {
+		var origin string
+		if origin=req.Header.Get("Origin"); origin!="" {
+			writer.Header().Add("Access-Control-Allow-Origin", "*")
+			writer.Header().Add("Access-Control-Request-Method","GET")
+		}
+		
+		found := 0
+		var buffer bytes.Buffer
+
+		//look for 'api'
+		pieces := strings.Split(req.URL.String(), "/")
+		for i, s := range pieces {
+			if s == "api" {
+				found = i
+				break
+			}
+		}
+		//found it?
+		if found == 0 {
+			http.NotFound(writer, req)
+			return
+		}
+		//in the right place in the sequence of pieces?  if last, make sure it is /api/
+		if found == len(pieces)-1 && !strings.HasSuffix(req.URL.String(), "/") {
+			http.Error(writer, "Seven5 only considers named collections with trailing slash", http.StatusNotFound)
+			return
+		}
+		//api in bogus place in sequence
+		if found != len(pieces)-1 && found != len(pieces)-2 {
+			http.NotFound(writer, req)
+			return
+		}
+
+		var candidate string
+		result := []*APIDoc{}
+
+		//candidate is either "" for all APIs or the 
+		if found == len(pieces)-2 {
+			candidate = pieces[len(pieces)-1]
+		}
+
+		//count the number
+		for _, r := range rez {
+			if candidate == "" || candidate == r.ResourceName {
+				result = append(result, r)
+			}
+		}
+		if len(result) == 0 {
+			http.NotFound(writer, req)
+			return
+		}
+		//encode our result
+		enc := json.NewEncoder(&buffer)
+		var err error
+		if candidate != "" {
+			err = enc.Encode(result[0])
+		} else {
+			err = enc.Encode(result)
+		}
+		//check for error
+		if err != nil {
+			http.Error(writer, fmt.Sprintf("Error computing json encoding: %s", err), http.StatusInternalServerError)
+			return
+		}
+		
+		writer.Header().Add("Content-type","application/javascript")
+		
+		//send result
+		_, err = writer.Write(buffer.Bytes())
+		if err != nil {
+			fmt.Printf("Whoa! Couldn't write result to other side: %s\n", err)
+		}
+	}
+}
+
 //generateDartFunc returns a function that outputs text string for all the dart code
 //in the system.
-func generateDartFunc(desc []*ResourceDescription) func(http.ResponseWriter, *http.Request) {
+func generateDartFunc(desc []*APIDoc) func(http.ResponseWriter, *http.Request) {
 
 	var text bytes.Buffer
 	resourceStructs := []*FieldDescription{}

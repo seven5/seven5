@@ -45,7 +45,7 @@ func collectStructs(current *FieldDescription) []*FieldDescription {
 	return result
 }
 
-func generateDartForResource(r *ResourceDescription) string {
+func generateDartForResource(r *APIDoc) string {
 	var buffer bytes.Buffer
 	if err := t.ExecuteTemplate(&buffer, "CLASSDECL_TMPL", r); err != nil {
 		return err.Error()

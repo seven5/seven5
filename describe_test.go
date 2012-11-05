@@ -2,6 +2,7 @@ package seven5
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -33,32 +34,54 @@ func verifyNoNesting(T *testing.T, f ...*FieldDescription) {
 		}
 	}
 }
-func verifyHaveCollectionAndRes(T *testing.T, d *ResourceDescription, uri string) {
+func verifyHaveMethods(T *testing.T, d *APIDoc, uri string) {
 	if d == nil {
 		T.Errorf("Unable to generate doc for %s", uri)
 	}
-	if !d.Index || !d.Find {
-		T.Errorf("Incorrect find or index description for %s (Index %v, Find %v)", uri,
-			d.Index == true, d.Find == true)
+	if !d.Index || !d.Find || !d.Post || !d.Put || !d.Delete {
+		T.Errorf("Incorrect method description for %s (Index %v, Find %v, Post %v, Put %v, Delete %v)", uri,
+			d.Index == true, d.Find == true, d.Post == true, d.Put == true, d.Delete == true)
 	}
 }
-func verifyDocSlices(T *testing.T, d *ResourceDescription, uri string, expectedColl []string,
-	expectedResource []string) {
-	if d == nil {
-		T.Errorf("Unable to generate doc for %s", uri)
-	}
-	if len(d.CollectionDoc) != len(expectedColl) {
-		T.Errorf("Wrong size for collection documentation (%d vs %d)!", len(d.CollectionDoc), len(expectedColl))
-	}
-	for i, s := range d.CollectionDoc {
-		if s != expectedColl[i] {
-			T.Errorf("Unexpected collection doc on item %d: %s vs %s", i, s, expectedColl[i])
+func verifyDocStructs(T *testing.T, uri string /* basedocset or bodydocset*/, expected interface{},
+	/* basedocset or bodydocset*/ actual interface{}) {
+
+	expectedBody, ok := expected.(*BodyDocSet)
+
+	var expectedBase *BaseDocSet
+	var actualBase *BaseDocSet
+
+	if ok {
+		actualBody := actual.(*BodyDocSet)
+
+		//test bodies
+		if strings.Index(actualBody.Body, expectedBody.Body) == -1 {
+			T.Errorf("can't find '%s' in actual body '%s' of %s", expectedBody.Body, actualBody.Body, uri)
 		}
-	}
-	for i, s := range d.ResourceDoc {
-		if s != expectedResource[i] {
-			T.Errorf("Unexpected resource doc on item %d: %s vs %s", i, s, expectedResource[i])
+		if strings.Index(actualBody.Body, expectedBody.Body) == -1 {
+			T.Errorf("can't find '%s' in actual body '%s' of %s", expectedBody.Body, actualBody.Body, uri)
 		}
+		if strings.Index(actualBody.Body, expectedBody.Body) == -1 {
+			T.Errorf("can't find '%s' in actual body '%s' of %s", expectedBody.Body, actualBody.Body, uri)
+		}
+		if strings.Index(actualBody.Body, expectedBody.Body) == -1 {
+			T.Errorf("can't find '%s' in actual body '%s' of %s", expectedBody.Body, actualBody.Body, uri)
+		}
+		return
+	} else {
+		expectedBase = expected.(*BaseDocSet)
+		actualBase = actual.(*BaseDocSet)
+	}
+
+	if strings.Index(actualBase.QueryParameters, expectedBase.QueryParameters) == -1 {
+		T.Errorf("can't find '%s' in actual query params '%s' of %s", expectedBase.QueryParameters,
+			actualBase.QueryParameters, uri)
+	}
+	if strings.Index(actualBase.Headers, expectedBase.Headers) == -1 {
+		T.Errorf("can't find '%s' in actual headers '%s' of %s", expectedBase.Headers, actualBase.Headers, uri)
+	}
+	if strings.Index(actualBase.Result, expectedBase.Result) == -1 {
+		T.Errorf("can't find '%s' in actual result '%s' of %s", expectedBase.Result, actualBase.Result, uri)
 	}
 }
 
@@ -88,9 +111,18 @@ func TestRecursiveTraversal(T *testing.T) {
 	verifyNoNesting(T, fd.Struct[0], fd.Struct[1], fd.Struct[2])
 }
 
+//to make the typing easier
+type oxResource struct {
+	oxFinder
+	oxIndexer
+	oxPuter
+	oxPoster
+	oxDeleter
+}
+
 func TestResolve(T *testing.T) {
 	h := NewSimpleHandler()
-	h.AddResourceByName("person", Ox{}, &oxFinder{})
+	h.AddResourceByName("person", Ox{}, &oxResource{})
 	res, id, _ := h.resolve("/person/123")
 	if res != "/person/" || id != "123" {
 		T.Errorf("Unable to resolve /person/123 correctly (res=%s and id=%s)!", res, id)
@@ -105,16 +137,57 @@ func TestResolve(T *testing.T) {
 	}
 }
 
-func TestDescribe(T *testing.T) {
+func TestDescribeGeneration(T *testing.T) {
 	h := NewSimpleHandler()
-	h.AddExplicitResourceMethods("person", Ox{}, &oxIndexer{}, &oxFinder{}, nil, nil, nil)
+	h.AddResourceByName("person", Ox{}, &oxResource{})
 
 	p := "/person/129"
 
 	person, _, _ := h.resolve(p)
-	verifyHaveCollectionAndRes(T, h.Describe(person), p)
+	verifyHaveMethods(T, h.Describe(person), p)
 
-	verifyDocSlices(T, h.Describe(person), p, []string{"FOO", "bar", "Baz"},
-		[]string{"How can you lose an ox?", "fleazil", "frack for love"})
+	rd := h.Describe(person)
+
+	if rd.FindDoc == nil {
+		T.Fatalf("No find documentation found: %+v", rd)
+	}
+
+	verifyDocStructs(T, "/person/129 FIND", &BaseDocSet{
+		`lose an ox`,
+		`awk`,
+		`sed`,
+	},
+		rd.FindDoc)
+
+	verifyDocStructs(T, "/person/129 INDEX", &BaseDocSet{
+		`FOO`,
+		`Bar`,
+		`Baz`,
+	},
+		rd.IndexDoc)
+
+	verifyDocStructs(T, "/person/129 POST", &BodyDocSet{
+		`Grik`,
+		`Grak`,
+		`Frobnitz`,
+
+		`fleazil`,
+	},
+		rd.PostDoc)
+
+	verifyDocStructs(T, "/person/129 PUT", &BodyDocSet{
+		`leia`,
+		`luke`,
+		`assumed to be form data`,
+		`isn't used`,
+	},
+		rd.PutDoc)
+
+	verifyDocStructs(T, "/person/129 DELETE", &BaseDocSet{
+		`mickey`,
+		`minnie`,
+		`pluto`,
+	},
+		rd.DeleteDoc)
 
 }
