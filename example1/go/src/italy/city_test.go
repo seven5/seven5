@@ -4,8 +4,9 @@ package italy
 
 import (
 	"encoding/json"
-	"github.com/seven5/seven5"
+	//"github.com/seven5/seven5"
 	"net/http"
+	"seven5"
 	"strings"
 	"testing"
 )

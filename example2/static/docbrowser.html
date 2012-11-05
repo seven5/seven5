@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Only works in dartium! Need to compile to JS to deploy ...-->
+<!-- relative path because no server is running -->
+<script type='application/dart' src='/dart/docbrowser.dart'></script>
+
+
+<!-- Also, you'll need this to kickstart the Dart engine. -->
+<script type='text/javascript'>
+  if (navigator.webkitStartDart) {
+    navigator.webkitStartDart();
+  }
+</script>
+
+<!--again, relative paths because no server is running -->
+<link rel="stylesheet" type="text/css" href="/seven5/bootstrap/css/bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="/static/docbrowser.css"/>
+</head>
+
+<body>
+	<!--container is required by twitter bootstrap-->
+	<div id='outercontainer' class='container'>
+	
+		<!-- need a place to put our form -->
+		<div id='inputdiv' class='row'>
+		</div>
+		
+		<!--where we show the content  -->
+		<div id='apidiv' class='row'>
+		</div>
+	</div>
+</body>
+</html>
