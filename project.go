@@ -11,19 +11,44 @@ import (
 	"strings"
 )
 
-//ProjDirectoryFromGOPATH computes a directory inside the project level of a seven5 project
-//that has the default layout.  For a project foo
+//FileFlavor is used to "find" parts of your application at run-time. Use of these constants
+//means that if the default project layout changes you only have to move your files around,
+//not change your code.
+type FileFlavor int
+
+const (
+	GO_SOURCE_FLAVOR = iota
+	DART_FLAVOR
+	ASSET_FLAVOR
+	TOP_LEVEL_FLAVOR
+)
+
+//ProjectObjectFromGOPATH computes a directory inside a seven5 project that has the default
+//layout.  You need to supply a project name and the directory you are looking for.  If
+//you set
+//
+//For project foo, the default layout is:
 // foo/
+//    Procfile
+//    .godir
 //    dart/
+//					foo/
+//					      web/
+//					      			assets/
+//                pubspec.yaml
+//                pubspec.lock
+//                packages/
+//                ...
 //    db/
 //    go/
 //         bin/
 //         pkg/
 //         src/
 //               foo/
-//    static/
-// 
-func ProjDirectoryFromGOPATH(rootDir string) (string, error) {
+//                     runfoo/
+//                     				main.go
+
+func ProjectObjectFromGOPATH(target string, projectName string, flavor FileFlavor) (string, error) {
 	env := os.Getenv("GOPATH")
 	if env == "" {
 		return "", BAD_GOPATH
@@ -32,23 +57,35 @@ func ProjDirectoryFromGOPATH(rootDir string) (string, error) {
 	if len(pieces) > 1 {
 		env = pieces[0]
 	}
-	return filepath.Join(filepath.Dir(env), rootDir), nil
+	switch flavor {
+	case GO_SOURCE_FLAVOR:
+		return filepath.Join(env, "src", target), nil
+	case DART_FLAVOR:
+		return filepath.Join(filepath.Dir(env), "dart", projectName, target), nil
+	case ASSET_FLAVOR:
+		return filepath.Join(filepath.Dir(env), "dart", projectName, "assets", target), nil
+	case TOP_LEVEL_FLAVOR:
+		return filepath.Join(filepath.Dir(env), target), nil
+	}
+	panic("unknown type of object searched for in the project!")
 }
 
-// ProjRootDirFromPath returns the directory of the project's go source dir root.
-func ProjRootDirFromPath(projectName string) (string, error) {
-	return ProjDirectoryFromGOPATH(filepath.Join("go", "src", projectName))
-}
-
-//StaticContent adds an http handler for static content in a subdirectory
-func StaticContent(h Handler, urlPath string, subdir string) {
+//StaticDartContent adds an http handler for the content subdir of a dart app.  The project
+//name is the subdir of 'dart' so the content is dart/projectName/web.  The prefix
+//can be used if you don't want the static content mounted at '/' (the default).  IF
+//you supply a prefix, it should end with /.
+func StaticDartContent(h Handler, projectName string, prefix string) {
 	//setup static content
-	truePath, err := ProjDirectoryFromGOPATH(subdir)
+	truePath, err := ProjectObjectFromGOPATH("web", projectName, DART_FLAVOR)
 	if err != nil {
 		log.Fatalf("can't understand GOPATH or not using default project layout: %s", err)
 	}
-	//strip the path from requests so that /urlPath/fart = modena/subdir/fart
-	h.ServeMux().Handle(urlPath, http.StripPrefix(urlPath, http.FileServer(http.Dir(truePath))))
+	if prefix == "" || prefix == "/" {
+		h.ServeMux().Handle("/", http.FileServer(http.Dir(truePath)))
+	} else {
+		//strip the path from requests so that /prefix/fart = dart/projectName/web/fart
+		h.ServeMux().Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
+	}
 }
 
 //GeneratedContent adds an http handler for static content in a subdirectory.  It computes
@@ -60,17 +97,8 @@ func GeneratedContent(h Handler, urlPath string) {
 	h.ServeMux().HandleFunc(fmt.Sprintf("%sapi/", urlPath), generateAPIDocPrinter(h))
 }
 
-//Seven5Content maps /seven5/ to be the place where static content contained _inside_
-//the seven5 can viewed such as /seven5/seven5.dart for the seven5 support library.
+//Seven5Content maps internal handlers to be inside the urlPath provided.
 func Seven5Content(h Handler, urlPath string, projectName string) {
-	h.ServeMux().HandleFunc(fmt.Sprintf("%sseven5.dart", urlPath),
-		generateStringPrinter(seven5_dart, "text/plain"))
-	h.ServeMux().HandleFunc(fmt.Sprintf("%sbootstrap/css/bootstrap.css", urlPath),
-		generateStringPrinter(bootstrap_css, "text/css"))
-	h.ServeMux().HandleFunc(fmt.Sprintf("%sbootstrap/img/glyphicons-halflings.png", urlPath),
-		generateBinPrinter(glyphicons_halflings_png, "image/png"))
-	h.ServeMux().HandleFunc(fmt.Sprintf("%sbootstrap/img/glyphicons-halflings-white.png", urlPath),
-		generateBinPrinter(glyphicons_halflings_white_png, "image/png"))
 	if projectName != "" {
 		h.ServeMux().HandleFunc(fmt.Sprintf("%spublicsetting/%s/", urlPath, projectName), publicSettingHandler)
 	}
@@ -101,11 +129,11 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 
 	return func(writer http.ResponseWriter, req *http.Request) {
 		var origin string
-		if origin=req.Header.Get("Origin"); origin!="" {
+		if origin = req.Header.Get("Origin"); origin != "" {
 			writer.Header().Add("Access-Control-Allow-Origin", "*")
-			writer.Header().Add("Access-Control-Request-Method","GET")
+			writer.Header().Add("Access-Control-Request-Method", "GET")
 		}
-		
+
 		found := 0
 		var buffer bytes.Buffer
 
@@ -164,9 +192,9 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 			http.Error(writer, fmt.Sprintf("Error computing json encoding: %s", err), http.StatusInternalServerError)
 			return
 		}
-		
-		writer.Header().Add("Content-type","application/javascript")
-		
+
+		writer.Header().Add("Content-type", "application/javascript")
+
 		//send result
 		_, err = writer.Write(buffer.Bytes())
 		if err != nil {
@@ -207,13 +235,12 @@ func generateDartFunc(desc []*APIDoc) func(http.ResponseWriter, *http.Request) {
 //seven5 project to the handler provided and returns it as as http.Handler so it can be
 //use "in the normal way" with http.ServeHttp. This adds generated code to the URL
 //mount point /generated.  If you call DefaultProjectBindings you don't need to worry
-//about calling StaticContent or GeneratedContent.  Note that this should be called
+//about calling StaticDefaultContent or GeneratedContent.  Note that this should be called
 //_after_ all resources are added to the handler as there is caching of the generated
 //code.  If the project name is "" then the publicsetting.json file will not be read and
 //no settings will be visible from the client side (nothing at /seven5/publicsetting)
 func DefaultProjectBindings(h Handler, projectName string) http.Handler {
-	StaticContent(h, "/static/", "static")
-	StaticContent(h, "/dart/", "dart")
+	StaticDartContent(h, projectName, "/")
 	GeneratedContent(h, "/generated/")
 	Seven5Content(h, "/seven5/", projectName)
 	SetIcon(h, gopher_ico)

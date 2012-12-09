@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"encoding/json"
 	"strings"
-	"path/filepath"
 	"fmt"
 )
 //publicsetting is used to hold the mapping from keys to values used for secrets to be exposed by the server
@@ -16,11 +15,11 @@ var publicsetting map[string]string
 //The file's content should be a json map from strings to strings.  This is read only once at startup
 //time.
 func publicSettingReader(projectName string, filename string) error {
-	path, err:=ProjRootDirFromPath(projectName)
+	path, err:=ProjectObjectFromGOPATH(filename,projectName, GO_SOURCE_FLAVOR)
 	if err!=nil {
 		return err
 	}
-	f, err:= os.Open(filepath.Join(path, filename))
+	f, err:= os.Open(path)
 	if err!=nil {
 		return err
 	}
