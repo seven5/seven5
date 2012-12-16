@@ -20,8 +20,8 @@ type GoogleAuthConn struct {
 //that the scope variable is very important to google and should be set based on the needs
 //of your app.  The prompt values can be "auto" or "force" to force a re-prompt from google
 //on each authentication handshake.
-func NewGoogleAuthConnector(scope string, prompt string, info AppAuthConfig) AuthServiceConnector {
-	result := &GoogleAuthConn{Scope: scope, Prompt: prompt} //, Info: info}
+func NewGoogleAuthConnector(scope string, prompt string) AuthServiceConnector {
+	result := &GoogleAuthConn{Scope: scope, Prompt: prompt} 
 	return result
 }
 
