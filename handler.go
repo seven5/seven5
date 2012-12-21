@@ -59,3 +59,9 @@ type Handler interface {
 	//to the handler.  This is useful during code generation.
 	APIs() []*APIDoc
 }
+
+//Multiplexer encapsulates the pubic interface of an http.ServeMux because we want to be able 
+//to mock it.
+type Multiplexer interface {
+	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+}

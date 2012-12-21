@@ -21,15 +21,16 @@ type AuthServiceConnector interface {
 	AuthURL(AppAuthConfig, string) string
 	CodeValueName() string
 	ErrorValueName() string
+	StateValueName() string
 	Name() string
-	ExchangeForToken(AppAuthConfig, string) (*oauth.Token, error)
+	ExchangeForToken(AppAuthConfig, string) (*oauth.Transport, error)
 }
 
 //AppAuthConfig is a simple interface wrapping the ability to know the state of the server
 //and interface the oauth provider to the site.
 type AppAuthConfig interface {
 	IsTest() bool
-	Domain() string
+	AppName() string
 	AuthPath(AuthServiceConnector) string
 	State(AuthServiceConnector) string
 	ClientId(AuthServiceConnector) string
@@ -37,40 +38,38 @@ type AppAuthConfig interface {
 	RedirectPath(AuthServiceConnector) string
 	RedirectHost(AuthServiceConnector) string
 	ErrorPage(AuthServiceConnector, string) string
-	SuccessPage(AuthServiceConnector) string
+	SuccessPage(AuthServiceConnector, string) string
 }
 
 //HerokuAppAuthConfig understands the seven5 default way of encoding all the oauth related
 //information and, if desired, how to handle deployment urls for heroku.   
 //In your heroku config, the latter two but not the first should be set.
 type HerokuAppAuthConfig struct {
-	AppName string // use if you are taking the defaults with heroku
+	HerokuName string // use if you are taking the defaults with heroku
 }
 
 //NewHerokuAppBasic returns an AppAuthConfig suitable for use with heroku and with the 
 //default seven5 environment variable setup.  If you are using this simple interface, for an oauth
 //provider named foo and an app called bar you should have the following environment variables 
 //set on your development machine: FOO_TEST, BAR_FOO_CLIENT_ID, BAR_FOO_CLIENT_SECRET.
-func NewHerokuAppAuthConfig(appName string) AppAuthConfig {
-	return &HerokuAppAuthConfig{AppName: appName}
+func NewHerokuAppAuthConfig(herokuName string) AppAuthConfig {
+	return &HerokuAppAuthConfig{HerokuName: herokuName}
 }
 
 func (self *HerokuAppAuthConfig) IsTest() bool {
-	return os.Getenv(fmt.Sprintf("%s_TEST", strings.ToUpper(self.AppName))) != ""
+	return os.Getenv(fmt.Sprintf("%s_TEST", strings.ToUpper(self.AppName()))) != ""
 }
-func (self *HerokuAppAuthConfig) Domain() string {
-	if self.IsTest() {
-		return "localhost"
-	}
-	return fmt.Sprintf("%s.herokuapp.com", self.AppName)
+
+func (self *HerokuAppAuthConfig) AppName() string {
+	return self.HerokuName
 }
 
 func (self *HerokuAppAuthConfig) ClientId(conn AuthServiceConnector) string {
-	return os.Getenv(fmt.Sprintf("%s_%s_CLIENT_ID", strings.ToUpper(self.AppName),
+	return os.Getenv(fmt.Sprintf("%s_%s_CLIENT_ID", strings.ToUpper(self.AppName()),
 		strings.ToUpper(conn.Name())))
 }
 func (self *HerokuAppAuthConfig) ClientSecret(conn AuthServiceConnector) string {
-	return os.Getenv(fmt.Sprintf("%s_%s_CLIENT_SECRET", strings.ToUpper(self.AppName),
+	return os.Getenv(fmt.Sprintf("%s_%s_CLIENT_SECRET", strings.ToUpper(self.AppName()),
 		strings.ToUpper(conn.Name())))
 }
 
@@ -78,7 +77,8 @@ func (self *HerokuAppAuthConfig) ErrorPage(conn AuthServiceConnector, errorText 
 	pg := "/error/oauth_error.html"
 	return fmt.Sprintf("%s?service=%s&e=%s", toWebUIPath(pg), conn.Name(), errorText)
 }
-func (self *HerokuAppAuthConfig) SuccessPage(ignored AuthServiceConnector) string {
+func (self *HerokuAppAuthConfig) SuccessPage(ignored AuthServiceConnector, state string) string {
+	fmt.Printf("State? %s\n", state)
 	return "/main.html"
 }
 //State can be used if you need to create a token that will be passed back to you
@@ -93,7 +93,7 @@ func (self *HerokuAppAuthConfig) AuthPath(conn AuthServiceConnector) string {
 func (self *HerokuAppAuthConfig) RedirectHost(conn AuthServiceConnector) string {
 	r := fmt.Sprintf(REDIRECT_HOST_TEST)
 	if !self.IsTest() {
-		r = fmt.Sprintf(HEROKU_HOST, self.AppName)
+		r = fmt.Sprintf(HEROKU_HOST, self.AppName())
 	}
 	return r
 }
@@ -101,7 +101,8 @@ func (self *HerokuAppAuthConfig) RedirectPath(conn AuthServiceConnector) string 
 	return fmt.Sprintf(REDIRECT_PATH, conn.Name())
 }
 
-func AddAuthService(handler Handler, cfg AppAuthConfig, conn AuthServiceConnector) {
+func AddAuthService(handler Handler, cfg AppAuthConfig, conn AuthServiceConnector,
+		mgr SessionManager) {
 
 	handler.ServeMux().HandleFunc(cfg.AuthPath(conn),
 		func(w http.ResponseWriter, r *http.Request) {
@@ -118,24 +119,16 @@ func AddAuthService(handler Handler, cfg AppAuthConfig, conn AuthServiceConnecto
 				return
 			}
 			//exchange it
-			token, err := conn.ExchangeForToken(cfg, code)
+			trans, err := conn.ExchangeForToken(cfg, code)
 			if err != nil {
 				error_msg := fmt.Sprintf("unable to finish the token exchange with %s: %s", conn.Name(), err)
 				http.Redirect(w, r, cfg.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
 				return
 			}
-
-			//record the session token and th
-			udid := UDID()
-			/*sessionToToken[udid] = token
-			expire := time.Now().AddDate(0, 0, 1)
-
-			cookie := &http.Cookie{Name: "session", Value: udid, Domain: self.Domain(), Expires: expire,
-				RawExpires: expire.Format(time.UnixDate), MaxAge: 60}
-			http.SetCookie(w, cookie)
-			http.Redirect(w, r, self.SuccessPage(conn), http.StatusTemporaryRedirect)
-			*/
-			fmt.Printf("token is %+v and id is %s\n", token, udid)
+			state := r.URL.Query().Get(conn.StateValueName())
+			session := mgr.Generate(conn.Name(), trans, r, code)
+			mgr.AssociateCookie(w, session)
+			http.Redirect(w, r, cfg.SuccessPage(conn, state), http.StatusTemporaryRedirect)
 		})
 }
 
