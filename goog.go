@@ -16,37 +16,45 @@ const (
 
 //GoogleAuthConn is the implementation of an AuthServiceConnector for Google.
 type GoogleAuthConn struct {
-	Scope  string
-	Prompt string
+	scope  string
+	prompt string
+	clientId string
+	clientSecret string
+	host string
 }
 
 //NewGoogleAuthConnector returns an AuthServiceConnector suitable for use with Google.  Note
 //that the scope variable is very important to google and should be set based on the needs
 //of your app.  The prompt values can be "auto" or "force" to force a re-prompt from google
-//on each authentication handshake.
-func NewGoogleAuthConnector(scope string, prompt string) AuthServiceConnector {
-	result := &GoogleAuthConn{Scope: scope, Prompt: prompt}
+//on each authentication handshake. The environment is passed here because we need extract
+//client id and secret from somewhere other than the code.  The Deployment is passed to
+//help calculate correct hostnames.
+func NewGoogleAuthConnector(scope string, prompt string, env Environment, dep Deployment) AuthServiceConnector {
+	result := &GoogleAuthConn{scope: scope, prompt: prompt }
+	result.clientId = env.ClientId(result)
+	result.clientSecret = env.ClientSecret(result)
+	result.host = dep.RedirectHost(result)
 	return result
 }
 
 //OauthConfig creates the config structure needed by the code.google.com/p/goauth2 library.
-func (self *GoogleAuthConn) OauthConfig(info AppAuthConfig) *oauth.Config {
+func (self *GoogleAuthConn) OauthConfig(info AuthPageMapper) *oauth.Config {
 
 	return &oauth.Config{
-		ClientId:       info.ClientId(self),
-		ClientSecret:   info.ClientSecret(self),
-		Scope:          self.Scope,
+		ClientId:       self.clientId,
+		ClientSecret:   self.clientSecret,
+		Scope:          self.scope,
 		AuthURL:        GOOGLE_AUTH_URL,
 		TokenURL:       GOOGLE_TOKEN_URL,
-		RedirectURL:    fmt.Sprintf("%s%s", info.RedirectHost(self), info.RedirectPath(self)),
-		ApprovalPrompt: self.Prompt,
+		RedirectURL:    fmt.Sprintf("%s%s", self.host, info.RedirectPath(self)),
+		ApprovalPrompt: self.prompt,
 	}
 }
 
 //ExchangeForToken returns an oauth.Token structure from a code received in the handshake
-//plus the basic information in the AppAuthConfig.  This will be called after the
+//plus the basic information in the AuthPageMapper.  This will be called after the
 //first phase of the oauth exchange is done and we want to exchange a code for a token.
-func (self *GoogleAuthConn) ExchangeForToken(info AppAuthConfig, code string) (*oauth.Transport, error) {
+func (self *GoogleAuthConn) ExchangeForToken(info AuthPageMapper, code string) (*oauth.Transport, error) {
 	config := self.OauthConfig(info)
 	//exchange it
 	t := &oauth.Transport{Config: config}
@@ -61,7 +69,7 @@ func (self *GoogleAuthConn) Name() string {
 	return "google"
 }
 
-func (self *GoogleAuthConn) AuthURL(info AppAuthConfig, state string) string {
+func (self *GoogleAuthConn) AuthURL(info AuthPageMapper, state string) string {
 	return self.OauthConfig(info).AuthCodeURL(state)
 }
 

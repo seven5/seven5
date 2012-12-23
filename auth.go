@@ -5,169 +5,140 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
-)
-
-const (
-	REDIRECT_PATH      = "/auth/%s/oauth2callback"
-	REDIRECT_HOST_TEST = "http://localhost:3003"
-	HEROKU_HOST        = "https://%s.herokuapp.com"
 )
 
 //AuthServiceConnector is an abstraction of a service that can do Oauth-based authentication.
 //For now this is a very thin wrapper over code.google.com/p/goauth2/oauth.
 type AuthServiceConnector interface {
-	AuthURL(AppAuthConfig, string) string
+	AuthURL(AuthPageMapper, string) string
 	CodeValueName() string
 	ErrorValueName() string
 	StateValueName() string
 	Name() string
-	ExchangeForToken(AppAuthConfig, string) (*oauth.Transport, error)
+	ExchangeForToken(AuthPageMapper, string) (*oauth.Transport, error)
 }
 
-//AppAuthConfig is a simple interface wrapping the ability to know the state of the server
-//and interface the oauth provider to the site.
-type AppAuthConfig interface {
-	IsTest() bool
-	AppName() string
+//AuthPageMapper is an interface for expressing what URLs should be used when dealing with
+//an external service for authentication.  These are part of the application. This is necessary 
+//because this must be handled  programmatically by the back end and can't use files.
+type AuthPageMapper interface {
 	AuthPath(AuthServiceConnector) string
 	State(AuthServiceConnector) string
-	ClientId(AuthServiceConnector) string
-	ClientSecret(AuthServiceConnector) string
 	RedirectPath(AuthServiceConnector) string
-	RedirectHost(AuthServiceConnector) string
 	ErrorPage(AuthServiceConnector, string) string
-	SuccessPage(AuthServiceConnector, string) string
-	LogoutPage(AuthServiceConnector, string) string
+	LoginLandingPage(AuthServiceConnector, string) string
+	LogoutLandingPage(AuthServiceConnector, string) string
 }
 
-//HerokuAppAuthConfig understands the seven5 default way of encoding all the oauth related
-//information and, if desired, how to handle deployment urls for heroku.   
-//In your heroku config, the latter two but not the first should be set.
-type HerokuAppAuthConfig struct {
-	HerokuName string // use if you are taking the defaults with heroku
+//SimpleAuthPageMapper maps the authentication urls to /auth/SERVICENAME such as /auth/google for
+//google authentication.  It assumes that all auth services can share the same url space for
+//Errors, SuccessfulLogin and SuccessfulLogout. It does use the "state" token that is part
+//of the AuthPageMapping api.
+type SimpleAuthPageMapper struct {
+	errorPage string
+	loginOk   string
+	logoutOk  string
+	dep       Deployment
 }
 
-//NewHerokuAppBasic returns an AppAuthConfig suitable for use with heroku and with the 
-//default seven5 environment variable setup.  If you are using this simple interface, for an oauth
-//provider named foo and an app called bar you should have the following environment variables 
-//set on your development machine: FOO_TEST, BAR_FOO_CLIENT_ID, BAR_FOO_CLIENT_SECRET.
-func NewHerokuAppAuthConfig(herokuName string) AppAuthConfig {
-	return &HerokuAppAuthConfig{HerokuName: herokuName}
+//NewSimpleAuthPageMapper returns an AuthPageMapper that has a simple mapping scheme for where
+//the login "magic" urls are (e.g. /auth/google) and handles all the other page mappings as
+//constants.  
+func NewSimpleAuthPageMapper(errUrl string, loginOk string, logoutOk string, dep Deployment) AuthPageMapper {
+	return &SimpleAuthPageMapper{
+		errorPage: errUrl,
+		loginOk:   loginOk,
+		logoutOk:  logoutOk,
+		dep:       dep,
+	}
 }
 
-func (self *HerokuAppAuthConfig) IsTest() bool {
-	return os.Getenv(fmt.Sprintf("%s_TEST", strings.ToUpper(self.AppName()))) != ""
+func (self *SimpleAuthPageMapper) ErrorPage(conn AuthServiceConnector, errorText string) string {
+	return fmt.Sprintf("%s?service=%s&e=%s", toWebUIPath(self.errorPage), conn.Name(), errorText)
 }
 
-func (self *HerokuAppAuthConfig) AppName() string {
-	return self.HerokuName
+func (self *SimpleAuthPageMapper) LoginLandingPage(ignored AuthServiceConnector, ignored_state string) string {
+	return toWebUIPath(self.loginOk)
 }
 
-func (self *HerokuAppAuthConfig) ClientId(conn AuthServiceConnector) string {
-	return os.Getenv(fmt.Sprintf("%s_%s_CLIENT_ID", strings.ToUpper(self.AppName()),
-		strings.ToUpper(conn.Name())))
-}
-func (self *HerokuAppAuthConfig) ClientSecret(conn AuthServiceConnector) string {
-	return os.Getenv(fmt.Sprintf("%s_%s_CLIENT_SECRET", strings.ToUpper(self.AppName()),
-		strings.ToUpper(conn.Name())))
-}
-
-func (self *HerokuAppAuthConfig) ErrorPage(conn AuthServiceConnector, errorText string) string {
-	pg := "/error/oauth_error.html"
-	return fmt.Sprintf("%s?service=%s&e=%s", toWebUIPath(pg), conn.Name(), errorText)
-}
-
-func (self *HerokuAppAuthConfig) SuccessPage(ignored AuthServiceConnector, state string) string {
-	return toWebUIPath("/home.html")
-}
-
-func (self *HerokuAppAuthConfig) LogoutPage(ignored AuthServiceConnector, state string) string {
-	return toWebUIPath("/home.html")
+func (self *SimpleAuthPageMapper) LogoutLandingPage(ignored AuthServiceConnector, state string) string {
+	return toWebUIPath(self.logoutOk)
 }
 
 //State can be used if you need to create a token that will be passed back to you
-//when the success state is reached.
-func (self *HerokuAppAuthConfig) State(ignored AuthServiceConnector) string {
-	return "foobie"
+//when the success state is reached.  It will be handed back to you when SuccessPa
+func (self *SimpleAuthPageMapper) State(ignored AuthServiceConnector) string {
+	return ""
 }
-func (self *HerokuAppAuthConfig) AuthPath(conn AuthServiceConnector) string {
+
+func (self *SimpleAuthPageMapper) AuthPath(conn AuthServiceConnector) string {
 	return fmt.Sprintf("/auth/%s", conn.Name())
 }
 
-func (self *HerokuAppAuthConfig) RedirectHost(conn AuthServiceConnector) string {
-	r := fmt.Sprintf(REDIRECT_HOST_TEST)
-	if !self.IsTest() {
-		r = fmt.Sprintf(HEROKU_HOST, self.AppName())
-	}
-	return r
-}
-func (self *HerokuAppAuthConfig) RedirectPath(conn AuthServiceConnector) string {
-	return fmt.Sprintf(REDIRECT_PATH, conn.Name())
+func (self *SimpleAuthPageMapper) RedirectPath(conn AuthServiceConnector) string {
+	return fmt.Sprintf("%s/oauth2callback", self.AuthPath(conn))
 }
 
 //AddAuthService is the "glue" that connects the URL space to your app and to an external
 //oauth provider.  The session manager is used, in addition, to create new sessions when
 //login is successful.  The URL space is controlled by handler, cfg expresses the information
 //about your App deployment (or test mode), and the conn is the service provider interface.
-func AddAuthService(handler Handler, cfg AppAuthConfig, conn AuthServiceConnector,
-		cm CookieMapper) {
+func AddAuthService(handler Handler, pageMap AuthPageMapper, conn AuthServiceConnector,
+	cm CookieMapper) {
 
-	handler.ServeMux().HandleFunc(cfg.AuthPath(conn),
+	handler.ServeMux().HandleFunc(pageMap.AuthPath(conn),
 		func(w http.ResponseWriter, r *http.Request) {
 			//logout?
-			if r.URL.Query().Get("logout")!="" {
+			if r.URL.Query().Get("logout") != "" {
 				cm.RemoveCookie(w)
 				cm.Destroy(r)
-				http.Redirect(w, r, cfg.LogoutPage(conn, cfg.State(conn)), http.StatusTemporaryRedirect)
+				http.Redirect(w, r, pageMap.LogoutLandingPage(conn, pageMap.State(conn)), http.StatusTemporaryRedirect)
 				return
 			}
 			//login
-			http.Redirect(w, r, conn.AuthURL(cfg, cfg.State(conn)), http.StatusFound)
+			http.Redirect(w, r, conn.AuthURL(pageMap, pageMap.State(conn)), http.StatusFound)
 		})
 
-	handler.ServeMux().HandleFunc(cfg.RedirectPath(conn),
+	handler.ServeMux().HandleFunc(pageMap.RedirectPath(conn),
 		func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 			code := r.URL.Query().Get(conn.CodeValueName())
 			e := r.URL.Query().Get(conn.ErrorValueName())
 			if e != "" {
-				http.Redirect(w, r, cfg.ErrorPage(conn, e), http.StatusTemporaryRedirect)
+				http.Redirect(w, r, pageMap.ErrorPage(conn, e), http.StatusTemporaryRedirect)
 				return
 			}
 			//exchange it
-			trans, err := conn.ExchangeForToken(cfg, code)
+			trans, err := conn.ExchangeForToken(pageMap, code)
 			if err != nil {
 				error_msg := fmt.Sprintf("unable to finish the token exchange with %s: %s", conn.Name(), err)
-				http.Redirect(w, r, cfg.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
+				http.Redirect(w, r, pageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
 				return
 			}
 			state := r.URL.Query().Get(conn.StateValueName())
 			session, err := cm.Generate(conn.Name(), trans, r, code)
-			if err!=nil {
+			if err != nil {
 				error_msg := fmt.Sprintf("failed to create session")
-				http.Redirect(w, r, cfg.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
+				http.Redirect(w, r, pageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
 				return
 			}
 			cm.AssociateCookie(w, session)
-			http.Redirect(w, r, cfg.SuccessPage(conn, state), http.StatusTemporaryRedirect)
+			http.Redirect(w, r, pageMap.LoginLandingPage(conn, state), http.StatusTemporaryRedirect)
 		})
 }
 
-
 func toWebUIPath(s string) string {
-	return fmt.Sprintf("/out%s",s)
+	return fmt.Sprintf("/out%s", s)
 }
-
 
 func UDID() string {
 	f, err := os.Open("/dev/urandom")
-	if err!=nil {
+	if err != nil {
 		panic(fmt.Sprintf("failed to get /dev/urandom! %s", err))
 	}
 	b := make([]byte, 16)
-	_,err=f.Read(b)
-	if err!=nil {
+	_, err = f.Read(b)
+	if err != nil {
 		panic(fmt.Sprintf("failed to read /dev/urandom! %s", err))
 	}
 	f.Close()
