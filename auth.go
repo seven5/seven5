@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"path/filepath"
 )
 
 const (
@@ -39,6 +38,7 @@ type AppAuthConfig interface {
 	RedirectHost(AuthServiceConnector) string
 	ErrorPage(AuthServiceConnector, string) string
 	SuccessPage(AuthServiceConnector, string) string
+	LogoutPage(AuthServiceConnector, string) string
 }
 
 //HerokuAppAuthConfig understands the seven5 default way of encoding all the oauth related
@@ -77,10 +77,15 @@ func (self *HerokuAppAuthConfig) ErrorPage(conn AuthServiceConnector, errorText 
 	pg := "/error/oauth_error.html"
 	return fmt.Sprintf("%s?service=%s&e=%s", toWebUIPath(pg), conn.Name(), errorText)
 }
+
 func (self *HerokuAppAuthConfig) SuccessPage(ignored AuthServiceConnector, state string) string {
-	fmt.Printf("State? %s\n", state)
-	return "/main.html"
+	return toWebUIPath("/home.html")
 }
+
+func (self *HerokuAppAuthConfig) LogoutPage(ignored AuthServiceConnector, state string) string {
+	return toWebUIPath("/home.html")
+}
+
 //State can be used if you need to create a token that will be passed back to you
 //when the success state is reached.
 func (self *HerokuAppAuthConfig) State(ignored AuthServiceConnector) string {
@@ -101,11 +106,23 @@ func (self *HerokuAppAuthConfig) RedirectPath(conn AuthServiceConnector) string 
 	return fmt.Sprintf(REDIRECT_PATH, conn.Name())
 }
 
+//AddAuthService is the "glue" that connects the URL space to your app and to an external
+//oauth provider.  The session manager is used, in addition, to create new sessions when
+//login is successful.  The URL space is controlled by handler, cfg expresses the information
+//about your App deployment (or test mode), and the conn is the service provider interface.
 func AddAuthService(handler Handler, cfg AppAuthConfig, conn AuthServiceConnector,
-		mgr SessionManager) {
+		cm CookieMapper) {
 
 	handler.ServeMux().HandleFunc(cfg.AuthPath(conn),
 		func(w http.ResponseWriter, r *http.Request) {
+			//logout?
+			if r.URL.Query().Get("logout")!="" {
+				cm.RemoveCookie(w)
+				cm.Destroy(r)
+				http.Redirect(w, r, cfg.LogoutPage(conn, cfg.State(conn)), http.StatusTemporaryRedirect)
+				return
+			}
+			//login
 			http.Redirect(w, r, conn.AuthURL(cfg, cfg.State(conn)), http.StatusFound)
 		})
 
@@ -126,18 +143,20 @@ func AddAuthService(handler Handler, cfg AppAuthConfig, conn AuthServiceConnecto
 				return
 			}
 			state := r.URL.Query().Get(conn.StateValueName())
-			session := mgr.Generate(conn.Name(), trans, r, code)
-			mgr.AssociateCookie(w, session)
+			session, err := cm.Generate(conn.Name(), trans, r, code)
+			if err!=nil {
+				error_msg := fmt.Sprintf("failed to create session")
+				http.Redirect(w, r, cfg.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
+				return
+			}
+			cm.AssociateCookie(w, session)
 			http.Redirect(w, r, cfg.SuccessPage(conn, state), http.StatusTemporaryRedirect)
 		})
 }
 
 
 func toWebUIPath(s string) string {
-	dir, file := filepath.Split(s)
-	pieces := strings.Split(file, ".")
-	last:=pieces[1]
-	return fmt.Sprintf("%s_%s.%s.%s",dir,pieces[0],last,last)
+	return fmt.Sprintf("/out%s",s)
 }
 
 

@@ -55,6 +55,12 @@ func NotImplemented() (string, *Error) {
 	return "", &Error{http.StatusNotImplemented, "", "Not implemented"}
 }
 
+//NotAuthorized returns an http 401.  This happens automatically if AllowReader, AllowWriter, or
+//Allower refuse access.
+func NotAuthorized() (string, *Error) {
+	return "", &Error{http.StatusForbidden, "", "Not authorized"}
+}
+
 //InternalErr is a convenience for returning a 501 when an error has been found at the go level.
 func InternalErr(err error) (string, *Error) {
 	return "", &Error{http.StatusInternalServerError, "", err.Error()}

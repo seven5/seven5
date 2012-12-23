@@ -19,7 +19,8 @@ type Handler interface {
 	//Dispatch is the function that dispatches method calls to rest level resources.  This is
 	//where to hook tests of the back end functionality because it does not have dependencies
 	//on the network.
-	Dispatch(method string, uriPath string, header map[string]string, queryParams map[string]string, body string) (string, *Error)
+	Dispatch(method string, uriPath string, header map[string]string, queryParams map[string]string, 
+		body string, session Session) (string, *Error)
 	//AddResourceByName maps the (singular) resourceName into the url space.  The name should not include 
 	//any slashes or spaces as this will trigger armageddon and destroy all life on this planet.  The second
 	//parameter is the underlying type that is passed over the wire; it must be a struct or a pointer to one.

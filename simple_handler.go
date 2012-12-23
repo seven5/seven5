@@ -19,13 +19,19 @@ type SimpleHandler struct {
 	mux *http.ServeMux
 	//doc handling
 	dispatch map[string]*Dispatch
+	//the cookie mapper, if you want one
+	cookieMapper CookieMapper
 }
 
-//NewSimpleHandler creates a new SimpleHandler with an empty URL space. 
-func NewSimpleHandler() *SimpleHandler {
+//NewSimpleHandler creates a new SimpleHandler with an empty URL space.  If you pass a cookie
+//mapper, it will be used to "find" the sessions from requests.  Note that this cookie mapper
+//is ONLY used for resource requests.
+func NewSimpleHandler(cm CookieMapper) *SimpleHandler {
 	return &SimpleHandler{
-		mux:      http.NewServeMux(),
-		dispatch: make(map[string]*Dispatch)}
+		mux:            http.NewServeMux(),
+		dispatch:       make(map[string]*Dispatch),
+		cookieMapper: cm,
+	}
 }
 
 //ServeMux returns the underlying ServeMux that can be used to register additional HTTP
@@ -51,13 +57,12 @@ func (self *SimpleHandler) ServeMux() *http.ServeMux {
 func (self *SimpleHandler) AddExplicitResourceMethods(resourceName string, r interface{},
 	indexer Indexer, finder Finder, poster Poster, puter Puter, deleter Deleter) {
 
-
 	if resourceName == "" || strings.Index(resourceName, " ") != -1 || strings.Index(resourceName, "/") != -1 {
 		panic(fmt.Sprintf("bad resource name: '%s', no spaces or slashes allowed", resourceName))
 	}
-	
+
 	d := NewDispatch(resourceName, r, indexer, finder, poster, puter, deleter)
-		
+
 	withSlashes := fmt.Sprintf("/%s/", strings.ToLower(resourceName))
 	self.mux.Handle(withSlashes, self)
 	self.dispatch[withSlashes] = d
@@ -129,7 +134,24 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 		}
 		curr += n
 	}
-	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams, string(limitedData[0:curr]))
+
+	//if available, get a session
+	var session Session
+	if self.cookieMapper != nil {
+		var err error
+		session, err = self.cookieMapper.Session(req)
+		if err!=nil && err!=NO_SUCH_COOKIE {
+			http.Error(writer, fmt.Sprintf("can't create session:%s", err), http.StatusInternalServerError)
+			return
+		}
+		if session == nil {
+			fmt.Printf("dropping cookie, can't match it to a session\n")
+			self.cookieMapper.RemoveCookie(writer)
+		}
+	}
+
+	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams,
+		string(limitedData[0:curr]), session)
 	if err != nil && err.StatusCode == http.StatusNotFound {
 		self.mux.ServeHTTP(writer, req)
 	} else {
@@ -142,7 +164,7 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 //It generates some errors itself if, for example a 404 or 501 is needed.
 //I borrowed lots of ideas and inspiration from "github.com/Kissaki/rest2go"
 func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[string]string,
-	queryParams map[string]string, body string) (string, *Error) {
+	queryParams map[string]string, body string, session Session) (string, *Error) {
 
 	matched, id, d := self.resolve(uriPath)
 	if matched == "" {
@@ -153,7 +175,13 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 	case "GET":
 		if len(id) == 0 {
 			if d.Index != nil {
-				return d.Index.Index(header, queryParams)
+				allowReader, ok := d.Index.(AllowReader)
+				if ok {
+					if !allowReader.AllowRead(session) {
+						return NotAuthorized()
+					}
+				}
+				return d.Index.Index(header, queryParams, session)
 			} else {
 				//log.Printf("%T isn't an Indexer, returning NotImplemented", someResource)
 				return NotImplemented()
@@ -166,7 +194,13 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			}
 			//resource id is a number, try to find it
 			if d.Find != nil {
-				return d.Find.Find(Id(num), header, queryParams)
+				allow, ok:=d.Index.(Allower)
+				if ok {
+					if !allow.Allow(Id(num),"GET",session) {
+						return NotAuthorized()
+					}
+				}
+				return d.Find.Find(Id(num), header, queryParams, session)
 			} else {
 				return NotImplemented()
 			}
@@ -181,7 +215,14 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 		if d.Post == nil {
 			return NotImplemented()
 		}
-		return d.Post.Post(header, queryParams, body)
+		allowWriter, ok:=d.Post.(AllowWriter)
+		if ok {
+			if !allowWriter.AllowWrite(session) {
+				return NotAuthorized()
+			}
+		}
+		
+		return d.Post.Post(header, queryParams, body, session)
 	//these two are really similar
 	case "PUT", "DELETE":
 		if id == "" {
@@ -198,12 +239,24 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			if d.Put == nil {
 				return NotImplemented()
 			}
-			return d.Put.Put(num, header, queryParams, body)
+			allow, ok:=d.Put.(Allower)
+			if ok {
+				if !allow.Allow(Id(num),"PUT",session) {
+					return NotAuthorized()
+				}
+			}
+			return d.Put.Put(num, header, queryParams, body, session)
 		} else {
 			if d.Delete == nil {
 				return NotImplemented()
 			}
-			return d.Delete.Delete(num, header, queryParams)
+			allow, ok:=d.Delete.(Allower)
+			if ok {
+				if !allow.Allow(Id(num),"DELETE",session) {
+					return NotAuthorized()
+				}
+			}
+			return d.Delete.Delete(num, header, queryParams, session)
 		}
 	}
 
@@ -302,8 +355,8 @@ func (self *SimpleHandler) Describe(uriPath string) *APIDoc {
 	d := self.dispatch[path]
 	result.Name = reflect.TypeOf(d.ResType).Name()
 	result.Field = d.Field
-	result.ResourceName = strings.Replace(path,"/","",-1)
-	
+	result.ResourceName = strings.Replace(path, "/", "", -1)
+
 	if d.Find != nil {
 		result.Find = true
 		result.FindDoc = d.Find.FindDoc()

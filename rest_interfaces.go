@@ -43,8 +43,9 @@ type BodyDocSet struct {
 type Indexer interface {
 	//Index returns either a json array of objects or an error.  
   //headers is a map from header name to value (not values, as in HTTP).
-  //queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
-	Index(headers map[string]string,queryParams map[string]string) (string,*Error)  
+  //queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar).
+	//session can be nil but if present represents the currently logged in user's session.
+	Index(headers map[string]string,queryParams map[string]string, session Session) (string,*Error)  
 	//IndexDoc returns documentation information about the parameters and return results of the Index() call.
 	IndexDoc() *BaseDocSet
 }
@@ -59,7 +60,8 @@ type Finder interface {
 	//id will be non-negative
   //headers is a map from header name to value (not values, as in HTTP)
   //queryParams, ala (?foo=bar) is a map from query parameter name (foo) to value (bar)
-	Find(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)
+	//session can be nil but if present represents the currently logged in user's session.
+	Find(id Id, headers map[string]string, queryParams map[string]string, session Session) (string,*Error)
 	//FindDoc returns documentation information about the parameters and results the Find call.
 	FindDoc() *BaseDocSet
 }
@@ -69,10 +71,11 @@ type Finder interface {
 //The instance returned should include all the necessary fields set to default (acceptable) values.
 //Most implementations will take a body that is json to have the client indicate paramters
 //needed for creation.  This call is obviously not idempotent, but idempotent is a cool word anyway.
+//session can be nil but if present represents the currently logged in user's session.
 type Poster interface {
 	//Returns a new object in the string return (json encoded).  The body is used by most clients
 	//to indicate parameters for the creation of the object.
-	Post(headers map[string]string, queryParams map[string]string, body string) (string,*Error)
+	Post(headers map[string]string, queryParams map[string]string, body string, session Session) (string,*Error)
 	//PostDoc returns information about the parameters to and results from the Post() call.
 	PostDoc() *BodyDocSet
 }
@@ -82,9 +85,10 @@ type Poster interface {
 //id. Typically the caller sends the new values as json in the body, although we parse the body
 //as an HTTP form (up to a given size limit) and put the parsed values in queryParams. 
 //This call should be idempotent, because idempotency is fun to say.
+//session can be nil but if present represents the currently logged in user's session.
 type Puter interface {
 	//Returns the new values.
-	Put(id Id, headers map[string]string, queryParams map[string]string, body string) (string,*Error)
+	Put(id Id, headers map[string]string, queryParams map[string]string, body string, session Session) (string,*Error)
 	//PutDoc returns information about the parameters to and results from the Put() call.
 	PutDoc() *BodyDocSet
 }
@@ -93,9 +97,10 @@ type Puter interface {
 //return the full object state at the time of the delete.  This must be called on a particular instance 
 //named by the id and that object is terminated with extreme predjudice. 
 //This call is not idempotent, yet is potent.
+//session can be nil but if present represents the currently logged in user's session.
 type Deleter interface {
 	//Returns the values at the time of the deletion.
-	Delete(id Id, headers map[string]string, queryParams map[string]string) (string,*Error)
+	Delete(id Id, headers map[string]string, queryParams map[string]string, session Session) (string,*Error)
 	//DeleteDoc returns information about the parameters to and results of the Delete() call.
 	DeleteDoc() *BaseDocSet 
 }

@@ -78,7 +78,7 @@ func (self *GoogleAuthConn) StateValueName() string {
 //GoogleUser represents the fields that you can extract about a user who uses oauth to log
 //in via their gmail/google account.
 type GoogleUser struct {
-	Id         string `json:"id"`
+	GoogleId   string `json:"id"`
 	Email      string `json:"email"`
 	Name       string `json:"name"`
 	GivenName  string `json:"given_name"`
