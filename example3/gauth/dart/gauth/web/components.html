@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  </head>
+
+  <body>
+	<element name="x-login-logout-button" constructor="LoginLogoutButton" extends="p">
+	    <template>
+			<p>
+				<content></content>
+			</p>
+	    </template>	
+	    <script type="application/dart">
+	      import 'package:web_ui/web_ui.dart';
+		      class LoginLogoutButton extends WebComponent {
+				void turnOffAllButtons() {
+					print("turn them all off");
+				}
+		      }
+	    </script>
+	  </element>
+	</body>
+</html>

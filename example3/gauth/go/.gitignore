@@ -1,0 +1,10 @@
+bin/*
+pkg/*
+src/seven5
+src/seven5tool
+src/github.com/*
+src/code.google.com/*
+oauth
+*repl
+
+

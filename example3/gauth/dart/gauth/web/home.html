@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Gauth (Example 3)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="User management system demo.">
+    <meta name="author" content="Ian Smith">
+    <link rel="components" href="components.html">
+
+    <!-- Le styles -->
+    <link href="/assets/css/bootstrap.css" rel="stylesheet">
+    <style type="text/css">
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
+      }
+	  .right {
+		float:right;
+	}
+	  .center {
+		text-align:center;
+	}
+    </style>
+    <link href="/assets/css/bootstrap-responsive.css" rel="stylesheet">
+
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- bootstraps the Dart VM and handles non-Dart browsers -->
+    <script type="text/javascript"
+      src="http://dart.googlecode.com/svn/trunk/dart/client/dart.js">
+    </script>
+	<script type="application/dart">
+	import "package:gauth/src/main.dart";
+	import "dart:html";
+	main() {
+		Main.CheckLogin();
+	}
+	</script>
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Main hero unit for a primary marketing message or call to action -->
+      <div class="hero-unit">
+        <h1>Howdy! Welcome To Gauth!</h1>
+        <p>Gauth is a sample program for <em>Seven5</em> that uses google for authentication
+			and Dart web ui for the front end.</p>
+		<a href="/auth/google" id="login" class="btn btn-primary btn-large invisible">
+			Sign In With Google &raquo;</a>
+		<a href="/auth/google?logout=true" id="logout" 
+		class="right btn btn-info btn-large invisible">
+			&laquo; Sign Out </a>
+      </div>
+      <!-- Example row of columns -->
+      <div class="row">
+        <div class="span4">
+          <h2>Google Setup</h2>
+          <p>Go to the <a href="https://code.google.com/apis/console/">Google API Console</a>
+		and then click on "API Access" in the left column.  Create a new application and
+		then fill out the "New Client Id" form like the first screenshot below (left).
+		
+		
+		After you are done, you should see your new client id like the second (right) screenshot
+		below.
+		</p>
+		<A href="https://www.evernote.com/shard/s238/sh/88329bc4-42f7-4a05-b3d3-91d2e9c0b4a4/e3751707cd37ceb345c7a8cae998469d/res/d86eb711-3fd5-4666-b136-cf5c9d7d5696/skitch.png"><img width="100px" height="87px" src="https://www.evernote.com/shard/s238/sh/88329bc4-42f7-4a05-b3d3-91d2e9c0b4a4/e3751707cd37ceb345c7a8cae998469d/res/d86eb711-3fd5-4666-b136-cf5c9d7d5696/skitch.png"/></A>. 
+		
+		 <A href="https://www.evernote.com/shard/s238/sh/d7c5bb44-db7a-4b7a-be4b-89e257832edc/4b60a320f4a7fd2092bc2c614e589c0d/res/1444cb73-a0f4-4419-b658-6e1419963b19/skitch.png"><img height="26px" width="100px" src="https://www.evernote.com/shard/s238/sh/d7c5bb44-db7a-4b7a-be4b-89e257832edc/4b60a320f4a7fd2092bc2c614e589c0d/res/1444cb73-a0f4-4419-b658-6e1419963b19/skitch.png"/></A>.
+       </div>
+       <div class="span4">
+         <h2>Environment Variables</h2>
+         <p>Gauth uses <em>Seven5's</em> default scheme for environment variables.  You'll need
+		have <code>GAUTH_TEST</code> set to a non empty value.  This tells seven5 to use
+		<code>localhost</code> for the server rather than an internet service like 
+		<a href="http://www.heroku.com">Heroku</a>.  You'll need to have
+		<code>GAUTH_GOOGLE_CLIENT_ID</code> set to the client id assigned to your program
+		by google.  Finally, you'll need to have
+		<code>GAUTH_GOOGLE_CLIENT_SECRET</code> set the secret assigned to you by google.  Both
+		of these values are shown in the second screenshot to the left. </p>
+       </div>
+        <div class="span4">
+          <h2>Heroku</h2>
+          <p>If you want to push to heroku you'll need to create a heroku app using our
+			special seven5 buildpack:  <code>heroku create myapp --buildpack https://github.com/seven5/heroku-buildpack-go</code> and the add "https://myapp.herokuapp.com"
+			to both of the fields in the google API console shown in the left column.  Note
+			that the heroku url <em>is</em> "https" not "http". You also need use 
+			<code>heroku config:add GAUTH_GOOGLE_CLIENT_ID=yourGoogleId</code> to add both
+			the client id and the <code>GAUTH_GOOGLE_CLIENT_SECRET</code> to your heroku 
+			config.  You should <em>not</em> set <code>GAUTH_TEST</code> into the heroku config!
+        </div>
+      </div>
+
+      <hr>
+
+     <footer>
+        <p>&copy; Seven5 is restful with remorse or pity.  But we pity the fools.</p>
+      </footer>
+
+    </div> <!-- /container -->
+
+  </body>
+</html>

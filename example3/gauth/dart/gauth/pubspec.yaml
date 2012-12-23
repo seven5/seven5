@@ -1,0 +1,12 @@
+name: gauth
+version: 0.1.0
+description: >
+  Gauth is a sample application that demonstrates using google authentication and dart
+  web components.
+author: Ian Smith <iansmith@acm.org>
+homepage: http://seven5.github.com/seven5
+dependencies:
+  unittest: any
+  web_ui: any
+  
+  
