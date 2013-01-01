@@ -7,78 +7,24 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
-//FileFlavor is used to "find" parts of your application at run-time. Use of these constants
-//means that if the default project layout changes you only have to move your files around,
-//not change your code.
-type FileFlavor int
 
-const (
-	GO_SOURCE_FLAVOR = iota
-	DART_FLAVOR
-	ASSET_FLAVOR
-	TOP_LEVEL_FLAVOR
-)
-
-//ProjectObjectFromGOPATH computes a directory inside a seven5 project that has the default
-//layout.  You need to supply a project name and the directory you are looking for.  If
-//you set
-//
-//For project foo, the default layout is:
-// foo/
-//    Procfile
-//    .godir
-//    dart/
-//					foo/
-//					      web/
-//					      			assets/
-//                pubspec.yaml
-//                pubspec.lock
-//                packages/
-//                ...
-//    db/
-//    go/
-//         bin/
-//         pkg/
-//         src/
-//               foo/
-//                     runfoo/
-//                     				main.go
-
-func ProjectObjectFromGOPATH(target string, projectName string, flavor FileFlavor) (string, error) {
-	env := os.Getenv("GOPATH")
-	if env == "" {
-		return "", BAD_GOPATH
-	}
-	pieces := strings.Split(env, ":")
-	if len(pieces) > 1 {
-		env = pieces[0]
-	}
-	switch flavor {
-	case GO_SOURCE_FLAVOR:
-		return filepath.Join(env, "src", target), nil
-	case DART_FLAVOR:
-		return filepath.Join(filepath.Dir(env), "dart", projectName, target), nil
-	case ASSET_FLAVOR:
-		return filepath.Join(filepath.Dir(env), "dart", projectName, "assets", target), nil
-	case TOP_LEVEL_FLAVOR:
-		return filepath.Join(filepath.Dir(env), target), nil
-	}
-	panic("unknown type of object searched for in the project!")
-}
 
 //StaticDartContent adds an http handler for the content subdir of a dart app.  The project
 //name is the subdir of 'dart' so the content is dart/projectName/web.  The prefix
-//can be used if you don't want the static content mounted at '/' (the default).  IF
+//can be used if you don't want the static content mounted at '/' (the default).  If
 //you supply a prefix, it should end with /.
-func StaticDartContent(h Handler, projectName string, prefix string) {
+func StaticDartContent(h Handler, projectName string, prefix string, env Environment) {
 	//setup static content
-	truePath, err := ProjectObjectFromGOPATH("web", projectName, DART_FLAVOR)
+	truePath, err := env.ProjectObject("web", projectName, DART_FLAVOR)
 	if err != nil {
 		log.Fatalf("can't understand GOPATH or not using default project layout: %s", err)
+	}
+	_, err= os.Open(truePath)
+	if err!=nil {
+		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
 	if prefix == "" || prefix == "/" {
 		h.ServeMux().Handle("/", http.FileServer(http.Dir(truePath)))
@@ -98,10 +44,9 @@ func GeneratedContent(h Handler, urlPath string) {
 }
 
 //Seven5Content maps internal handlers to be inside the urlPath provided.
-func Seven5Content(h Handler, urlPath string, projectName string) {
-	if projectName != "" {
-		h.ServeMux().HandleFunc(fmt.Sprintf("%spublicsetting/%s/", urlPath, projectName), publicSettingHandler)
-	}
+func Seven5Content(h Handler, urlPath string) {
+	h.ServeMux().HandleFunc(fmt.Sprintf("%ssupport", urlPath), 
+		generateStringPrinter(seven5_dart,"text/plain"))
 }
 
 //SetIcon creates a go handler in h that will return an icon to be displayed in response to /favicon.ico.
@@ -203,6 +148,12 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 	}
 }
 
+const LIBRARY_INFO=`
+library generated;
+import '/seven5/support';
+import 'dart:json';
+`
+
 //generateDartFunc returns a function that outputs text string for all the dart code
 //in the system.
 func generateDartFunc(desc []*APIDoc) func(http.ResponseWriter, *http.Request) {
@@ -211,6 +162,8 @@ func generateDartFunc(desc []*APIDoc) func(http.ResponseWriter, *http.Request) {
 	resourceStructs := []*FieldDescription{}
 	supportStructs := []*FieldDescription{}
 
+	text.WriteString(LIBRARY_INFO)
+	
 	//generate code for known resources
 	for _, d := range desc {
 		text.WriteString(generateDartForResource(d))
@@ -237,12 +190,11 @@ func generateDartFunc(desc []*APIDoc) func(http.ResponseWriter, *http.Request) {
 //mount point /generated.  If you call DefaultProjectBindings you don't need to worry
 //about calling StaticDefaultContent or GeneratedContent.  Note that this should be called
 //_after_ all resources are added to the handler as there is caching of the generated
-//code.  If the project name is "" then the publicsetting.json file will not be read and
-//no settings will be visible from the client side (nothing at /seven5/publicsetting)
-func DefaultProjectBindings(h Handler, projectName string) http.Handler {
-	StaticDartContent(h, projectName, "/")
+//code.  
+func DefaultProjectBindings(h Handler, projectName string, env Environment) http.Handler {
+	StaticDartContent(h, projectName, "/", env)
 	GeneratedContent(h, "/generated/")
-	Seven5Content(h, "/seven5/", projectName)
+	Seven5Content(h, "/seven5/")
 	SetIcon(h, gopher_ico)
 	return h
 }

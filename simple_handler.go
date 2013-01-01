@@ -144,7 +144,7 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 			http.Error(writer, fmt.Sprintf("can't create session:%s", err), http.StatusInternalServerError)
 			return
 		}
-		if session == nil {
+		if session == nil && err!=NO_SUCH_COOKIE {
 			fmt.Printf("dropping cookie, can't match it to a session\n")
 			self.cookieMapper.RemoveCookie(writer)
 		}
