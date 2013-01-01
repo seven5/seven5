@@ -1,6 +1,0 @@
-{
-    "you can put key value pairs in this file": "and they are visible as /seven5/secret/italy/keyname",
-
-	"remove the xx from the beginning of the key below":"and change the value to your google maps api key",
-	"xxgoogle-maps-api-key": "your api key goes here",
-}

@@ -12,5 +12,5 @@ This example program gives you information about a few italian cities.
 
 Don't forget to set your GOPATH to
 
-    export GOPATH=/path/to/examples/example1/go
+    export GOPATH=/path/to/examples/example1/italy/go
 

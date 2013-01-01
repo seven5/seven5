@@ -1,0 +1,10 @@
+name: italy
+version: 0.1.0
+description: >
+  Italy is a simple example application that uses dart web components for the front end.
+author: Ian Smith <iansmith@acm.org>
+homepage: http://seven5.github.com/seven5
+dependencies:
+  web_ui: any
+  
+  
