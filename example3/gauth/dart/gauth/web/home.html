@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="User management system demo.">
     <meta name="author" content="Ian Smith">
-    <link rel="components" href="components.html">
 
     <!-- Le styles -->
     <link href="/assets/css/bootstrap.css" rel="stylesheet">
@@ -34,10 +33,10 @@
       src="http://dart.googlecode.com/svn/trunk/dart/client/dart.js">
     </script>
 	<script type="application/dart">
-	import "package:gauth/src/main.dart";
+	import "package:gauth/src/app.dart";
 	import "dart:html";
 	main() {
-		Main.CheckLogin();
+		App.LoadSelf(false);
 	}
 	</script>
   </head>
@@ -49,12 +48,50 @@
         <h1>Howdy! Welcome To Gauth!</h1>
         <p>Gauth is a sample program for <em>Seven5</em> that uses google for authentication
 			and Dart web ui for the front end.</p>
-		<a href="/auth/google" id="login" class="btn btn-primary btn-large invisible">
-			Sign In With Google &raquo;</a>
-		<a href="/auth/google?logout=true" id="logout" 
-		class="right btn btn-info btn-large invisible">
-			&laquo; Sign Out </a>
-      </div>
+		<div id="buttonrow">
+			<!--shown if we are not logged in-->
+			<template instantiate="if App.me == null">
+			<a href="/auth/google" id="login" class="btn btn-primary btn-large">
+				Sign In With Google &raquo;</a>
+			</template>
+			
+			<!--shown if we are logged in-->
+			<template instantiate="if App.me != null">
+				<a href="/out/main.html" class="btn btn-primary">
+					<span>
+						{{App.me.Name}}
+					</span>
+					<img width="32px" height="32px" class="img-rounded" src="{{App.me.Pic}}"/>
+				</a>
+			</template>
+			
+			<!-- shown if we are staff -->
+			<template instantiate="if App.meta != null">
+				<a href="/out/allusers.html" class="btn btn-primary">
+					<span>
+						{{App.meta.NumberUsers}} Users
+					</span>
+					<img width="32px" height="32px" class="img-rounded" src="/assets/img/users.jpeg"/>
+				</a>
+			</template>
+			
+			<!--shown if we are logged in-->
+			<template instantiate="if App.me != null">
+				<a href="/auth/google?logout=true" id="logout" 
+					class="right btn btn-info btn-large">
+					&laquo; Sign Out 
+				</a>
+			</template>
+       </div>
+		<!--if logged in, show the information about how to see the code -->
+		<template instantiate="if App.me != null">
+			<br/>
+			<A href="/packages/gauth/gauth.dart">Show The Machine-Generated Dart Code</A>
+			<br/>
+			<A href="/gauthuser">Show Example Machine-Generated JSON Wire Value</A>
+		</template>
+
+	</div> <!--hero unit-->
       <!-- Example row of columns -->
       <div class="row">
         <div class="span4">
@@ -91,9 +128,8 @@
 			<code>heroku config:add GAUTH_GOOGLE_CLIENT_ID=yourGoogleId</code> to add both
 			the client id and the <code>GAUTH_GOOGLE_CLIENT_SECRET</code> to your heroku 
 			config.  You should <em>not</em> set <code>GAUTH_TEST</code> into the heroku config!
-        </div>
       </div>
-
+	</div> <!--row -->
       <hr>
 
      <footer>

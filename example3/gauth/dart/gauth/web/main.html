@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Gauth (Example 3)  Edit Self</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="User management system demo.">
+    <meta name="author" content="Ian Smith">
+
+    <!-- Le styles -->
+    <link href="/assets/css/bootstrap.css" rel="stylesheet">
+    <style type="text/css">
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
+      }
+    </style>
+    <link href="/assets/css/bootstrap-responsive.css" rel="stylesheet">
+
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- bootstraps the Dart VM and handles non-Dart browsers -->
+    <script type="text/javascript"
+      src="http://dart.googlecode.com/svn/trunk/dart/client/dart.js">
+    </script>
+	<script type="application/dart">
+	import "package:gauth/src/app.dart";
+	import "dart:html";
+	main() {
+		App.LoadSelf(true);
+	}
+	</script>
+  </head>
+
+  <body>
+    <div class="container">
+		<div class="well">
+
+		<template instantiate="if App.me != null">
+			<form>
+  				<fieldset>
+    				<legend>Edit Your User Info</legend>
+					<label>Gauth User Id</label>
+					<span class="muted">{{App.me.Id}}</span>
+    				<span class="help-block">User Id assigned to you by this application.</span>
+					<label>Google Id</label>
+					<span class="muted">{{App.me.GoogleId}}</span>
+    				<span class="help-block">User Id assigned to you by google.</span>
+    				<label>Name</label>
+    				<input type="text" bind-value="App.me.Name">
+    				<span class="help-block">Should be both a first and last name.</span>
+    				<label>Email</label>
+    				<input type="text" bind-value="App.me.Email">
+    				<label>Picture</label>
+    				<input type="text" bind-value="App.me.Pic">
+					<div class="form-actions">
+					  <button type="button" on-click="App.UpdateSelf()" class="btn btn-primary">Save Changes</button>
+					  <button type="button" on-click="App.CancelEdit()" class="btn">Cancel</button>
+					</div>
+  				</fieldset>
+			</form>
+		</template>
+	</div> <!--well-->
+     <hr>
+	
+     <footer>
+        <p>&copy; Seven5 is restful with remorse or pity.  But we pity the fools.</p>
+      </footer>
+
+    </div> <!-- /container -->

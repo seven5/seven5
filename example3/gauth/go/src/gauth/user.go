@@ -3,6 +3,8 @@ package gauth
 import (
 	"fmt"
 	"seven5" //githubme:seven5:
+	"strings"
+	"encoding/json"
 )
 
 //WIRE resource for a user, properties must be public for JSON encoder... all the objects must
@@ -17,8 +19,9 @@ type GauthUser struct {
 
 //This is the type we use internally, includes extra fields not visible to client side.  Note
 //that there is no risk of exposing the type because 1) the extra fields are lower case so
-//nobody outside this code can see them, including the json encoder and 2) if returned
-//to seven5 instead of a *GauthUser, seven5 will panic.
+//nobody outside this package can see them, including the json encoder and 2) if returned
+//to seven5 instead of a *GauthUser, seven5 will panic because isStaff is not of a type it
+//defines.
 type GauthUserInternal struct {
 	*GauthUser
 	isStaff bool
@@ -91,6 +94,7 @@ func (STATELESS *GauthUserResource) Index(headers map[string]string,
 	qp map[string]string, session seven5.Session) (string, *seven5.Error) {
 
 	internal := GauthUserFromSession(session, true)
+	
 	//normal case, should be a list of size one
 	list := []*GauthUser{internal.GauthUser}
 	_, haveSelf := qp["self"]
@@ -150,7 +154,82 @@ func (STATELESS *GauthUserResource) FindDoc() *seven5.BaseDocSet {
 	}
 }
 
-//Users can only call Find, and Put methods on themselves.  Users cannot call delete.  
+//Put returns the values of the object, after all changes. 
+func (STATELESS *GauthUserResource)	Put(id seven5.Id, headers map[string]string, 
+	queryParams map[string]string, body string, session seven5.Session) (string,*seven5.Error){
+		
+	var user *GauthUserInternal
+	var client GauthUser
+	
+	for _, v:= range knownUsers {
+		if v.Id == id {
+			user = v
+			break
+		}
+	}
+	if user==nil {
+		return seven5.BadRequest("unacceptable id")
+	}
+	
+	dec:= json.NewDecoder(strings.NewReader(body))
+	err := dec.Decode(&client)
+	if err!=nil {
+		return seven5.BadRequest(fmt.Sprintf("badly formed body: %s", err))
+	}
+	
+	if user.Email!=client.Email && client.Email!="" {
+		user.Email = client.Email
+	}
+	if user.Name!=client.Name  && user.Name!=""{
+		user.Name = client.Name
+	}
+	
+	if user.Pic!=client.Pic && user.Pic!="" {
+		user.Pic = client.Pic
+	}
+	
+	return seven5.JsonResult(&user.GauthUser,true)
+}
+
+//PutDoc returns information about the parameters to and results from the Put() call.  Note
+//that this can only be called by logged in users and normal users can only change their
+//own data.
+func (STATELESS *GauthUserResource) PutDoc() *seven5.BodyDocSet {
+	return &seven5.BodyDocSet {
+		"This method ignores headers supplied by the client.",
+		"This method ignores query parameters supplied by the client.",
+		"The result of this method is the full description of the modified object, after all the "+
+		"updates have been made.",
+		"The body of the put should be a Gauth object in json form.  This method will ignore "+
+		"attempts to change the Id or GoogleId fields.",
+	}
+	
+}
+
+///////////////////////////////////
+// ALLOWED ACTION SECTION
+///////////////////////////////////
+
+//AllowRead checks to insure that you have a session before you are allowed to call
+//GET (Indexer) on this resource.
+func (STATELESS *GauthUserResource) AllowRead(session seven5.Session) bool {
+	return session!=nil
+}
+
+//AllowWrite checks to insure that you are logged in as a staff user to do a POST
+//(Poster) on this resource. The side effect of POST is to create a new user, so
+//this is not allowed except for staff members.
+func (STATELESS *GauthUserResource) AllowWrite(session seven5.Session) bool {
+	u := GauthUserFromSession(session, false)
+	//not logged in?
+	if u == nil {
+		return false
+	}
+	return u.isStaff 
+}
+
+
+//Users can only call Find, and Put methods on themselves.  Users cannot call DELETE.  
 //Staff members can call any method on any id.
 func (STATELESS *GauthUserResource) Allow(id seven5.Id, method string, session seven5.Session) bool {
 	u := GauthUserFromSession(session, false)
@@ -165,19 +244,4 @@ func (STATELESS *GauthUserResource) Allow(id seven5.Id, method string, session s
 		return false
 	}
 	return u.Id == id
-}
-
-//You have to have a session to call GET
-func (STATELESS *GauthUserResource) AllowRead(session seven5.Session) bool {
-	return session!=nil
-}
-
-//You have to be staff to call POST
-func (STATELESS *GauthUserResource) AllowWrite(session seven5.Session) bool {
-	u := GauthUserFromSession(session, false)
-	//not logged in?
-	if u == nil {
-		return false
-	}
-	return u.isStaff 
 }

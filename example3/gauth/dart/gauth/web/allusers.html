@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Gauth (Example 3)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="User management system demo.">
+    <meta name="author" content="Ian Smith">
+
+    <!-- Le styles -->
+    <link href="/assets/css/bootstrap.css" rel="stylesheet">
+    <style type="text/css">
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
+      }
+    </style>
+    <link href="/assets/css/bootstrap-responsive.css" rel="stylesheet">
+
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- bootstraps the Dart VM and handles non-Dart browsers -->
+    <script type="text/javascript"
+      src="http://dart.googlecode.com/svn/trunk/dart/client/dart.js">
+    </script>
+	<script type="application/dart">
+	import "package:gauth/src/app.dart";
+	import "dart:html";
+	main() {
+		App.LoadSelf(true);
+	}
+	</script>
+  </head>
+
+<body>
+<div class="container-fluid">
+	<template instantiate="if App.meta != null && App.all != null">
+		<div class="row-fluid">
+			<div class="span3">
+				<ul>
+					<template iterate='user in App.all'>
+	        			<li>
+							<a class="btn" on-click="App.SelectUser({{user.GoogleId}})">
+								<img width="32px" height="32px" class="img-rounded" src="{{user.Pic}}"/>
+								<span>{{user.Name}}</span>
+							</a>
+						</li>
+	      			</template>
+				</ul>
+			</div> <!--left -->
+			<div class="span9">
+			</div> <!--right -->
+		</div> <!--row -->
+	</template>
+<hr>
+
+<footer>
+	<p>&copy; Seven5 is restful with remorse or pity.  But we pity the fools.</p>
+</footer>
+
+</div> <!-- /container -->
+
+</body>
+</html>
