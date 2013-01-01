@@ -32,7 +32,7 @@ class App {
 		if (req.status==403) {
 			App.ChangeSelf(null);
 			if (returnToHome) {
-				document.window.location = "/out/home.html";
+				document.window.location.href = "/out/home.html";
 			}
 		} else {
 			print("Unexpected error trying to check for logged in: ${req.status}, ${req.responseText}");
@@ -81,24 +81,24 @@ class App {
 		watchers.dispatch();
 	}
 	//UpdateSelf is called when the user presses the "Submit" button on the form that changes
-	//the user's data.  The data entered will already in be pushed into App.me so all that is
-	//necessary is call Put() to push it to the server.
-	static void UpdateSelf() {
-		App.me.Put(App.UpdateOk, App.UpdateError);
+	//the user's data or when the user's data is updated by a staff member. The parameter will
+	//have its data already set by the web component, so all that is necessary is call Put() 
+	//to push it to the server.
+	static void UpdateUser(GauthUser user) {
+		user.Put(App.UpdateOk, App.UpdateError);
 	}
 	//CancelEdit is called when the user presses the "Cancel" button on the form to edit their
 	//own data.  Because this immediately loads another page, the data (the changes) in 
 	//data.me will be lost.
 	static void CancelEdit() {
-		document.window.location = "/out/home.html";
+		document.window.location.href = "/out/home.html";
 	}
 	//UpdateOk is called when we have received confirmation from the server that our PUT has succeeded.
-	//Any changes that were successfully made are in "changed".  The value in App.me is changed to
-	//reflect this, but its relatively useless because we immediately load another page--and of course
-	//that page will see the changes.
+	//Any changes that were successfully made are in "changed".  Note that we are quickly shifting 
+	//to home.html because that will refresh the information in App.me.
 	static void UpdateOk(GauthUser changed, HttpRequest req) {
 		App.ChangeSelf(changed);
-		document.window.location = "/out/home.html";
+		document.window.location.href = "/out/home.html";
 	}
 	//UpdateError is called when our PUT to update our values has failed.  This is not expected so
 	//we just print out an error message.
@@ -123,8 +123,7 @@ class App {
 		watchers.dispatch();
 	}
 	//SelectUser is passed the google id of a user that we want to edit the details of.   
-	static void SelectUser() {
-		//App.detail = u;
-		print("u is ${$event}");
+	static void SelectUser(GauthUser u) {
+		App.detail = u;
 	}
 }

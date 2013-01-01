@@ -7,6 +7,9 @@
     <meta name="description" content="User management system demo.">
     <meta name="author" content="Ian Smith">
 
+	<!--my form component that is shared-->
+    <link rel="components" href="edituser-form.html">
+
     <!-- Le styles -->
     <link href="/assets/css/bootstrap.css" rel="stylesheet">
     <style type="text/css">
@@ -43,7 +46,7 @@
 				<ul>
 					<template iterate='user in App.all'>
 	        			<li>
-							<a class="btn" on-click="App.SelectUser({{user.GoogleId}})">
+							<a class="btn" on-click="App.SelectUser(user)">
 								<img width="32px" height="32px" class="img-rounded" src="{{user.Pic}}"/>
 								<span>{{user.Name}}</span>
 							</a>
@@ -52,6 +55,12 @@
 				</ul>
 			</div> <!--left -->
 			<div class="span9">
+				<template instantiate="if App.detail != null">
+					<div is="x-edituser-form" who="{{'User'}}" user="{{App.detail}}" 
+					 	savedelegate="{{Function () {App.UpdateUser(App.detail);} }}"
+					 	canceldelegate="{{Function () {document.window.location.href  = '/out/home.html';} }}">
+					</div>
+				</template>
 			</div> <!--right -->
 		</div> <!--row -->
 	</template>

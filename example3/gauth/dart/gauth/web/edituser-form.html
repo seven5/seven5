@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<body>
+<element name="x-edituser-form" constructor="EditUserForm" extends="div">
+	<template>
+		<div>
+			<form>
+				<fieldset>
+					<legend>Edit {{who}} Info</legend>
+					<label>Gauth User Id</label>
+					<span class="muted">{{user.Id}}</span>
+					<span class="help-block">User Id assigned to you by this application.</span>
+					<label>Google Id</label>
+					<span class="muted">{{user.GoogleId}}</span>
+					<span class="help-block">User Id assigned to you by google.</span>
+					<label>Name</label>
+					<input type="text" bind-value="user.Name">
+					<span class="help-block">Should be both a first and last name.</span>
+					<label>Email</label>
+					<input type="text" bind-value="user.Email">
+					<label>Picture</label>
+					<input type="text" bind-value="user.Pic">
+					<div class="form-actions">
+		  				<button type="button" on-click="save()" class="btn btn-primary">
+							Save Changes</button>
+		  				<button type="button" on-click="cancel()" class="btn">Cancel</button>
+					</div>
+				</fieldset>
+			</form>
+		</div>
+	</template>
+    <script type="application/dart">
+    import 'package:web_ui/web_ui.dart';
+	import '/generated/dart';
+	
+	class EditUserForm extends WebComponent {
+		GauthUser user;
+		Function savedelegate;
+		Function canceldelegate;
+		String who;
+		void save() {
+			if (savedelegate==null) {
+				print("nothing to do");
+			} else {
+				savedelegate();
+			}
+		}
+		void cancel() {
+			if (canceldelegate==null) {
+				print("nothing to do");
+			} else {
+				canceldelegate();
+			}
+		}
+	}
+	</script>
+</element>
+</body>
+</html>

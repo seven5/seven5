@@ -7,6 +7,9 @@
     <meta name="description" content="User management system demo.">
     <meta name="author" content="Ian Smith">
 
+	<!--my form component that is shared-->
+    <link rel="components" href="edituser-form.html">
+
     <!-- Le styles -->
     <link href="/assets/css/bootstrap.css" rel="stylesheet">
     <style type="text/css">
@@ -39,30 +42,12 @@
     <div class="container">
 		<div class="well">
 
-		<template instantiate="if App.me != null">
-			<form>
-  				<fieldset>
-    				<legend>Edit Your User Info</legend>
-					<label>Gauth User Id</label>
-					<span class="muted">{{App.me.Id}}</span>
-    				<span class="help-block">User Id assigned to you by this application.</span>
-					<label>Google Id</label>
-					<span class="muted">{{App.me.GoogleId}}</span>
-    				<span class="help-block">User Id assigned to you by google.</span>
-    				<label>Name</label>
-    				<input type="text" bind-value="App.me.Name">
-    				<span class="help-block">Should be both a first and last name.</span>
-    				<label>Email</label>
-    				<input type="text" bind-value="App.me.Email">
-    				<label>Picture</label>
-    				<input type="text" bind-value="App.me.Pic">
-					<div class="form-actions">
-					  <button type="button" on-click="App.UpdateSelf()" class="btn btn-primary">Save Changes</button>
-					  <button type="button" on-click="App.CancelEdit()" class="btn">Cancel</button>
-					</div>
-  				</fieldset>
-			</form>
-		</template>
+			<template instantiate="if App.me != null">
+				<div is="x-edituser-form" who="{{'Your'}}" user="{{App.me}}" 
+				 	savedelegate="{{Function () {App.UpdateUser(App.me);} }}"
+				 	canceldelegate="{{Function () {document.window.location.href  = '/out/home.html';} }}">
+				</div>
+			</template>
 	</div> <!--well-->
      <hr>
 	
