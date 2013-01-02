@@ -64,7 +64,7 @@ type ItalianCityResource struct {
 //Index returns a list of italian cities, filtered by the prefix header and the maximum
 //number returned controlled by the max parameter.  
 func (STATELESS *ItalianCityResource) Index(headers map[string]string,
-	qp map[string]string) (string, *seven5.Error) {
+	qp map[string]string, ignored seven5.Session) (string, *seven5.Error) {
 
 	result := []*ItalianCity{}
 	prefix, hasPrefix := headers["Prefix"] //note the capital is always there on headers
@@ -108,7 +108,7 @@ func (STATELESS *ItalianCityResource) IndexDoc() *seven5.BaseDocSet {
 //the query parameters but understands the header 'Round' for rounding pop figures to
 //100K boundaries.
 func (STATELESS *ItalianCityResource) Find(id seven5.Id, hdrs map[string]string,
-	query map[string]string) (string, *seven5.Error) {
+	query map[string]string,ignored seven5.Session) (string, *seven5.Error) {
 
 	r, hasRound := hdrs["Round"] //note the capital is always there on headers
 	n := int64(id)
@@ -141,7 +141,8 @@ func (STATELESS *ItalianCityResource) FindDoc() *seven5.BaseDocSet {
 }
 
 //Returns the values at the time of the deletion if successful.
-func (STATELESS *ItalianCityResource) Delete(id seven5.Id, headers map[string]string, queryParams map[string]string) (string, *seven5.Error) {
+func (STATELESS *ItalianCityResource) Delete(id seven5.Id, headers map[string]string, 
+	queryParams map[string]string,ignored seven5.Session) (string, *seven5.Error) {
 	destroy := haveCity(id)
 
 	if destroy < 0 {
@@ -232,7 +233,8 @@ func (STATELESS *ItalianCityResource) validateCityData(body string, isPut bool, 
 
 //Poster takes the object in the body and tries to create a new instance from it.  The resulting instance
 //is returned if successful.
-func (STATELESS *ItalianCityResource) Post(headers map[string]string, queryParams map[string]string, body string) (string, *seven5.Error) {
+func (STATELESS *ItalianCityResource) Post(headers map[string]string, 
+	queryParams map[string]string, body string, ignored seven5.Session) (string, *seven5.Error) {
 	//we re-validate the fields because it's possible the client is doing something nasty and is too lazy
 	//or just evil, and is sendnig us bad data
 	bodyCity, err := STATELESS.validateCityData(body, false, nil)
@@ -265,7 +267,7 @@ func (STATELESS *ItalianCityResource) PostDoc() *seven5.BodyDocSet {
 
 //Puter takes the object in the body and tries to update the object with the fields provided.
 func (STATELESS *ItalianCityResource) Put(id seven5.Id, headers map[string]string, queryParams map[string]string,
-	body string) (string, *seven5.Error) {
+	body string, ignored seven5.Session) (string, *seven5.Error) {
 
 	var city *ItalianCity
 	for _, cand := range cityData {

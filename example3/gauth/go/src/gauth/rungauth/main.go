@@ -51,7 +51,7 @@ func main() {
 	seven5.DefaultProjectBindings(h, NAME, env)
 
 	//run
-	err := http.ListenAndServe(":3003", logHTTP(h))
+	err := h.ListenAndServe(":3003", logHTTP(h))
 
 	fmt.Printf("Error! Returned from ListenAndServe(): %s", err)
 }

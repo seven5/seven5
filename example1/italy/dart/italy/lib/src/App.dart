@@ -1,13 +1,11 @@
-#import("dart:json");
-#import("dart:html");
-#import("dart:isolate");
-#import("dart:math");
+library italy;
 
-//static code that is always needed ... seven5 support library
-#import("/seven5/seven5.dart");
-
+import 'dart:json';
+import 'dart:html';
+import 'dart:isolate';
+import 'dart:math';
 //generated code derived from the go code
-#source("../generated/dart");
+import '/generated/dart';
 
 int mapCounter = 1;
 int mapRequestDelay = 50; //millis
@@ -93,7 +91,7 @@ void displayUI(List<ItalianCity> cities, String key) {
 	form.attributes['onSubmit']="return false;"; //we're doing the love in DART
 	
 	Element legend = new Element.tag('legend');
-	legend.addText('Add Another City');
+	legend.text='Add Another City';
 	form.nodes.add(legend);
 	
 	//make some input rows
@@ -108,7 +106,7 @@ void displayUI(List<ItalianCity> cities, String key) {
 	
 	Element button = new Element.tag("button");
 	button.classes.add('btn');//twitter bootstrap
-	button.addText("Add");
+	button.text="Add";
 
 	button.on.click.add((Event event) {		
 		ItalianCity c = new ItalianCity();
@@ -146,7 +144,7 @@ void displayUI(List<ItalianCity> cities, String key) {
 
 HeadingElement makeTitling(String text) {
 	HeadingElement h3=new HeadingElement.h3();
-	h3.addText(text);
+	h3.text=text;
 	h3.classes.add('span12'); //twitter bootstrap
 	return h3;
 }
@@ -159,7 +157,7 @@ DivElement makeInputRow(String label) {
 	String id=label.toLowerCase().replaceAll(" ","");
 	
 	Element labelElement = new Element.tag('label');
-	labelElement.addText(label);
+	labelElement.text=label;
 	labelElement.classes.add("control-label");//twitter bootstrap
 	labelElement.attributes['for']=id;
 	
@@ -183,7 +181,7 @@ DivElement makeInputRow(String label) {
 void displayKnownCities(List<ItalianCity> cities, DivElement parent, String key) {
 	
 	//this can be called multiple times so we need to clean out anything laying around
-	if (!parent.nodes.isEmpty()) {
+	if (!parent.nodes.isEmpty) {
 		parent.nodes.clear();
 	}
 	
@@ -217,16 +215,16 @@ void displayKnownCities(List<ItalianCity> cities, DivElement parent, String key)
 		
 		//put in textual facts we got from server
 		Element dt = new Element.tag("dt");
-		dt.addText("Population");
+		dt.text="Population";
 		Element dd = new Element.tag("dd");
-		dd.addText("${city.Population}");
+		dd.text="${city.Population}";
 		dl.nodes.add(dt);
 		dl.nodes.add(dd);
 		
 		dt=new Element.tag("dt");
-		dt.addText("Province");
+		dt.text="Province";
 		dd = new Element.tag("dd");
-		dd.addText("${city.Province}");
+		dd.text="${city.Province}";
 		dl.nodes.add(dt);
 		dl.nodes.add(dd);
 		
@@ -235,7 +233,7 @@ void displayKnownCities(List<ItalianCity> cities, DivElement parent, String key)
 		
 		//put a delete button there
 		Element button = new Element.tag("button");
-		button.addText("Delete");
+		button.text="Delete";
 		button.classes.add("btn"); //twitter bootsrap
 		button.classes.add("btn-danger"); //twitter bootsrap
 		button.classes.add("offset1");
@@ -275,7 +273,7 @@ void titleOrInput(DivElement parent, ItalianCity city, bool title) {
 	if (title) {
 		oldElement = parent.query("form");
 		HeadingElement h4 =new HeadingElement.h4();
-		h4.addText(city.Name);
+		h4.text=city.Name;
 		h4.on.click.add((Event event){
 			titleOrInput(parent, city, false);
 		});

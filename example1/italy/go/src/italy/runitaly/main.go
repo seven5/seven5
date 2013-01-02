@@ -4,24 +4,34 @@ import (
 	"github.com/seven5/seven5"
 	"italy"
 	"net/http"
-	//"seven5"
 	"fmt"
+)
+
+const (
+	NAME = "italy"
 )
 
 func main() {
 
-	h := seven5.NewSimpleHandler()
+	//create a new empty URL space ... we are not using a cookie handler
+	h := seven5.NewSimpleHandler(nil)
+	
+	//add our resource
 	h.AddResource(italy.ItalianCity{}, &italy.ItalianCityResource{})
 
-	//this is the _same object_ as h, but just using a different type to make
-	//it more "clean" when used with the built in http package.
-	asHttp := seven5.DefaultProjectBindings(h, "italy")
+	//the GOPATH var is used to find where the parts of our project are and how to find our
+	//Google maps key
+	env := seven5.NewEnvironmentVars(NAME)
+	
+	//we are using the default layout and want the default bindings... we don't use the
+	//environment for this application
+	seven5.DefaultProjectBindings(h, NAME, env)
 
 	//normal http calls for running a server in go... ListenAndServe never should return
 	//err:=http.ListenAndServe(":3003",logHTTP(asHttp))
 
 	//use this verson, not the one above, if you want to log HTTP requests to the terminal
-	err := http.ListenAndServe(":3003", logHTTP(asHttp))
+	err := http.ListenAndServe(":3003", logHTTP(http.Handler(h)))
 
 	fmt.Printf("Error! Returned from ListenAndServe(): %s", err)
 }
