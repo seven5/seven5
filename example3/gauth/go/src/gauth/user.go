@@ -2,7 +2,7 @@ package gauth
 
 import (
 	"fmt"
-	"seven5" //githubme:seven5:
+	"github.com/seven5/seven5" 
 	"strings"
 	"encoding/json"
 )

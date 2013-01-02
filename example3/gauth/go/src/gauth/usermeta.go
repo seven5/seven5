@@ -1,7 +1,7 @@
 package gauth
 
 import (
-	"seven5" //githubme:seven5:
+	"github.com/seven5/seven5" 
 )
 //This is wire type that is accessible only to staff members.  It can only be read.
 type GauthUserMetadata struct {

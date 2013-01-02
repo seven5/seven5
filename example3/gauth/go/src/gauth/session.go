@@ -4,7 +4,7 @@ import (
 	"code.google.com/p/goauth2/oauth"
 	"fmt"
 	"net/http"
-	"seven5"//githubme:seven5:
+	"github.com/seven5/seven5"
 )
 
 //GauthSession is the implementation of seven5.Session for Gauth.  

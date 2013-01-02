@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"gauth"
-	"seven5"//githubme:seven5:
+	"github.com/seven5/seven5"
 )
 
 var BAD_WEB_ROOT = errors.New("Cant access web root")
