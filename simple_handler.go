@@ -1,36 +1,34 @@
 package seven5
 
 import (
-	"fmt"
-	"io"
+	_"fmt"
+	_ "io"
 	"net/http"
 	"reflect"
-	"strconv"
+	_"strconv"
 	"strings"
 )
-
-const MAX_FORM_SIZE = 16 * 1024
 
 //SimpleHandler is the default implementation of the Handler interface that ignores multiple values for
 //headers and query params because these are both rare and error-prone.  All resources need to be
 //added to the Handler before it starts serving real HTTP requests.
 type SimpleHandler struct {
 	//connection to the http layer
-	mux *http.ServeMux
+	mux	*http.ServeMux
 	//doc handling
-	dispatch map[string]*Dispatch
+	dispatch	map[string]*Dispatch
 	//the cookie mapper, if you want one
-	cookieMapper CookieMapper
+	cookieMapper	CookieMapper
 }
-
+/*
 //NewSimpleHandler creates a new SimpleHandler with an empty URL space.  If you pass a cookie
 //mapper, it will be used to "find" the sessions from requests.  Note that this cookie mapper
 //is ONLY used for resource requests.
 func NewSimpleHandler(cm CookieMapper) *SimpleHandler {
 	return &SimpleHandler{
-		mux:            http.NewServeMux(),
-		dispatch:       make(map[string]*Dispatch),
-		cookieMapper: cm,
+		mux:		http.NewServeMux(),
+		dispatch:	make(map[string]*Dispatch),
+		cookieMapper:	cm,
 	}
 }
 
@@ -60,11 +58,9 @@ func (self *SimpleHandler) AddExplicitResourceMethods(resourceName string, r int
 	if resourceName == "" || strings.Index(resourceName, " ") != -1 || strings.Index(resourceName, "/") != -1 {
 		panic(fmt.Sprintf("bad resource name: '%s', no spaces or slashes allowed", resourceName))
 	}
-
 	d := NewDispatch(resourceName, r, indexer, finder, poster, puter, deleter)
-
 	withSlashes := fmt.Sprintf("/%s/", strings.ToLower(resourceName))
-	self.mux.Handle(withSlashes, self)
+	//self.mux.Handle(withSlashes, self)
 	self.dispatch[withSlashes] = d
 }
 
@@ -84,7 +80,6 @@ func (self *SimpleHandler) AddResourceByName(resourceName string, r interface{},
 	poster, _ := resourceImpl.(Poster)
 	puter, _ := resourceImpl.(Puter)
 	deleter, _ := resourceImpl.(Deleter)
-
 	self.AddExplicitResourceMethods(resourceName, r, indexer, finder, poster, puter, deleter)
 }
 
@@ -107,20 +102,18 @@ func (self *SimpleHandler) AddResource(overTheWireSingular interface{}, implemen
 		panic(fmt.Sprintf("Type of %s must be struct or pointer to struct!", overTheWireSingular))
 	}
 }
-
+*/
 //ServeHTTP allows this object to act like an http.Handler. ServeHTTP data is passed to Dispatch
 //after some minimal processing.  This is not used in tests, only when on a real network.
+/*
 func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	hdr := ToSimpleMap(req.Header)
 	defer req.Body.Close()
-
 	if err := req.ParseForm(); err != nil {
 		http.Error(writer, fmt.Sprintf("can't parse form data:%s", err), http.StatusBadRequest)
 		return
 	}
-
 	qparams := ToSimpleMap(map[string][]string(req.Form))
-
 	limitedData := make([]byte, MAX_FORM_SIZE)
 	curr := 0
 	for curr < len(limitedData) {
@@ -134,22 +127,20 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 		}
 		curr += n
 	}
-
 	//if available, get a session
 	var session Session
 	if self.cookieMapper != nil {
 		var err error
 		session, err = self.cookieMapper.Session(req)
-		if err!=nil && err!=NO_SUCH_COOKIE {
+		if err != nil && err != NO_SUCH_COOKIE {
 			http.Error(writer, fmt.Sprintf("can't create session:%s", err), http.StatusInternalServerError)
 			return
 		}
-		if session == nil && err!=NO_SUCH_COOKIE {
+		if session == nil && err != NO_SUCH_COOKIE {
 			fmt.Printf("dropping cookie, can't match it to a session\n")
 			self.cookieMapper.RemoveCookie(writer)
 		}
 	}
-
 	json, err := self.Dispatch(req.Method, req.URL.Path, hdr, qparams,
 		string(limitedData[0:curr]), session)
 	if err != nil && err.StatusCode == http.StatusNotFound {
@@ -158,14 +149,14 @@ func (self *SimpleHandler) ServeHTTP(writer http.ResponseWriter, req *http.Reque
 		DumpOutput(writer, json, err)
 	}
 }
+*/
 
 //Dispatch does the dirty work of finding a resource and calling it.
 //It returns the value from the correct rest-level function or an error.
 //It generates some errors itself if, for example a 404 or 501 is needed.
-//I borrowed lots of ideas and inspiration from "github.com/Kissaki/rest2go"
+/*
 func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[string]string,
 	queryParams map[string]string, body string, session Session) (string, *Error) {
-
 	matched, id, d := self.resolve(uriPath)
 	if matched == "" {
 		return NotFound()
@@ -183,20 +174,17 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 				}
 				return d.Index.Index(header, queryParams, session)
 			} else {
-				//log.Printf("%T isn't an Indexer, returning NotImplemented", someResource)
 				return NotImplemented()
 			}
 		} else {
-			// Find by ID
 			num, errMessage := ParseId(id)
 			if errMessage != "" {
 				return BadRequest(errMessage)
 			}
-			//resource id is a number, try to find it
 			if d.Find != nil {
-				allow, ok:=d.Index.(Allower)
+				allow, ok := d.Index.(Allower)
 				if ok {
-					if !allow.Allow(Id(num),"GET",session) {
+					if !allow.Allow(Id(num), "GET", session) {
 						return NotAuthorized()
 					}
 				}
@@ -215,15 +203,13 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 		if d.Post == nil {
 			return NotImplemented()
 		}
-		allowWriter, ok:=d.Post.(AllowWriter)
+		allowWriter, ok := d.Post.(AllowWriter)
 		if ok {
 			if !allowWriter.AllowWrite(session) {
 				return NotAuthorized()
 			}
 		}
-		
 		return d.Post.Post(header, queryParams, body, session)
-	//these two are really similar
 	case "PUT", "DELETE":
 		if id == "" {
 			return BadRequest(fmt.Sprintf("%s requires a resource id", method))
@@ -239,9 +225,9 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			if d.Put == nil {
 				return NotImplemented()
 			}
-			allow, ok:=d.Put.(Allower)
+			allow, ok := d.Put.(Allower)
 			if ok {
-				if !allow.Allow(Id(num),"PUT",session) {
+				if !allow.Allow(Id(num), "PUT", session) {
 					return NotAuthorized()
 				}
 			}
@@ -250,27 +236,16 @@ func (self *SimpleHandler) Dispatch(method string, uriPath string, header map[st
 			if d.Delete == nil {
 				return NotImplemented()
 			}
-			allow, ok:=d.Delete.(Allower)
+			allow, ok := d.Delete.(Allower)
 			if ok {
-				if !allow.Allow(Id(num),"DELETE",session) {
+				if !allow.Allow(Id(num), "DELETE", session) {
 					return NotAuthorized()
 				}
 			}
 			return d.Delete.Delete(num, header, queryParams, session)
 		}
 	}
-
 	return "", &Error{http.StatusNotImplemented, "", "Not implemented yet"}
-}
-
-//parseId returns the id contained in a string or an error message about why the id is bad.
-func ParseId(candidate string) (Id, string) {
-	var num int64
-	var err error
-	if num, err = strconv.ParseInt(candidate, 10, 64); err != nil {
-		return Id(0), fmt.Sprintf("resource ids must be non-negative integers (was %s): %s", candidate, err)
-	}
-	return Id(num), ""
 }
 
 //resolve is used to find the matching resource for a particular request.  It returns the match
@@ -280,31 +255,24 @@ func (self *SimpleHandler) resolve(path string) (string, string, *Dispatch) {
 	d, ok := self.dispatch[path]
 	var id string
 	result := path
-
 	if !ok {
-		// no resource found, thus check if the path is a resource + ID
 		i := strings.LastIndex(path, "/")
 		if i == -1 {
-			//no luck on any type of match
 			return "", "", nil
 		}
-		// Move index to after slash as that’s where we want to split
 		i++
 		id = path[i:]
 		var uriPathParent string
 		uriPathParent = path[:i]
-		//fmt.Printf("checking a path parent '%s'\n", uriPathParent)
 		d, ok = self.dispatch[uriPathParent]
 		if !ok {
-			//oops not /foo/123 either
 			return "", "", nil
 		}
-		//got a match on a specific resource like /foo/123
 		result = uriPathParent
 	}
 	return result, id, d
-
 }
+*/
 
 //Resources returns a slice of descriptions of all known resources.  Note that there may
 //be types in these descriptors that are _not_ resources but for which code must still
@@ -344,11 +312,11 @@ func isLiveDocRequest(req *http.Request) bool {
 
 //Describe walks through the registered resources to find the one requested 
 //and the compute the description of it. 
+
 func (self *SimpleHandler) Describe(uriPath string) *APIDoc {
 	result := &APIDoc{}
-	path, _, _ := self.resolve(uriPath)
-
-	//no such path?
+	//path, _, _ := self.resolve(uriPath)
+	path := "foobiebletch"
 	if path == "" {
 		return nil
 	}
@@ -356,7 +324,6 @@ func (self *SimpleHandler) Describe(uriPath string) *APIDoc {
 	result.Name = reflect.TypeOf(d.ResType).Name()
 	result.Field = d.Field
 	result.ResourceName = strings.Replace(path, "/", "", -1)
-
 	if d.Find != nil {
 		result.Find = true
 		result.FindDoc = d.Find.FindDoc()
@@ -379,3 +346,4 @@ func (self *SimpleHandler) Describe(uriPath string) *APIDoc {
 	}
 	return result
 }
+

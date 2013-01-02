@@ -8,28 +8,25 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"seven5/auth"
 )
-
-
 
 //StaticDartContent adds an http handler for the content subdir of a dart app.  The project
 //name is the subdir of 'dart' so the content is dart/projectName/web.  The prefix
 //can be used if you don't want the static content mounted at '/' (the default).  If
 //you supply a prefix, it should end with /.
-func StaticDartContent(h Handler, projectName string, prefix string, env Environment) {
-	//setup static content
-	truePath, err := env.ProjectObject("web", projectName, DART_FLAVOR)
+func StaticDartContent(h Handler, projectName string, prefix string, pf auth.ProjectFinder) {
+	truePath, err := pf.ProjectFind("web", projectName, auth.DART_FLAVOR)
 	if err != nil {
 		log.Fatalf("can't understand GOPATH or not using default project layout: %s", err)
 	}
-	_, err= os.Open(truePath)
-	if err!=nil {
+	_, err = os.Open(truePath)
+	if err != nil {
 		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
 	if prefix == "" || prefix == "/" {
 		h.ServeMux().Handle("/", http.FileServer(http.Dir(truePath)))
 	} else {
-		//strip the path from requests so that /prefix/fart = dart/projectName/web/fart
 		h.ServeMux().Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
 	}
 }
@@ -45,8 +42,8 @@ func GeneratedContent(h Handler, urlPath string) {
 
 //Seven5Content maps internal handlers to be inside the urlPath provided.
 func Seven5Content(h Handler, urlPath string) {
-	h.ServeMux().HandleFunc(fmt.Sprintf("%ssupport", urlPath), 
-		generateStringPrinter(seven5_dart,"text/plain"))
+	h.ServeMux().HandleFunc(fmt.Sprintf("%ssupport", urlPath),
+		generateStringPrinter(seven5_dart, "text/plain"))
 }
 
 //SetIcon creates a go handler in h that will return an icon to be displayed in response to /favicon.ico.
@@ -71,7 +68,6 @@ func generateBinPrinter(content []byte, contentType string) func(http.ResponseWr
 
 func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http.Request) {
 	rez := h.APIs()
-
 	return func(writer http.ResponseWriter, req *http.Request) {
 		var origin string
 		if origin = req.Header.Get("Origin"); origin != "" {
@@ -82,7 +78,6 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 		found := 0
 		var buffer bytes.Buffer
 
-		//look for 'api'
 		pieces := strings.Split(req.URL.String(), "/")
 		for i, s := range pieces {
 			if s == "api" {
@@ -90,17 +85,17 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 				break
 			}
 		}
-		//found it?
+
 		if found == 0 {
 			http.NotFound(writer, req)
 			return
 		}
-		//in the right place in the sequence of pieces?  if last, make sure it is /api/
+
 		if found == len(pieces)-1 && !strings.HasSuffix(req.URL.String(), "/") {
 			http.Error(writer, "Seven5 only considers named collections with trailing slash", http.StatusNotFound)
 			return
 		}
-		//api in bogus place in sequence
+
 		if found != len(pieces)-1 && found != len(pieces)-2 {
 			http.NotFound(writer, req)
 			return
@@ -109,12 +104,10 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 		var candidate string
 		result := []*APIDoc{}
 
-		//candidate is either "" for all APIs or the 
 		if found == len(pieces)-2 {
 			candidate = pieces[len(pieces)-1]
 		}
 
-		//count the number
 		for _, r := range rez {
 			if candidate == "" || candidate == r.ResourceName {
 				result = append(result, r)
@@ -124,7 +117,7 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 			http.NotFound(writer, req)
 			return
 		}
-		//encode our result
+
 		enc := json.NewEncoder(&buffer)
 		var err error
 		if candidate != "" {
@@ -132,7 +125,7 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 		} else {
 			err = enc.Encode(result)
 		}
-		//check for error
+
 		if err != nil {
 			http.Error(writer, fmt.Sprintf("Error computing json encoding: %s", err), http.StatusInternalServerError)
 			return
@@ -140,7 +133,6 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 
 		writer.Header().Add("Content-type", "application/javascript")
 
-		//send result
 		_, err = writer.Write(buffer.Bytes())
 		if err != nil {
 			fmt.Printf("Whoa! Couldn't write result to other side: %s\n", err)
@@ -148,7 +140,7 @@ func generateAPIDocPrinter(h Handler) func(writer http.ResponseWriter, req *http
 	}
 }
 
-const LIBRARY_INFO=`
+const LIBRARY_INFO = `
 library generated;
 import '/seven5/support';
 import 'dart:json';
@@ -157,19 +149,14 @@ import 'dart:json';
 //generateDartFunc returns a function that outputs text string for all the dart code
 //in the system.
 func generateDartFunc(desc []*APIDoc) func(http.ResponseWriter, *http.Request) {
-
 	var text bytes.Buffer
 	resourceStructs := []*FieldDescription{}
 	supportStructs := []*FieldDescription{}
-
 	text.WriteString(LIBRARY_INFO)
-	
-	//generate code for known resources
 	for _, d := range desc {
 		text.WriteString(generateDartForResource(d))
 		resourceStructs = append(resourceStructs, d.Field)
 	}
-	//collect up supporting structs
 	for _, d := range desc {
 		candidates := collectStructs(d.Field)
 		for _, s := range candidates {
@@ -191,8 +178,8 @@ func generateDartFunc(desc []*APIDoc) func(http.ResponseWriter, *http.Request) {
 //about calling StaticDefaultContent or GeneratedContent.  Note that this should be called
 //_after_ all resources are added to the handler as there is caching of the generated
 //code.  
-func DefaultProjectBindings(h Handler, projectName string, env Environment) http.Handler {
-	StaticDartContent(h, projectName, "/", env)
+func DefaultProjectBindings(h Handler, projectName string, pf auth.ProjectFinder) http.Handler {
+	StaticDartContent(h, projectName, "/", pf)
 	GeneratedContent(h, "/generated/")
 	Seven5Content(h, "/seven5/")
 	SetIcon(h, gopher_ico)
@@ -200,7 +187,7 @@ func DefaultProjectBindings(h Handler, projectName string, env Environment) http
 }
 
 const (
-	WAITING_ON_NON_WS = iota
+	WAITING_ON_NON_WS	= iota
 	WAITING_ON_EOL
 )
 
@@ -208,11 +195,9 @@ const (
 //structure of dart but it's enough for our generated code (which doesn't do things like embed
 //{ inside a string and does has too many, not too few, line breaks)
 func dartPrettyPrint(raw string) []byte {
-
 	state := WAITING_ON_NON_WS
 	indent := 0
 	var result bytes.Buffer
-
 	for i := 0; i < len(raw); i++ {
 		c := raw[i]
 		switch state {

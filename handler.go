@@ -1,7 +1,3 @@
-// Copyright 2012 Captricity, Inc. All rights reserved.
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
-
 // seven5 is restful without remorse or pity.
 //
 // Source code and project home:
@@ -19,7 +15,7 @@ type Handler interface {
 	//Dispatch is the function that dispatches method calls to rest level resources.  This is
 	//where to hook tests of the back end functionality because it does not have dependencies
 	//on the network.
-	Dispatch(method string, uriPath string, header map[string]string, queryParams map[string]string, 
+	Dispatch(method string, uriPath string, header map[string]string, queryParams map[string]string,
 		body string, session Session) (string, *Error)
 	//AddResourceByName maps the (singular) resourceName into the url space.  The name should not include 
 	//any slashes or spaces as this will trigger armageddon and destroy all life on this planet.  The second

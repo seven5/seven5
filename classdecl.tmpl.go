@@ -1,5 +1,6 @@
 package seven5
-const classdecl_tmpl=`
+
+const classdecl_tmpl = `
 {{define "FIELD_DECL"}}
 	{{range .Struct}} 
 		{{.Dart}} {{.Name}};

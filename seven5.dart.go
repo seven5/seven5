@@ -1,5 +1,6 @@
 package seven5
-const seven5_dart=`
+
+const seven5_dart = `
 library seven5support;
 
 import 'dart:json';

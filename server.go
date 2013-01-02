@@ -6,10 +6,13 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"errors"
 )
 
 //defines a new error type
 var BAD_GOPATH = errors.New("GOPATH is not defined or is empty")
+
+var DEFAULT_TEST_PORT=3003
 
 //dumpOutput send the output to the calling client over the network.  Not used in tests,
 //only when running against real network.
@@ -65,25 +68,12 @@ func InternalErr(err error) (string, *Error) {
 	return "", &Error{http.StatusInternalServerError, "", err.Error()}
 }
 
-//ToSimpleMap converts an http level map with multiple strings as value to single string value.
-//There are a number of places in HTTP (such as headers and query parameters) where this is
-//possible and legal according to the spec, but still silly so we just use single valued
-//values.
-func ToSimpleMap(m map[string][]string) map[string]string {
-	result := make(map[string]string)
-	for k, v := range m {
-		result[k] = strings.TrimSpace(v[0])
-	}
-	return result
-}
-
 //JsonResult returns a json string from the supplied value or return an error (caused by the encoder)
 //via the InternalErr function.  This is the normal path for functions that return Json values.
 //pretty can be set to true for pretty-printed json.
 func JsonResult(v interface{}, pretty bool) (string, *Error) {
 	var buff []byte
 	var err error
-
 	if pretty {
 		buff, err = json.MarshalIndent(v, "", " ")
 	} else {
@@ -95,4 +85,3 @@ func JsonResult(v interface{}, pretty bool) (string, *Error) {
 	result := string(buff)
 	return strings.Trim(result, " "), nil
 }
-
