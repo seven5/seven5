@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<body>
+<element name="x-add-city-form" constructor="AddCityForm" extends="div">
+	<template>
+		<div id="inputdiv" class="row">
+			<form class="form-horizontal offset1 span3" on-submit="return save()">
+				<legend>Add Another City</legend>
+				<div class="control-group">
+					<label class="control-label" for="cityname">City Name</label>
+					<div class="controls">
+						<input type="text" id="cityname" placeholder="City Name" bind-value="city.Name"/>
+					</div>
+				</div>
+				<div class="control-group">
+					<label class="control-label" for="population">Population</label>
+					<div class="controls">
+						<input type="text" id="population" placeholder="Population"
+						 bind-value="city.Population"/>
+					</div>
+				</div>
+				<div class="control-group">
+					<label class="control-label" for="province">Province</label>
+					<div class="controls">
+						<input type="text" id="province" placeholder="Province"
+						 bind-value="city.Province"/>
+					</div>
+				</div>
+				<div class="control-group">
+					<label class="control-label" for="latitude">Latitude</label>
+					<div class="controls">
+						<input type="text" id="latitude" placeholder="Latitude"
+						 bind-value="city.Location.Latitude"/>
+					</div>
+				</div>
+				<div class="control-group">
+					<label class="control-label" for="longitude">Longitude</label>
+					<div class="controls">
+						<input type="text" id="longitude" placeholder="Longitude"
+						bind-value="city.Location.Longitude"/>
+					</div>
+				</div>
+				<div class="controls">
+					<button class="btn">Add</button>
+				</div>
+			</form>
+		</div>
+	</template>
+	<script type="application/dart">
+	import 'package:web_ui/web_ui.dart';
+	import '/generated/dart';
+	
+	class AddCityForm extends WebComponent {
+		ItalianCity city; //initialized by caller
+		boolean save() {
+			print("save");
+			return false;
+		}
+		//two way binding cannot handle anything except strings
+		static ItalianCity forForm() {
+			ItalianCity result =new ItalianCity();
+			result.Name="";
+			result.Population = "";
+			result.Province ="";
+			result.Location = new LatLng();
+			result.Location.Latitude = "";
+			result.Location.Longitude = "";
+			return result;
+		}
+    }
+    </script>
+</element>
+</body>
+</html>

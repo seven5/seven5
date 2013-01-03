@@ -1,7 +1,8 @@
 package main
 
 import (
-	"github.com/seven5/seven5"
+	//"github.com/seven5/seven5"
+	"seven5"
 	"italy"
 	"net/http"
 	"fmt"
@@ -22,6 +23,9 @@ func main() {
 	//the GOPATH var is used to find where the parts of our project are and how to find our
 	//Google maps key
 	env := seven5.NewEnvironmentVars(NAME)
+
+	h.ServeMux().HandleFunc("/seven5/publicsetting/italy/", env.PublicSettingHandler())
+
 	
 	//we are using the default layout and want the default bindings... we don't use the
 	//environment for this application

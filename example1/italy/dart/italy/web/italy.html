@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8"/>
     <title>Italy (Example 1)</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Very basic seven5 demo with some italian cities">
-    <meta name="author" content="Ian Smith">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content="Very basic seven5 demo with some italian cities"/>
+    <meta name="author" content="Ian Smith"/>
+
+	<!--my form component that is shared-->
+    <link rel="components" href="add-city-form.html"/>
+    <link rel="components" href="city-row.html"/>
 
     <!-- Le styles -->
-    <link href="/assets/css/bootstrap.css" rel="stylesheet">
-    <link href="/assets/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="/assets/css/bootstrap.css" rel="stylesheet"/>
+    <link href="/assets/css/bootstrap-responsive.css" rel="stylesheet"/>
 	<link rel="stylesheet" type="text/css" href="italy.css"/>
 
     <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
@@ -21,16 +25,32 @@
     <script type="text/javascript"
       src="http://dart.googlecode.com/svn/trunk/dart/client/dart.js">
     </script>
-	<script type="application/dart" src="packages/italy/src/app.dart">
+
+	<script type="application/dart">
+	import "package:italy/src/app.dart";
+	import "/generated/dart";
+	main() {
+		App.loadKey();
+		App.loadCities();
+	}
 	</script>
+
   </head>
 
 <body>
-	<div id="outercontainer">
+	<div id="outercontainer" class="container"> 
 	
-		<div id="citydiv"></div>
-		<div id="inputdiv"></div>
+		<h3 class="span12">Cities In Italy</h3>
+		
+		<template instantiate="if App.allCities!=null">
+			<template iterate="city in App.allCities">
+				<div is="x-city-row" city="{{city}}"></div>
+			</template>
+		</template>
+	
+		<div is="x-add-city-form" city="{{AddCityForm.forForm()}}"></div> 
 	
 	</div>
+	
 </body>
 </html>

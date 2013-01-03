@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<body>
+<element name="x-city-row" constructor="CityRow" extends="div">
+	<template>
+		<div class="row">
+			<div class="span4">
+				<h4>{{city.Name}}</h4>
+				<dl class="dl-horizontal">
+					<dt>Population</dt>
+					<dd>{{city.Population}}</dd>
+					<dt>Province</dt>
+					<dd>{{city.Province}}</dd>
+				</dl>
+				<button class="btn btn-danger offset1">Delete</button>
+			</div>
+			<template instantiate="if App.apiKey!=null">
+				<div class="span5">
+					<div class="mapdiv">
+						<img class="map-image" src="{{cityMapUrl()}}"/>
+					</div>
+				</div>
+			</template>
+		</div>
+	</template>
+	<script type="application/dart">
+	import 'package:web_ui/web_ui.dart';
+	import 'package:italy/src/app.dart';
+	import 'dart:math';
+	import '/generated/dart';
+	
+	class CityRow extends WebComponent {
+		static bool rowIsGray = false;
+		ItalianCity city;
+		static Random random = new Random();
+		String cityMapUrl() {
+			double lat = city.Location.Latitude;
+			double lon = city.Location.Longitude;
+			//String p ="key=${App.apiKey}&zoom=10&center=${lat},${lon}&zoom=13&size=372x218&sensor=false";
+			String p ="zoom=10&center=${lat},${lon}&zoom=13&size=372x218&sensor=false";
+			//String nonce = "nonce=${random.nextDouble()}";
+			String full="http://maps.googleapis.com/maps/api/staticmap?${p}";
+			return full;
+		}
+		void created() {
+			if (rowIsGray) {
+				_root.children[0].classes.add('gray');
+			} 
+			rowIsGray = !rowIsGray;
+		}
+    }
+    </script>
+</element>
+</body>
+</html>
