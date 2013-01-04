@@ -1,10 +1,10 @@
 package italy
 
 import (
-	//"github.com/seven5/seven5"
+	"github.com/seven5/seven5"
 	"encoding/json"
 	"fmt"
-	"seven5"
+	//"seven5"
 	"strconv"
 	"strings"
 )
@@ -173,7 +173,7 @@ func (STATELESS *ItalianCityResource) validateCityData(body string, isPut bool, 
 	dec := json.NewDecoder(strings.NewReader(body))
 
 	if err := dec.Decode(&bodyCity); err != nil {
-		return nil, "Could not understand json body"
+		return nil, fmt.Sprintf("Could not understand json body: %s", err)
 	}
 
 	if isPut {

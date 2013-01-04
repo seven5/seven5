@@ -42,10 +42,10 @@ func TestIdNum(T *testing.T) {
 
 	//NOTE: if you pass params here you are _not_ using the web stack but testing the same code path
 	//NOTE: (in your code) that seven5 will use when a real web request is processed
-	result, err := cityResource.Find(0, emptyMap, emptyMap)
+	result, err := cityResource.Find(0, emptyMap, emptyMap, nil)
 	checkResultCode(T, "id 0 is acceptable", result, err, http.StatusOK)
 
-	result, err = cityResource.Find(214, emptyMap, emptyMap)
+	result, err = cityResource.Find(214, emptyMap, emptyMap, nil)
 	checkResultCode(T, "id 214 is bogus", result, err, http.StatusBadRequest)
 
 }
@@ -68,7 +68,7 @@ func makeMap(key string, value string) map[string]string {
 
 //check that a given header with a given value produces a rounded or unrounded result
 func checkRoundingVariant(T *testing.T, msg string, key string, value string, rounded bool, id seven5.Id) {
-	result, err := cityResource.Find(id, makeMap(key, value), emptyMap)
+	result, err := cityResource.Find(id, makeMap(key, value), emptyMap, nil)
 	if err != nil {
 		T.Fatalf("Can't find italian city %v: %s", id, err)
 	}
@@ -91,7 +91,7 @@ func checkRoundingVariant(T *testing.T, msg string, key string, value string, ro
 func TestRounding(T *testing.T) {
 	//validate that no params works and that the city is suitable for a test of rounding
 	id := seven5.Id(0)
-	result, err := cityResource.Find(id, emptyMap, emptyMap)
+	result, err := cityResource.Find(id, emptyMap, emptyMap, nil)
 	if err != nil {
 		T.Fatalf("Can't find italian city %v: %s", id, err)
 	}
@@ -111,7 +111,7 @@ func TestRounding(T *testing.T) {
 
 //check that a given query parameter correctly affects the resulting number of results
 func checkMaxVariant(T *testing.T, msg string, key string, value string, expected int) {
-	result, err := cityResource.Index(emptyMap, makeMap(key, value))
+	result, err := cityResource.Index(emptyMap, makeMap(key, value), nil)
 	if err != nil {
 		T.Fatalf("Can't index all italian cities for '%s': %s", msg, err)
 	}
@@ -124,7 +124,7 @@ func checkMaxVariant(T *testing.T, msg string, key string, value string, expecte
 
 //check that a given header with a given value produces a filtered list of cities
 func checkFilteringVariant(T *testing.T, msg string, key string, value string, expected int) {
-	result, err := cityResource.Index(makeMap(key, value), emptyMap)
+	result, err := cityResource.Index(makeMap(key, value), emptyMap, nil)
 	if err != nil {
 		T.Fatalf("Can't index all italian cities for '%s': %s", msg, err)
 	}

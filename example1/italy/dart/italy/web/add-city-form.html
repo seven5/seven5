@@ -5,7 +5,7 @@
 <element name="x-add-city-form" constructor="AddCityForm" extends="div">
 	<template>
 		<div id="inputdiv" class="row">
-			<form class="form-horizontal offset1 span3" on-submit="return save()">
+			<form class="form-horizontal offset1 span3" on-submit="save($event)">
 				<legend>Add Another City</legend>
 				<div class="control-group">
 					<label class="control-label" for="cityname">City Name</label>
@@ -17,7 +17,7 @@
 					<label class="control-label" for="population">Population</label>
 					<div class="controls">
 						<input type="text" id="population" placeholder="Population"
-						 bind-value="city.Population"/>
+						 bind-value="popInput">
 					</div>
 				</div>
 				<div class="control-group">
@@ -31,14 +31,14 @@
 					<label class="control-label" for="latitude">Latitude</label>
 					<div class="controls">
 						<input type="text" id="latitude" placeholder="Latitude"
-						 bind-value="city.Location.Latitude"/>
+						 bind-value="latInput"/>
 					</div>
 				</div>
 				<div class="control-group">
 					<label class="control-label" for="longitude">Longitude</label>
 					<div class="controls">
 						<input type="text" id="longitude" placeholder="Longitude"
-						bind-value="city.Location.Longitude"/>
+						bind-value="lonInput"/>
 					</div>
 				</div>
 				<div class="controls">
@@ -50,23 +50,62 @@
 	<script type="application/dart">
 	import 'package:web_ui/web_ui.dart';
 	import '/generated/dart';
+	import 'dart:html';
+	import 'dart:core';
 	
 	class AddCityForm extends WebComponent {
 		ItalianCity city; //initialized by caller
-		boolean save() {
-			print("save");
-			return false;
+		String popInput, lonInput, latInput;
+		void save(Event e) {
+			double lat;
+			double lng;
+			int pop;
+
+			e.preventDefault();
+
+			try {
+				print("${popInput}");
+				lat = double.parse(latInput);
+				lng = double.parse(lonInput);
+				pop = int.parse(popInput);
+			} on FormatException catch(e) {
+				print("badly formed lat,long, or population!");
+				return;
+			}			
+			city.Name = city.Name.trim();
+			city.Province = city.Province.trim();
+			if ((city.Name=="") || (city.Province=="")) {
+				print("must supply a name for city and province!");
+				return;
+			}
+			
+			if ((lat>90) || (lat<-90) || (lng<-180.0) || (lng>180.0)) {
+				print("out of bounds lat or long!");
+				return;
+			}
+						
+			city.Population = pop;
+			city.Location = new LatLng();
+			city.Location.Latitude = lat;
+			city.Location.Longitude = lng;
+			//sadly, need this
+			city.Id = -4828; //must be less than 0 to indicate to server that you'll let server assign
+			
+			//validated data, send to server
+			ItalianCity.Post(city, Function(ItalianCity ignoringNewInstance, HttpRequest ignoringRequest) {
+				//just reload the list and the user will see it
+				document.window.location.href = "/out/italy.html";
+			}, Function(HttpRequest req) {
+				print("failed to update city list: ${req.status}, ${req.responseText}");
+			});
 		}
-		//two way binding cannot handle anything except strings
-		static ItalianCity forForm() {
-			ItalianCity result =new ItalianCity();
-			result.Name="";
-			result.Population = "";
-			result.Province ="";
-			result.Location = new LatLng();
-			result.Location.Latitude = "";
-			result.Location.Longitude = "";
-			return result;
+		void created() {
+			city=new ItalianCity();
+			city.Name = "";
+			city.Province = "";
+			popInput="";
+			lonInput="";
+			latInput="";
 		}
     }
     </script>

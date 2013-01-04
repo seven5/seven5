@@ -15,19 +15,18 @@
 				</dl>
 				<button class="btn btn-danger offset1">Delete</button>
 			</div>
-			<template instantiate="if App.apiKey!=null">
-				<div class="span5">
-					<div class="mapdiv">
-						<img class="map-image" src="{{cityMapUrl()}}"/>
-					</div>
+			<div class="span5">
+				<div class="mapdiv">
+					<img class="map-image" src="{{cityMapUrl()}}"/>
 				</div>
-			</template>
+			</div>
 		</div>
 	</template>
 	<script type="application/dart">
 	import 'package:web_ui/web_ui.dart';
 	import 'package:italy/src/app.dart';
 	import 'dart:math';
+	import 'dart:uri';
 	import '/generated/dart';
 	
 	class CityRow extends WebComponent {
@@ -37,11 +36,8 @@
 		String cityMapUrl() {
 			double lat = city.Location.Latitude;
 			double lon = city.Location.Longitude;
-			//String p ="key=${App.apiKey}&zoom=10&center=${lat},${lon}&zoom=13&size=372x218&sensor=false";
 			String p ="zoom=10&center=${lat},${lon}&zoom=13&size=372x218&sensor=false";
-			//String nonce = "nonce=${random.nextDouble()}";
-			String full="http://maps.googleapis.com/maps/api/staticmap?${p}";
-			return full;
+			return "http://maps.googleapis.com/maps/api/staticmap?${p}";
 		}
 		void created() {
 			if (rowIsGray) {
