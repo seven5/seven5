@@ -6,7 +6,6 @@ package seven5
 import (
 	gomock "code.google.com/p/gomock/gomock"
 	http "net/http"
-	oauth "code.google.com/p/goauth2/oauth"
 )
 
 // Mock of CookieMapper interface
@@ -40,15 +39,15 @@ func (_mr *_MockCookieMapperRecorder) CookieName() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CookieName")
 }
 
-func (_m *MockCookieMapper) Session(_param0 *http.Request) (Session, error) {
-	ret := _m.ctrl.Call(_m, "Session", _param0)
-	ret0, _ := ret[0].(Session)
+func (_m *MockCookieMapper) Value(_param0 *http.Request) (string, error) {
+	ret := _m.ctrl.Call(_m, "Value", _param0)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockCookieMapperRecorder) Session(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Session", arg0)
+func (_mr *_MockCookieMapperRecorder) Value(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Value", arg0)
 }
 
 func (_m *MockCookieMapper) AssociateCookie(_param0 http.ResponseWriter, _param1 Session) {
@@ -65,25 +64,4 @@ func (_m *MockCookieMapper) RemoveCookie(_param0 http.ResponseWriter) {
 
 func (_mr *_MockCookieMapperRecorder) RemoveCookie(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveCookie", arg0)
-}
-
-func (_m *MockCookieMapper) Generate(providerName string, trans *oauth.Transport, req *http.Request, state string) (Session, error) {
-	ret := _m.ctrl.Call(_m, "Generate", providerName, trans, req, state)
-	ret0, _ := ret[0].(Session)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockCookieMapperRecorder) Generate(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Generate", arg0, arg1, arg2, arg3)
-}
-
-func (_m *MockCookieMapper) Destroy(_param0 *http.Request) error {
-	ret := _m.ctrl.Call(_m, "Destroy", _param0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockCookieMapperRecorder) Destroy(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Destroy", arg0)
 }

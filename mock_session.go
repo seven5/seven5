@@ -4,6 +4,7 @@
 package seven5
 
 import (
+	http "net/http"
 	gomock "code.google.com/p/gomock/gomock"
 )
 
@@ -39,15 +40,15 @@ func (_mr *_MockSessionManagerRecorder) Find(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Find", arg0)
 }
 
-func (_m *MockSessionManager) Generate() (Session, error) {
-	ret := _m.ctrl.Call(_m, "Generate")
+func (_m *MockSessionManager) Generate(f Fetcher, r *http.Request, state string, code string) (Session, error) {
+	ret := _m.ctrl.Call(_m, "Generate", f, r, state, code)
 	ret0, _ := ret[0].(Session)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockSessionManagerRecorder) Generate() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Generate")
+func (_mr *_MockSessionManagerRecorder) Generate(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Generate", arg0, arg1, arg2, arg3)
 }
 
 func (_m *MockSessionManager) Destroy(id string) error {
@@ -89,25 +90,6 @@ func (_m *MockSession) SessionId() string {
 
 func (_mr *_MockSessionRecorder) SessionId() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SessionId")
-}
-
-func (_m *MockSession) ProviderReady(_param0 string, _param1 Fetcher) {
-	_m.ctrl.Call(_m, "ProviderReady", _param0, _param1)
-}
-
-func (_mr *_MockSessionRecorder) ProviderReady(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ProviderReady", arg0, arg1)
-}
-
-func (_m *MockSession) Fetch(_param0 string) (interface{}, error) {
-	ret := _m.ctrl.Call(_m, "Fetch", _param0)
-	ret0, _ := ret[0].(interface{})
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockSessionRecorder) Fetch(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Fetch", arg0)
 }
 
 // Mock of Fetcher interface

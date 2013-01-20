@@ -38,7 +38,7 @@ type someWire struct {
 }
 
 func setupMux(f RestAll) *ServeMux {
-	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, "/rest")
+	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, "/rest")
 
 	raw.ResourceSeparate("fleazil", &someWire{}, f, f, f, f, f)
 
@@ -124,19 +124,19 @@ func checkBody(t *testing.T, returned *someWire, id Id, s string) {
 	}
 }
 
-type badlyWrittenResource struct{
+type badlyWrittenResource struct {
 }
 
 func (self *badlyWrittenResource) Find(id Id, p PBundle) (interface{}, error) {
-	s:="foo"
-	return &s,nil
+	s := "foo"
+	return &s, nil
 }
 
 func TestBadResource(t *testing.T) {
-	
-	bad :=&badlyWrittenResource{}
-	
-	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, "/rest")
+
+	bad := &badlyWrittenResource{}
+
+	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, "/rest")
 	raw.ResourceSeparate("badcoder", &someWire{}, nil, bad, nil, nil, nil)
 
 	mux := NewServeMux(nil)
@@ -171,7 +171,7 @@ func TestBadJson(t *testing.T) {
 		t.Fatalf("failed to read the body: %s", err)
 	}
 	body = string(all)
-	if strings.Index(body,"too large")==-1 {
+	if strings.Index(body, "too large") == -1 {
 		t.Errorf("expected to get an error about data being too large but got %s", body)
 	}
 }

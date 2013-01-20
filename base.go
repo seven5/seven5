@@ -11,10 +11,10 @@ import (
 //* Json is used to encode and decode the wire types
 //* Rest resources dispatched by this object are mapped to /rest in the URL space
 func NewBaseDispatcher(appName string) *BaseDispatcher {
-	sm := NewSimpleSessionManager()
-	cm := NewSimpleCookieMapper(appName, sm)
+	sm:= NewSimpleSessionManager()
+	cm := NewSimpleCookieMapper(appName)
 	result :=&BaseDispatcher{}
-	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, result, "/rest")
+	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, sm, result, "/rest")
 	return result
 }
 

@@ -1,20 +1,17 @@
 package seven5
 
 import (
-	_ "code.google.com/p/goauth2/oauth"
-	_ "net/http"
-	"errors"
 	_ "fmt"
+	"net/http"
 )
-
-var PROVIDER_NOT_READY = errors.New("Provider is currently not ready in the session")
+var goroutineChannel chan *sessionPacket
 
 //SessionManager is a type that most applications should not need to implement.  It handles the particular
 //session semantics in connection with the establishment of Oauth sessions and mapping browser cookies
 //to sessions.
 type SessionManager interface {
 	Find(id string) (Session, error)
-	Generate() (Session, error)
+	Generate(f Fetcher, r *http.Request, state string, code string) (Session, error)
 	Destroy(id string) error
 }
 
@@ -22,32 +19,16 @@ type SessionManager interface {
 //method and can use the SimpleSession object.
 type Session interface {
 	SessionId() string
-	ProviderReady(string, Fetcher)
-	Fetch(string) (interface{},error)
 }
 
 //SimpleSession is a default implementation of Session suitable for most applications.
 type SimpleSession struct {
 	id    string
-	fetch map[string]Fetcher
 }
 
 //SessionId returns the sessionId (usually a UDID).
 func (self *SimpleSession) SessionId() string {
 	return self.id
-}
-
-func (self *SimpleSession) ProviderReady(provider string, fetcher Fetcher){
-	self.fetch[provider]=fetcher
-}
-
-//SessionId returns the oauth token associated with this session.
-func (self *SimpleSession) Fetch(provider string) (interface{},error) {
-	f, ok:= self.fetch[provider]
-	if !ok {
-		return nil, PROVIDER_NOT_READY
-	}
-	return f.Fetch()
 }
 
 //Fetcher is a type used to represent an authenticated "tunnel" that allows user-specific
@@ -75,11 +56,12 @@ type sessionPacket struct {
 //NewAuthSessionManager returns an instance of seven5.SessionManager that is actually a Auth session
 //manager.  This keeps the sessions in memory, not on disk.
 func NewSimpleSessionManager() SessionManager {
-	ch := make(chan *sessionPacket)
-	go handleSessionChecks(ch)
-
+	if goroutineChannel==nil {
+		goroutineChannel = make(chan *sessionPacket)
+		go handleSessionChecks(goroutineChannel)
+	}
 	return &SimpleSessionManager{
-		out: ch,
+		out: goroutineChannel,
 	}
 }
 
@@ -121,12 +103,13 @@ func handleSessionChecks(ch chan *sessionPacket) {
 	}
 }
 
-func (self *SimpleSessionManager) Generate() (Session, error) {
+//Generate is called when we need to create a new session for a given browser, typically because they
+//have successfully authenticated.
+func (self *SimpleSessionManager) Generate(f Fetcher, r *http.Request, state string, code string) (Session, error) {
 
 	//create the default cruft needed for any session
 	result := &SimpleSession {
 		id: UDID(),
-		fetch: make(map[string]Fetcher),
 	}
 	
 	ch:=make(chan Session)

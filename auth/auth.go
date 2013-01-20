@@ -26,12 +26,6 @@ type PageMapper interface {
 	LogoutLandingPage(ServiceConnector) string
 }
 
-type AppConnector interface {
-	Login()
-	Logout()
-}
-
-
 //OauthClientDetail is an interface for finding the specific information needed to connect to
 //an Oauth server.  If you don't want to use environment variables as the way you store
 //these, you can provide your own implementation of this class.  Note that it can be called
@@ -54,7 +48,7 @@ type SimplePageMapper struct {
 
 //NewSimplePageMapper returns an PageMapper that has a simple mapping scheme for where
 //the application URLs just constants.  
-func NewSimplePageMapper(errUrl string, loginUrl string, logoutUrl string) PageMapper {
+func NewSimplePageMapper(errUrl string, loginUrl string, logoutUrl string) *SimplePageMapper {
 	return &SimplePageMapper{
 		errorPage: errUrl,
 		loginOk:   loginUrl,

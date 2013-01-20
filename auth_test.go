@@ -59,13 +59,13 @@ func TestGoogleLogin(t *testing.T) {
 	//pm is a mock for testing that we get a call to LoginLandingPage
 	pm := auth.NewMockPageMapper(ctrl)
 	sm := NewMockSessionManager(ctrl)
-	cm := NewSimpleCookieMapper(appName, sm)
-	serveMux, authconn := createDispatcherWithMocks(ctrl, pm, cm)
+	cm := NewSimpleCookieMapper(appName)
+	serveMux, authconn := createDispatcherWithMocks(ctrl, pm, cm, sm)
 
 	session := NewMockSession(ctrl)
 	session.EXPECT().SessionId().Return(sid).AnyTimes()
 	//when we succeed at logging in, it filters down to the session
-	sm.EXPECT().Generate().Return(session, nil)
+	sm.EXPECT().Generate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(session, nil)
 
 	//consumed by the google object under test
 	deploy := auth.NewMockDeploymentEnvironment(ctrl)
@@ -134,7 +134,7 @@ func TestGoogleLogin(t *testing.T) {
 		return stopProcessing
 	}
 
-	createReqAndDo(t, client, loginURL.String(),nil)
+	createReqAndDo(t, client, loginURL.String(), nil)
 
 	// next stage is to test that if we get the callabck we land on the right page
 	// in the right state... compute a URL like google would send us
@@ -164,7 +164,7 @@ func TestGoogleLogin(t *testing.T) {
 	}
 
 	//make sure cookie manager sent us something
-	resp := createReqAndDo(t, client, returnURL.String(),nil)
+	resp := createReqAndDo(t, client, returnURL.String(), nil)
 	found := false
 	for k, v := range resp.Header {
 		if k == "Set-Cookie" {
@@ -218,7 +218,7 @@ func createReqAndDo(t *testing.T, client *http.Client, targ string, c *http.Cook
 	if err != nil {
 		t.Fatalf("failed to create GET request (target was %s): %s", targ, err)
 	}
-	if c!=nil {
+	if c != nil {
 		req.AddCookie(c)
 	}
 	result, err := client.Do(req)
@@ -230,17 +230,15 @@ func createReqAndDo(t *testing.T, client *http.Client, targ string, c *http.Cook
 }
 
 /*-------------------------------------------------------------------------------*/
-func createDispatcherWithMocks(ctrl *gomock.Controller, pm auth.PageMapper, cm CookieMapper) (*ServeMux, *auth.MockServiceConnector) {
+func createDispatcherWithMocks(ctrl *gomock.Controller, pm auth.PageMapper, cm CookieMapper,
+	sm SessionManager) (*ServeMux, *auth.MockServiceConnector) {
 	authconn := auth.NewMockServiceConnector(ctrl)
 
 	//real serve mux so the dispatching really works with an HTTP conn
 	serveMux := NewServeMux(nil)
 
 	//we use /fart because we don't want to end up with dependencies on /rest, the standard
-	disp := NewAuthDispatcher(appName, "/fart", serveMux)
-	//finesse page mapper and cookie into the struct
-	disp.PageMap = pm
-	disp.CookieMap = cm
+	disp := NewAuthDispatcherRaw("/fart", serveMux, pm, cm, sm)
 
 	//put our mostly stub auth connector into the URL space and we don't care how many times
 	//it gets asked its name
@@ -265,7 +263,7 @@ func TestCallbackError(t *testing.T) {
 
 	pageMapper := auth.NewSimplePageMapper(three, "notused", "notused")
 	cookieMapper := NewMockCookieMapper(ctrl)
-	serveMux, authConn := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper)
+	serveMux, authConn := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper, nil)
 	go func() {
 		http.ListenAndServe(fmt.Sprintf(":%d", port), serveMux)
 	}()
@@ -302,7 +300,7 @@ func TestCallbackError(t *testing.T) {
 		})
 		return stopProcessing
 	}
-	resp := createReqAndDo(t, client, returnURL.String(),nil)
+	resp := createReqAndDo(t, client, returnURL.String(), nil)
 	for k, v := range resp.Header {
 		if k == "Set-Cookie" {
 			t.Errorf("Should not have set cookie on error: %s\n", v[0])
@@ -322,8 +320,8 @@ func TestLogout(t *testing.T) {
 
 	pageMapper := auth.NewSimplePageMapper("notused", "notused", two)
 	sm := NewMockSessionManager(ctrl)
-	cookieMapper := NewSimpleCookieMapper(appName, sm)
-	serveMux, _ := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper)
+	cookieMapper := NewSimpleCookieMapper(appName)
+	serveMux, _ := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper, sm)
 
 	sm.EXPECT().Destroy(gomock.Any()).Return(nil)
 
@@ -348,8 +346,8 @@ func TestLogout(t *testing.T) {
 	}
 	resp := createReqAndDo(t, client, logoutURL.String(),
 		&http.Cookie{
-			Name:      cookieMapper.CookieName(),
-			Value:     "forty-series-tires",
+			Name:  cookieMapper.CookieName(),
+			Value: "forty-series-tires",
 		})
 	for k, v := range resp.Header {
 		if k == "Set-Cookie" {

@@ -4,16 +4,27 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"seven5/auth"
+	"strings"
 )
 
 type AuthDispatcher struct {
-	provider  []auth.ServiceConnector
-	mux       *ServeMux
-	prefix    string
-	PageMap   auth.PageMapper
-	CookieMap CookieMapper
+	provider   []auth.ServiceConnector
+	mux        *ServeMux
+	prefix     string
+	PageMap    auth.PageMapper
+	CookieMap  CookieMapper
+	SessionMgr SessionManager
+}
+
+//NewAuthDispatcher is a wrapper around NewAuthDispatcherRaw that provides some defaults that work for
+//a simple application.  It use SimplePageMapper, SimpleCookieManager, and SimpleSession manager for
+//the implementations of the needed object.  It assumes that the application login landing page
+//is /login.html and similarly the logout page is /logout.html.  Authentication errors are routed
+//the page /error.html.  The supplied application name is used to name the browser cookie.
+func NewAuthDispatcher(appName string, prefix string, mux *ServeMux) *AuthDispatcher {
+	return NewAuthDispatcherRaw(prefix, mux, auth.NewSimplePageMapper("/login.html", "/logout.html", "/error.html"),
+		NewSimpleCookieMapper(appName), NewSimpleSessionManager())
 }
 
 //NewAuthDispatcher returns a new auth dispatcher which assumes it is mapped at the prefix provided.
@@ -21,13 +32,16 @@ type AuthDispatcher struct {
 //because as providers are added to the dispatcher it has to register handlers for them.  Note that
 //this dispatcher adds mappings in the mux, based on the prefix provided, so it should not be
 //manually added to the ServeMux via the Dispatch() method.
-func NewAuthDispatcher(appName string, prefix string, mux *ServeMux) *AuthDispatcher {
+func NewAuthDispatcherRaw(prefix string, mux *ServeMux, pm auth.PageMapper, cm CookieMapper,
+	sm SessionManager) *AuthDispatcher {
 	return &AuthDispatcher{
-		prefix: prefix,
-		mux:    mux,
-		PageMap: auth.NewSimplePageMapper("/login.html","/logout.html","/error.html"),
-		CookieMap: NewSimpleCookieMapper(appName, NewSimpleSessionManager()),
+		prefix:     prefix,
+		mux:        mux,
+		PageMap:    pm,
+		CookieMap:  cm,
+		SessionMgr: sm,
 	}
+
 }
 
 //AddProvider creates the necessary mappings in the AuthDispatcher (and the associated ServeMux)
@@ -73,7 +87,7 @@ func (self *AuthDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *ht
 	case auth.CALLBACK_URL:
 		return self.Callback(targ, w, r)
 	}
-	
+
 	http.Error(w, fmt.Sprintf("Could not dispatch authentication URL: %s", r.URL), http.StatusNotFound)
 	return nil
 }
@@ -85,8 +99,15 @@ func (self *AuthDispatcher) Login(conn auth.ServiceConnector, w http.ResponseWri
 }
 
 func (self *AuthDispatcher) Logout(conn auth.ServiceConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
-	self.CookieMap.RemoveCookie(w)
-	self.CookieMap.Destroy(r)
+	id,err:=self.CookieMap.Value(r)
+	if err!=nil && err!=NO_SUCH_COOKIE {
+		fmt.Fprintf(os.Stderr, "Problem understanding cookie in request: %s", err)
+		return nil
+	}
+	if err!=NO_SUCH_COOKIE {
+		self.CookieMap.RemoveCookie(w)
+		self.SessionMgr.Destroy(id)
+	}
 	http.Redirect(w, r, self.PageMap.LogoutLandingPage(conn), http.StatusTemporaryRedirect)
 	return nil
 }
@@ -94,7 +115,7 @@ func (self *AuthDispatcher) Logout(conn auth.ServiceConnector, w http.ResponseWr
 func (self *AuthDispatcher) Callback(conn auth.ServiceConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
 	code := r.URL.Query().Get(conn.CodeValueName())
 	e := r.URL.Query().Get(conn.ErrorValueName())
-	
+
 	if e != "" {
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, e), http.StatusTemporaryRedirect)
 		return nil
@@ -107,14 +128,14 @@ func (self *AuthDispatcher) callback(conn auth.ServiceConnector) string {
 }
 
 func (self *AuthDispatcher) Connect(conn auth.ServiceConnector, code string, w http.ResponseWriter, r *http.Request) *ServeMux {
-	trans, err := conn.ExchangeForToken(self.callback(conn), code)
+	_, err := conn.ExchangeForToken(self.callback(conn), code)
 	if err != nil {
 		error_msg := fmt.Sprintf("unable to finish the token exchange with %s: %s", conn.Name(), err)
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
 		return nil
 	}
 	state := r.URL.Query().Get(conn.StateValueName())
-	session, err := self.CookieMap.Generate(conn.Name(), trans, r, code)
+	session, err := self.SessionMgr.Generate(nil, r, state, code)
 	if err != nil {
 		error_msg := fmt.Sprintf("failed to create session")
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)

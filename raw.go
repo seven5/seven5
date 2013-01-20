@@ -18,12 +18,14 @@ const MAX_FORM_SIZE = 16 * 1024
 //cookie handling, or the session handling.  The prefix is used to tell the dispatcher where
 //it is mounted so it can "strip" this prefix from any URL paths it is decoding.  This should
 //be "" if the dispatcher is mounted at /; it should not end in a /.
-func NewRawDispatcher(enc Encoder, dec Decoder, cm CookieMapper, a Authorizer, prefix string) *RawDispatcher {
+func NewRawDispatcher(enc Encoder, dec Decoder, cm CookieMapper, sm SessionManager, a Authorizer, 
+	prefix string) *RawDispatcher {
 	return &RawDispatcher{
 		resource: make(map[string]*restObj),
 		enc:      enc,
 		dec:      dec,
 		cm:       cm,
+		sm:       sm,
 		auth:     a,
 		prefix:   prefix,
 	}
@@ -36,6 +38,7 @@ type RawDispatcher struct {
 	enc      Encoder
 	dec      Decoder
 	cm       CookieMapper
+	sm       SessionManager
 	auth     Authorizer
 	prefix   string
 }
@@ -111,13 +114,20 @@ func (self *RawDispatcher) BundleHook(w http.ResponseWriter, r *http.Request) (P
 	var session Session
 	if self.cm != nil {
 		var err error
-		session, err = self.cm.Session(r)
+		id, err = self.cm.Value(r)
 		if err != nil && err != NO_SUCH_COOKIE {
 			return nil, err
 		}
-		if session == nil && err != NO_SUCH_COOKIE {
-			fmt.Printf("dropping cookie, can't match it to a session\n")
-			self.cm.RemoveCookie(w)
+		var find_err error
+		if self.sm !=nil {
+			session, find_err = self.sm.Find(id)
+			if find_err!=nil {
+				return nil, find_err
+			}
+			if session == nil && err != NO_SUCH_COOKIE {
+				fmt.Printf("dropping cookie, can't match it to a session\n")
+				self.cm.RemoveCookie(w)
+			}
 		}
 	}
 	pb, err := NewSimplePBundle(r, session)
