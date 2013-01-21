@@ -3,6 +3,7 @@ package seven5
 import (
 	_ "fmt"
 	"net/http"
+	"code.google.com/p/goauth2/oauth"
 )
 var goroutineChannel chan *sessionPacket
 
@@ -11,7 +12,7 @@ var goroutineChannel chan *sessionPacket
 //to sessions.
 type SessionManager interface {
 	Find(id string) (Session, error)
-	Generate(f Fetcher, r *http.Request, state string, code string) (Session, error)
+	Generate(t *oauth.Transport, r *http.Request, state string, code string) (Session, error)
 	Destroy(id string) error
 }
 
@@ -31,11 +32,9 @@ func (self *SimpleSession) SessionId() string {
 	return self.id
 }
 
-//Fetcher is a type used to represent an authenticated "tunnel" that allows user-specific
-//data to be received from a remote service that speaks oauth.  The return value if not nil,
-//is specific to the particular fetcher.
-type Fetcher interface {
-	Fetch() (interface{}, error)
+//NewSimpleSession returns a new simple session with its SessionId initialized.
+func NewSimpleSession() *SimpleSession {
+	return &SimpleSession{UDID()}
 }
 
 //SimpleSessionManager is an implementation of the SessionManager that knows about the semantics
@@ -55,7 +54,7 @@ type sessionPacket struct {
 
 //NewAuthSessionManager returns an instance of seven5.SessionManager that is actually a Auth session
 //manager.  This keeps the sessions in memory, not on disk.
-func NewSimpleSessionManager() SessionManager {
+func NewSimpleSessionManager() *SimpleSessionManager {
 	if goroutineChannel==nil {
 		goroutineChannel = make(chan *sessionPacket)
 		go handleSessionChecks(goroutineChannel)
@@ -104,19 +103,24 @@ func handleSessionChecks(ch chan *sessionPacket) {
 }
 
 //Generate is called when we need to create a new session for a given browser, typically because they
-//have successfully authenticated.
-func (self *SimpleSessionManager) Generate(f Fetcher, r *http.Request, state string, code string) (Session, error) {
+//have successfully authenticated.  This method ignores all the parameters passed but they present
+//in the interface for more sophisticated SessionManager implementations.
+func (self *SimpleSessionManager) Generate(t *oauth.Transport, r *http.Request, state string, code string) (Session, error) {
 
 	//create the default cruft needed for any session
-	result := &SimpleSession {
-		id: UDID(),
-	}
+	result := NewSimpleSession()
+	return self.Assign(result)
+}
+
+//Assign is responsible for connecting the new session to any storage resources needed.  Convenient
+//for those overridding the Generate method with their own implementation.
+func (self *SimpleSessionManager) Assign(result Session) (Session,error) {
 	
 	ch:=make(chan Session)
 	
 	pkt := &sessionPacket{
 		del:false,
-		id : result.id,
+		id : result.SessionId(),
 		s: result,
 		ret: ch,
 	}
@@ -124,7 +128,7 @@ func (self *SimpleSessionManager) Generate(f Fetcher, r *http.Request, state str
 	_ =  <- ch
 	close(ch)
 		
-	//this the now initialized session, ready for connection to the browser
+	//this the now initialized session
 	return result, nil
 }
 

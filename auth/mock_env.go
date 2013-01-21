@@ -39,14 +39,14 @@ func (_mr *_MockDeploymentEnvironmentRecorder) IsTest() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsTest")
 }
 
-func (_m *MockDeploymentEnvironment) TestPort() int {
-	ret := _m.ctrl.Call(_m, "TestPort")
+func (_m *MockDeploymentEnvironment) Port() int {
+	ret := _m.ctrl.Call(_m, "Port")
 	ret0, _ := ret[0].(int)
 	return ret0
 }
 
-func (_mr *_MockDeploymentEnvironmentRecorder) TestPort() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "TestPort")
+func (_mr *_MockDeploymentEnvironmentRecorder) Port() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Port")
 }
 
 func (_m *MockDeploymentEnvironment) RedirectHost(_param0 ServiceConnector) string {
@@ -59,45 +59,35 @@ func (_mr *_MockDeploymentEnvironmentRecorder) RedirectHost(arg0 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RedirectHost", arg0)
 }
 
-// Mock of PublicSettingsDetail interface
-type MockPublicSettingsDetail struct {
+// Mock of PublicSettings interface
+type MockPublicSettings struct {
 	ctrl     *gomock.Controller
-	recorder *_MockPublicSettingsDetailRecorder
+	recorder *_MockPublicSettingsRecorder
 }
 
-// Recorder for MockPublicSettingsDetail (not exported)
-type _MockPublicSettingsDetailRecorder struct {
-	mock *MockPublicSettingsDetail
+// Recorder for MockPublicSettings (not exported)
+type _MockPublicSettingsRecorder struct {
+	mock *MockPublicSettings
 }
 
-func NewMockPublicSettingsDetail(ctrl *gomock.Controller) *MockPublicSettingsDetail {
-	mock := &MockPublicSettingsDetail{ctrl: ctrl}
-	mock.recorder = &_MockPublicSettingsDetailRecorder{mock}
+func NewMockPublicSettings(ctrl *gomock.Controller) *MockPublicSettings {
+	mock := &MockPublicSettings{ctrl: ctrl}
+	mock.recorder = &_MockPublicSettingsRecorder{mock}
 	return mock
 }
 
-func (_m *MockPublicSettingsDetail) EXPECT() *_MockPublicSettingsDetailRecorder {
+func (_m *MockPublicSettings) EXPECT() *_MockPublicSettingsRecorder {
 	return _m.recorder
 }
 
-func (_m *MockPublicSettingsDetail) PublicSetting(_param0 string) string {
-	ret := _m.ctrl.Call(_m, "PublicSetting", _param0)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-func (_mr *_MockPublicSettingsDetailRecorder) PublicSetting(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PublicSetting", arg0)
-}
-
-func (_m *MockPublicSettingsDetail) PublicSettingHandler() func(http.ResponseWriter, *http.Request) {
-	ret := _m.ctrl.Call(_m, "PublicSettingHandler")
+func (_m *MockPublicSettings) PublicSettingsHandler(n string) func(http.ResponseWriter, *http.Request) {
+	ret := _m.ctrl.Call(_m, "PublicSettingsHandler", n)
 	ret0, _ := ret[0].(func(http.ResponseWriter, *http.Request))
 	return ret0
 }
 
-func (_mr *_MockPublicSettingsDetailRecorder) PublicSettingHandler() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PublicSettingHandler")
+func (_mr *_MockPublicSettingsRecorder) PublicSettingsHandler(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PublicSettingsHandler", arg0)
 }
 
 // Mock of ProjectFinder interface

@@ -65,7 +65,7 @@ func TestGoogleLogin(t *testing.T) {
 	session := NewMockSession(ctrl)
 	session.EXPECT().SessionId().Return(sid).AnyTimes()
 	//when we succeed at logging in, it filters down to the session
-	sm.EXPECT().Generate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(session, nil)
+	sm.EXPECT().Generate(gomock.Any(), gomock.Any(), st, code).Return(session, nil)
 
 	//consumed by the google object under test
 	deploy := auth.NewMockDeploymentEnvironment(ctrl)

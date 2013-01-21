@@ -14,6 +14,7 @@ type ServiceConnector interface {
 	ErrorValueName() string
 	StateValueName() string
 	Name() string
+	Fetch(*oauth.Transport) (interface{},error)
 	ExchangeForToken(string, string) (*oauth.Transport, error)
 }
 

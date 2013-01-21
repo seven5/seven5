@@ -24,7 +24,7 @@ const (
 //be determined from "outside" the application.
 type DeploymentEnvironment interface {
 	IsTest() bool
-	TestPort() int
+	Port() int
 	//RedirectHost is needed in cases where you are using oauth because this must sent to the 
 	//"other side" of the handshake without any extra knowlege.
 	RedirectHost(ServiceConnector) string
@@ -36,20 +36,20 @@ type DeploymentEnvironment interface {
 //to the client side browser, but should be checked in to source code revision.  Note that
 //you can use the returned value of PublicSettingHandler to map particular public settings
 //into the URL space for easy access by a client.
-type PublicSettingsDetail interface {
-	PublicSetting(string) string
-	PublicSettingHandler() func(http.ResponseWriter, *http.Request)
+type PublicSettings interface {
+	PublicSettingsHandler(n string) func(http.ResponseWriter, *http.Request)
 }
 
-
+//ProjectFinder is an abstraction of the typical seven5 project layout. It knows how to 
+//find objects of different types in their standard locations within a project.
 type ProjectFinder interface {
 	ProjectFind(target string, projectName string, flavor FileFlavor) (string, error)
 }
 
-//EnvironmentVars is an Environment, ProjectFinder, OauthClientDetail, and PublicSettingDetail 
+//EnvironmentVars is ProjectFinder, OauthClientDetail, and PublicSettings
 //implementation that reads values from a standard arrangement of unix-ish environment variables.  
 //Typically the enivornment variables are prefixed with the application name and that must be
-//provided to NewEnviroment.  EnvironmentVars panics if a variable cannot be found.
+//provided to NewEnviroment. 
 type EnvironmentVars struct {
 	name string
 }
@@ -61,16 +61,20 @@ func NewEnvironmentVars(appName string) *EnvironmentVars {
 	}
 }
 
-//PublicSetting returns "" or the value of the environment var with the name APPNAME_N
-func (self *EnvironmentVars) PublicSetting(n string) string {
-	varName := fmt.Sprintf("%s_%s", self.name, strings.ToUpper(n))
-	return os.Getenv(varName)
+//PublicSettingHandler returns a function suitable for insertion into an http or seven5 
+//ServeMux as a handler for a particular URL.  It only calculates the value of the
+//result once, at the time it returns the function here.  It calls GetValueOrPanic to compute
+//it's result.
+func (self *EnvironmentVars) PublicSettingHandler(n string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r*http.Request) {
+		w.Write([]byte(self.GetValueOrPanic(fmt.Sprintf("%s_%s", self.name, strings.ToUpper(n)))))
+	}
 }
 
-//IsTest returns true if the variable APPNAME_TEST is set to a non empty value. This value
-//is read only once. 
-func (self *EnvironmentVars) IsTest() bool {
-	return os.Getenv(fmt.Sprintf("%s_TEST", self.name)) != ""
+//GetAppValue returns a value "inside" the application namespace of environment vars or APPNAME_KEY 
+//(key converted to upper case) and then fetched.  This value may be "". 
+func (self *EnvironmentVars) GetAppValue(key string) string {
+	return os.Getenv(fmt.Sprintf("%s_%s", self.name, strings.ToUpper(key)))
 }
 
 //ClientId returns the value of the client id that
@@ -112,6 +116,9 @@ func (self *EnvironmentVars) ProjectFind(target string, projectName string, flav
 	panic("unknown type of object searched for in the project!")
 }
 
+
+//GetValueOrPanic returns the environment variable based on the exact value supplied (it is not modified)
+//and it panics if the value cannot be found.
 func (self *EnvironmentVars) GetValueOrPanic(n string) string {
 	value := os.Getenv(n)
 	if value == "" {

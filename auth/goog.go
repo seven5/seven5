@@ -101,7 +101,7 @@ func (self *GoogleAuthConn) StateValueName() string {
 //in via their gmail/google account.
 type GoogleUser struct {
 	GoogleId	string	`json:"id"`
-	Email		string	`json:"email"`
+	EmailAddr		string	`json:"email"`
 	Name		string	`json:"name"`
 	GivenName	string	`json:"given_name"`
 	FamilyName	string	`json:"family_name"`
@@ -112,8 +112,20 @@ type GoogleUser struct {
 	Birthday	string	`json:"birthday"`
 }
 
-func (self *GoogleUser) Fetch(transport *oauth.Transport) (*GoogleUser, error) {
-	r, err := transport.Client().Get(GOOGLE_USER_INFO)
+//Email makes it easier to implement user.Basic
+func (self *GoogleUser) Email() string {
+	return self.EmailAddr
+}
+
+//SetEmail makes it easier to implement user.Basic
+func (self *GoogleUser) SetEmail(e string) {
+	self.EmailAddr=e
+}
+
+
+//Returns the GoogleUser object onces we have connected to the service.
+func (self *GoogleAuthConn) Fetch(t *oauth.Transport) (interface{}, error) {
+	r, err := t.Client().Get(GOOGLE_USER_INFO)
 	if err != nil {
 		return nil, err
 	}

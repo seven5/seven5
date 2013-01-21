@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -18,12 +19,53 @@ type RemoteDeployment struct {
 	testPort int
 }
 
+type HerokuDeploy struct {
+	env *EnvironmentVars
+	name string
+}
+
+
+
+//NewHerokuDeploy returns a new HerokuDeploy object that implements DeploymentEnvironment.
+func NewHerokuDeploy(n string) *HerokuDeploy{
+	result:=&HerokuDeploy{
+		env:NewEnvironmentVars(n),
+		name:n,
+	}
+	return result
+}
+
+func (self *HerokuDeploy) IsTest() bool {
+	return self.env.GetAppValue("TEST")!=""
+}
+
+func (self *HerokuDeploy) Environment() *EnvironmentVars {
+	return self.env
+}
+
+//Port reads the value of the environment variable PORT to get the value to return here.  It
+//will panic if the environment variable is not set or it's not a number.
+func (self *HerokuDeploy) Port() int {
+	p:=self.env.GetValueOrPanic("PORT")
+	i, err:=strconv.Atoi(p)
+	if err!=nil {
+		panic(err)
+	}
+	return i
+}
+//RedirectHost is needed in cases where you are using oauth because this must sent to the 
+//"other side" of the handshake without any extra knowlege.
+func (self *HerokuDeploy) RedirectHost(ignored ServiceConnector) string {
+	return HerokuName(self.name)
+}
+
+
 //NewRemoteDeployment returns an implementation of Deployment that points URLs to the fullUrl
 //provided unless in test mode.  If testPort>0 then we are assumed to be in test mode.
-func NewRemoteDeployment(fullUrl string, testPort int) DeploymentEnvironment {
+func NewRemoteDeployment(fullUrl string, testPort int) *RemoteDeployment {
 	return &RemoteDeployment{
 		url:	fullUrl,
-		isTest:	testPort>0,
+		isTest:	testPort>1023,
 		testPort: testPort,
 	}
 }
@@ -37,7 +79,7 @@ func HerokuName(n string) string {
 func (self *RemoteDeployment) IsTest() bool {
 	return self.isTest
 }
-func (self *RemoteDeployment) TestPort() int {
+func (self *RemoteDeployment) Port() int {
 	return self.testPort
 }
 

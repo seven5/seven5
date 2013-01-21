@@ -99,12 +99,12 @@ func (self *AuthDispatcher) Login(conn auth.ServiceConnector, w http.ResponseWri
 }
 
 func (self *AuthDispatcher) Logout(conn auth.ServiceConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
-	id,err:=self.CookieMap.Value(r)
-	if err!=nil && err!=NO_SUCH_COOKIE {
+	id, err := self.CookieMap.Value(r)
+	if err != nil && err != NO_SUCH_COOKIE {
 		fmt.Fprintf(os.Stderr, "Problem understanding cookie in request: %s", err)
 		return nil
 	}
-	if err!=NO_SUCH_COOKIE {
+	if err != NO_SUCH_COOKIE {
 		self.CookieMap.RemoveCookie(w)
 		self.SessionMgr.Destroy(id)
 	}
@@ -128,14 +128,14 @@ func (self *AuthDispatcher) callback(conn auth.ServiceConnector) string {
 }
 
 func (self *AuthDispatcher) Connect(conn auth.ServiceConnector, code string, w http.ResponseWriter, r *http.Request) *ServeMux {
-	_, err := conn.ExchangeForToken(self.callback(conn), code)
+	t, err := conn.ExchangeForToken(self.callback(conn), code)
 	if err != nil {
 		error_msg := fmt.Sprintf("unable to finish the token exchange with %s: %s", conn.Name(), err)
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
 		return nil
 	}
 	state := r.URL.Query().Get(conn.StateValueName())
-	session, err := self.SessionMgr.Generate(nil, r, state, code)
+	session, err := self.SessionMgr.Generate(t, r, state, code)
 	if err != nil {
 		error_msg := fmt.Sprintf("failed to create session")
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
@@ -162,4 +162,20 @@ func UDID() string {
 	}
 	f.Close()
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
+//AuthDispatcherFromRaw is a convenience method that creates an auth dispatcher from an already
+//existing RawDispatcher.  It requires a handle to the ServeMux because the AuthDispatcher creates
+//mappings. It maps the AuthDispatcher functions to /auth/serviceName/{login,logout,oauth2callback}.
+func AuthDispatcherFromRaw(raw *RawDispatcher, mux *ServeMux)  *AuthDispatcher{
+	pm:=auth.NewSimplePageMapper("/login.html","/logout.html","error.html")
+	return NewAuthDispatcherRaw("/auth", mux, pm, raw.CookieMap, raw.SessionMgr)
+}
+
+//AuthDispatcherFromRaw is a convenience method that creates an auth dispatcher from an already
+//existing BaseDispatcher.  It requires a handle to the ServeMux because the AuthDispatcher creates
+//mappings.  It maps the AuthDispatcher functions to /auth/serviceName/{login,logout,oauth2callback}.
+func AuthDispatcherFromBase(b *BaseDispatcher, mux *ServeMux) *AuthDispatcher {
+	raw:=b.RawDispatcher
+	return AuthDispatcherFromRaw(raw, mux)
 }

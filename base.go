@@ -9,9 +9,16 @@ import (
 //* The application will keep a single cookie on the browser (that's why the name is passed in)
 //* The application will keep a session associated with the cookie for each "logged in" user (in memory)
 //* Json is used to encode and decode the wire types
-//* Rest resources dispatched by this object are mapped to /rest in the URL space
-func NewBaseDispatcher(appName string) *BaseDispatcher {
-	sm:= NewSimpleSessionManager()
+//* Rest resources dispatched by this object are mapped to /rest in the URL space.
+//You can pass a SessionManager to this method if you want to use your own implementation and this
+//is common for applications that involve users.
+func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatcher {
+	var sm SessionManager
+	if optionalSm!=nil {
+		sm=optionalSm
+	} else {
+		sm=NewSimpleSessionManager()
+	}
 	cm := NewSimpleCookieMapper(appName)
 	result :=&BaseDispatcher{}
 	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, sm, result, "/rest")

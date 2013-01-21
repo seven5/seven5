@@ -18,29 +18,29 @@ const MAX_FORM_SIZE = 16 * 1024
 //cookie handling, or the session handling.  The prefix is used to tell the dispatcher where
 //it is mounted so it can "strip" this prefix from any URL paths it is decoding.  This should
 //be "" if the dispatcher is mounted at /; it should not end in a /.
-func NewRawDispatcher(enc Encoder, dec Decoder, cm CookieMapper, sm SessionManager, a Authorizer, 
+func NewRawDispatcher(enc Encoder, dec Decoder, cm CookieMapper, sm SessionManager, a Authorizer,
 	prefix string) *RawDispatcher {
 	return &RawDispatcher{
-		resource: make(map[string]*restObj),
-		enc:      enc,
-		dec:      dec,
-		cm:       cm,
-		sm:       sm,
-		auth:     a,
-		prefix:   prefix,
+		Res:        make(map[string]*restObj),
+		Enc:        enc,
+		Dec:        dec,
+		CookieMap:  cm,
+		SessionMgr: sm,
+		Auth:       a,
+		Prefix:     prefix,
 	}
 }
 
 //RawDispatcher is the "parent" type of dispatchers that understand REST.  It has many 
 //"hooks" that allow other types to override particular behaviors.
 type RawDispatcher struct {
-	resource map[string]*restObj
-	enc      Encoder
-	dec      Decoder
-	cm       CookieMapper
-	sm       SessionManager
-	auth     Authorizer
-	prefix   string
+	Res        map[string]*restObj
+	Enc        Encoder
+	Dec        Decoder
+	CookieMap  CookieMapper
+	SessionMgr SessionManager
+	Auth       Authorizer
+	Prefix     string
 }
 
 //ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods 
@@ -67,7 +67,7 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 		post:  post,
 		put:   put,
 	}
-	self.resource[strings.ToLower(name)] = obj
+	self.Res[strings.ToLower(name)] = obj
 }
 
 //Resource is the shorter form of ResourceSeparate that allows you to pass a single resource
@@ -88,7 +88,7 @@ func (self *RawDispatcher) SendHook(d *restObj, w http.ResponseWriter, i interfa
 		http.Error(w, fmt.Sprintf("%s", err), http.StatusExpectationFailed)
 		return
 	}
-	encoded, err := self.enc.Encode(i, true)
+	encoded, err := self.Enc.Encode(i, true)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("unable to encode: %s", err), http.StatusInternalServerError)
 		return
@@ -112,21 +112,21 @@ func (self *RawDispatcher) SendHook(d *restObj, w http.ResponseWriter, i interfa
 //add headers.
 func (self *RawDispatcher) BundleHook(w http.ResponseWriter, r *http.Request) (PBundle, error) {
 	var session Session
-	if self.cm != nil {
+	if self.CookieMap != nil {
 		var err error
-		id, err = self.cm.Value(r)
+		id, err := self.CookieMap.Value(r)
 		if err != nil && err != NO_SUCH_COOKIE {
 			return nil, err
 		}
 		var find_err error
-		if self.sm !=nil {
-			session, find_err = self.sm.Find(id)
-			if find_err!=nil {
+		if self.SessionMgr != nil {
+			session, find_err = self.SessionMgr.Find(id)
+			if find_err != nil {
 				return nil, find_err
 			}
 			if session == nil && err != NO_SUCH_COOKIE {
 				fmt.Printf("dropping cookie, can't match it to a session\n")
-				self.cm.RemoveCookie(w)
+				self.CookieMap.RemoveCookie(w)
 			}
 		}
 	}
@@ -164,7 +164,7 @@ func (self *RawDispatcher) BodyHook(r *http.Request, obj *restObj) (interface{},
 	}
 	//we have a body of data, need to decode it... first allocate one
 	wireObj := reflect.New(obj.t)
-	if err := self.dec.Decode(limitedData[:curr], wireObj.Interface()); err != nil {
+	if err := self.Dec.Decode(limitedData[:curr], wireObj.Interface()); err != nil {
 		return nil, err
 	}
 
@@ -219,7 +219,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 				http.Error(w, "Not implemented (INDEX)", http.StatusNotImplemented)
 				return nil
 			}
-			if self.auth != nil && !self.auth.Index(d, bundle) {
+			if self.Auth != nil && !self.Auth.Index(d, bundle) {
 				//typically trips the error dispatcher
 				http.Error(w, "Not authorized (INDEX)", http.StatusUnauthorized)
 				return nil
@@ -238,7 +238,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 				http.Error(w, "Not implemented (FIND)", http.StatusNotImplemented)
 				return nil
 			}
-			if self.auth != nil && !self.auth.Find(d, num, bundle) {
+			if self.Auth != nil && !self.Auth.Find(d, num, bundle) {
 				//typically trips the error dispatcher
 				http.Error(w, "Not authorized (FIND)", http.StatusUnauthorized)
 				return nil
@@ -260,7 +260,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			http.Error(w, "Not implemented (POST)", http.StatusNotImplemented)
 			return nil
 		}
-		if self.auth != nil && !self.auth.Post(d, bundle) {
+		if self.Auth != nil && !self.Auth.Post(d, bundle) {
 			http.Error(w, "Not authorized (POST)", http.StatusUnauthorized)
 			return nil
 		}
@@ -281,7 +281,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 				http.Error(w, "Not implemented (PUT)", http.StatusNotImplemented)
 				return nil
 			}
-			if self.auth != nil && !self.auth.Put(d, num, bundle) {
+			if self.Auth != nil && !self.Auth.Put(d, num, bundle) {
 				http.Error(w, "Not authorized (PUT)", http.StatusUnauthorized)
 				return nil
 			}
@@ -296,7 +296,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 				http.Error(w, "Not implemented (DELETE)", http.StatusNotImplemented)
 				return nil
 			}
-			if self.auth != nil && !self.auth.Delete(d, num, bundle) {
+			if self.Auth != nil && !self.Auth.Delete(d, num, bundle) {
 				http.Error(w, "Not authorized (DELETE)", http.StatusUnauthorized)
 				return nil
 			}
@@ -323,7 +323,7 @@ func (self *RawDispatcher) verifyReturnType(obj *restObj, w interface{}) error {
 			return errors.New(fmt.Sprintf("Marshalling problem: expected a pointer/slice type but got a %v", p.Kind()))
 		}
 		//check that the _inner_ type is a pointer
-		p=p.Elem()
+		p = p.Elem()
 		if p.Kind() != reflect.Ptr {
 			return errors.New(fmt.Sprintf("Marshalling problem: expected a slice of point type but got slice of %v", p.Kind()))
 		}
@@ -340,7 +340,7 @@ func (self *RawDispatcher) verifyReturnType(obj *restObj, w interface{}) error {
 func (self *RawDispatcher) location(obj *restObj, i interface{}) string {
 	//we should have already checked that this object is a pointer to a struct with an Id field
 	//in the "right place" and "right type"
-	result := self.prefix + "/" + obj.name
+	result := self.Prefix + "/" + obj.name
 
 	p := reflect.ValueOf(i)
 	if p.Kind() != reflect.Ptr {
@@ -361,14 +361,14 @@ func (self *RawDispatcher) location(obj *restObj, i interface{}) string {
 //that the resulting object is suitable for any purpose, only that it matches.
 func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj) {
 	path := rawPath
-	pre := self.prefix + "/"
-	if self.prefix != "" {
+	pre := self.Prefix + "/"
+	if self.Prefix != "" {
 		if !strings.HasPrefix(path, pre) {
 			panic(fmt.Sprintf("expected prefix %s on the URL path but not found on: %s", pre, path))
 		}
 		path = path[len(pre):]
 	}
-	d, ok := self.resource[path]
+	d, ok := self.Res[path]
 	var id string
 	result := path
 	if !ok {
@@ -379,7 +379,7 @@ func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj) {
 		id = path[i+1:]
 		var uriPathParent string
 		uriPathParent = path[:i]
-		d, ok = self.resource[uriPathParent]
+		d, ok = self.Res[uriPathParent]
 		if !ok {
 			return "", "", nil
 		}

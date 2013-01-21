@@ -49,7 +49,7 @@ func (self *allowResource) Allow(id Id, method string, pb PBundle) bool {
 }
 
 func TestAllow(t *testing.T) {
-	base := NewBaseDispatcher("myappname")
+	base := NewBaseDispatcher("myappname",nil)
 
 	serveMux := NewServeMux(nil)
 	serveMux.Dispatch("/rest/", base)

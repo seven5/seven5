@@ -4,8 +4,8 @@
 package auth
 
 import (
-	oauth "code.google.com/p/goauth2/oauth"
 	gomock "code.google.com/p/gomock/gomock"
+	oauth "code.google.com/p/goauth2/oauth"
 )
 
 // Mock of ServiceConnector interface
@@ -79,6 +79,17 @@ func (_mr *_MockServiceConnectorRecorder) Name() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Name")
 }
 
+func (_m *MockServiceConnector) Fetch(_param0 *oauth.Transport) (interface{}, error) {
+	ret := _m.ctrl.Call(_m, "Fetch", _param0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockServiceConnectorRecorder) Fetch(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Fetch", arg0)
+}
+
 func (_m *MockServiceConnector) ExchangeForToken(_param0 string, _param1 string) (*oauth.Transport, error) {
 	ret := _m.ctrl.Call(_m, "ExchangeForToken", _param0, _param1)
 	ret0, _ := ret[0].(*oauth.Transport)
@@ -139,43 +150,6 @@ func (_m *MockPageMapper) LogoutLandingPage(_param0 ServiceConnector) string {
 
 func (_mr *_MockPageMapperRecorder) LogoutLandingPage(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LogoutLandingPage", arg0)
-}
-
-// Mock of AppConnector interface
-type MockAppConnector struct {
-	ctrl     *gomock.Controller
-	recorder *_MockAppConnectorRecorder
-}
-
-// Recorder for MockAppConnector (not exported)
-type _MockAppConnectorRecorder struct {
-	mock *MockAppConnector
-}
-
-func NewMockAppConnector(ctrl *gomock.Controller) *MockAppConnector {
-	mock := &MockAppConnector{ctrl: ctrl}
-	mock.recorder = &_MockAppConnectorRecorder{mock}
-	return mock
-}
-
-func (_m *MockAppConnector) EXPECT() *_MockAppConnectorRecorder {
-	return _m.recorder
-}
-
-func (_m *MockAppConnector) Login() {
-	_m.ctrl.Call(_m, "Login")
-}
-
-func (_mr *_MockAppConnectorRecorder) Login() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Login")
-}
-
-func (_m *MockAppConnector) Logout() {
-	_m.ctrl.Call(_m, "Logout")
-}
-
-func (_mr *_MockAppConnectorRecorder) Logout() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Logout")
 }
 
 // Mock of OauthClientDetail interface
