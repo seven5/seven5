@@ -60,7 +60,7 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 		panic("wire example is not a pointer to a struct (but is a pointer)")
 	}
 
-	self.Add(wireExample)
+	self.Add(name,wireExample)
 
 	obj := &restObj{
 		t:     under,
@@ -403,8 +403,8 @@ func ParseId(candidate string) (Id, string) {
 }
 
 //Add is required by the TypeHolder protocol.  Delegated into the TypeHolder passed at creation time.
-func (self *RawDispatcher) Add(wireType interface{}) {
-	self.Holder.Add(wireType)
+func (self *RawDispatcher) Add(name string,wireType interface{}) {
+	self.Holder.Add(name,wireType)
 }
 
 //All is required by the TypeHolder protocol. Delegated into the TypeHolder passed at creation time.

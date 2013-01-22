@@ -14,6 +14,7 @@ import (
 //is common for applications that involve users.
 func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatcher {
 	var sm SessionManager
+	prefix:="/rest"
 	if optionalSm!=nil {
 		sm=optionalSm
 	} else {
@@ -22,7 +23,7 @@ func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatche
 	cm := NewSimpleCookieMapper(appName)
 	holder:=NewSimpleTypeHolder()
 	result :=&BaseDispatcher{}
-	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, sm, result, holder, "/rest")
+	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, sm, result, holder, prefix)
 	return result
 }
 

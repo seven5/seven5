@@ -28,7 +28,7 @@ Map toMapForJson() {
 class {{.Name}} {
 	{{template "FIELD_DECL" .Field}}
 
-	static String resourceURL = "/{{tolower .Name}}/";
+	static String resourceURL = "{{.RestPrefix}}{{tolower .Name}}/";
 
 	static void Index(Function successFunc, [Function errorFunc, Map headers, Map requestParameters]) {
 		Seven5Support.Index(resourceURL, ()=>new List<{{.Name}}>(), ()=>new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);

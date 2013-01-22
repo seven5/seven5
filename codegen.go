@@ -47,9 +47,16 @@ func collectStructs(current *FieldDescription) []*FieldDescription {
 	return result
 }
 
-func generateDartForResource(f *FieldDescription) string {
+//fdWrapper is a wrapper and field description that adds a field to help the code generator know what
+//the rest prefix is.
+type fdWrapper struct {
+	*FieldDescription
+	RestPrefix string
+}
+func generateDartForResource(f *FieldDescription, prefix string) string {
 	var buffer bytes.Buffer
-	if err := codegenTemplate.ExecuteTemplate(&buffer, "CLASSDECL_TMPL", f); err != nil {
+	w:=&fdWrapper{f,prefix+"/"}
+	if err := codegenTemplate.ExecuteTemplate(&buffer, "CLASSDECL_TMPL", w); err != nil {
 		return err.Error()
 	}
 	return buffer.String()
@@ -149,9 +156,10 @@ func dartPrettyPrint(raw string) []byte {
 
 
 
-//GeneratedDartContent adds an http handler for a particular path.
-func GeneratedDartContent(mux *ServeMux, holder TypeHolder, urlPath string) {
-	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder))
+//GeneratedDartContent adds an http handler for a particular path.  The restPrefix must be the same one
+//used by the TypeHolder (probably a dispatcher) to map its rest resources.
+func GeneratedDartContent(mux *ServeMux, holder TypeHolder, urlPath string, restPrefix string) {
+	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder, restPrefix))
 }
 
 
@@ -165,9 +173,9 @@ import 'dart:json';
 //generateDartFunc returns a function that outputs text string for all the wire types associated
 //with all the resources known to the type holder.  Note that the number of classes output may be
 //different than the number of resources because the wire types may nest structures inside.
-func generateDartFunc(holder TypeHolder) func(http.ResponseWriter,*http.Request){
+func generateDartFunc(holder TypeHolder, prefix string) func(http.ResponseWriter,*http.Request){
 	return func(w http.ResponseWriter, r *http.Request) {
-		text:=wrappedCodeGen(holder)
+		text:=wrappedCodeGen(holder, prefix)
 		if _,err:=w.Write(text.Bytes()); err!=nil {
 			fmt.Fprintf(os.Stderr, "Unable to write result of code generation to the client: %s\n", err)
 		}
@@ -175,13 +183,13 @@ func generateDartFunc(holder TypeHolder) func(http.ResponseWriter,*http.Request)
 } 
 
 //wrappedCodeGenFunc is the top level of the code generation.
-func wrappedCodeGen(holder TypeHolder) bytes.Buffer{
+func wrappedCodeGen(holder TypeHolder,prefix string) bytes.Buffer{
 	var text bytes.Buffer
 	resourceStructs := []*FieldDescription{}
 	supportStructs := []*FieldDescription{}
 	text.WriteString(LIBRARY_INFO)
 	for _, d := range holder.All() {
-		text.WriteString(generateDartForResource(d))
+		text.WriteString(generateDartForResource(d, prefix))
 		resourceStructs = append(resourceStructs, d)
 	}
 	for _, d := range holder.All() {

@@ -34,11 +34,11 @@ func (self *someResource) Put(id Id, i interface{}, p PBundle) (interface{}, err
 
 type someWire struct {
 	Id  Id
-	Foo string
+	Foo String255
 }
 
 func setupMux(f RestAll) *ServeMux {
-	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, nil, "/rest")
+	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, NewSimpleTypeHolder(), "/rest")
 
 	raw.ResourceSeparate("fleazil", &someWire{}, f, f, f, f, f)
 
@@ -119,7 +119,7 @@ func checkBody(t *testing.T, returned *someWire, id Id, s string) {
 	if returned.Id != id {
 		t.Errorf("Expected id %d but got %d\n", id, returned.Id)
 	}
-	if returned.Foo != s {
+	if string(returned.Foo) != s {
 		t.Errorf("Expected to see string '%s' but got '%s'\n", s, returned.Foo)
 	}
 }
@@ -136,7 +136,7 @@ func TestBadResource(t *testing.T) {
 
 	bad := &badlyWrittenResource{}
 
-	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, nil,"/rest")
+	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, NewSimpleTypeHolder(),"/rest")
 	raw.ResourceSeparate("badcoder", &someWire{}, nil, bad, nil, nil, nil)
 
 	mux := NewServeMux()

@@ -29,9 +29,9 @@ Map toMapForJson() {
 {{end}} {{/* define */}}
 
 class {{.Name}} {
-	{{template "FIELD_DECL" .Field}}
+	{{template "FIELD_DECL" .}}
 
-	static String resourceURL = "/{{tolower .Name}}/";
+	static String resourceURL = "{{.RestPrefix}}{{tolower .Name}}/";
 
 	static void Index(Function successFunc, [Function errorFunc, Map headers, Map requestParameters]) {
 		Seven5Support.Index(resourceURL, ()=>new List<{{.Name}}>(), ()=>new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
@@ -63,11 +63,11 @@ class {{.Name}} {
 	
 	//this is the "magic" that changes from untyped Json to typed object
 	{{.Name}} copyFromJson(Map json) {
-		{{template "COPY_JSON_FIELDS" .Field}}
+		{{template "COPY_JSON_FIELDS" .}}
 		return this;
 	}
 	
-	{{template "EMIT_JSON_FIELDS" .Field}}
+	{{template "EMIT_JSON_FIELDS" .}}
 	
 	//this converts the object to a map so JSON serialization will like it
 	toJson() {

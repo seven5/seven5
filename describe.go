@@ -11,7 +11,7 @@ import (
 //their REST resources.  Typically, callers should be aware that calling Add() on a type that does
 //not meet the seven5 requirements for all it's fields will cause a panic.
 type TypeHolder interface {
-	Add(wireType interface{})
+	Add(name string, wireType interface{})
 	All() []*FieldDescription
 }
 
@@ -22,7 +22,7 @@ type SimpleTypeHolder struct {
 
 //NewSimpleTypeHolder returns a new, initialized ptr to a SimpleTypeHolder.
 func NewSimpleTypeHolder() *SimpleTypeHolder {
-	return &SimpleTypeHolder{}
+	return &SimpleTypeHolder{nil}
 }
 
 //All returns the full list of wire types known to this TypeHolder.
@@ -30,12 +30,13 @@ func (self *SimpleTypeHolder) All() []*FieldDescription {
 	return self.all
 }
 
-//Add takes the type supplied and adds it to the list of known interfaces.  If this type is not
+//Add takes the type supplied and adds it to the list of known resources.  If this type is not
 //a valid wire type (contains a seven5.Id field called Id, contains only seven5 wire types for other
 //fields, all fields should be public) it will panic.  It does not check to see if the type has been 
 //added previously.
-func (self *SimpleTypeHolder) Add(i interface{}) {
-	d:=WalkWireType(reflect.TypeOf(i))
+func (self *SimpleTypeHolder) Add(name string, i interface{}) {
+	t:=reflect.TypeOf(i)
+	d:=WalkWireType(name, t)
 	self.all = append(self.all,d)
 }
 
@@ -61,19 +62,18 @@ type FieldDescription struct {
 }
 
 //WalkWireType is the recursive machine that creates a FieldDescription from 
-//a go type.  Given a type it returns a pointer to a FieldDescription struct whose
-//name is not filled in.  This is public because it's likely to be useful to
-//others.
-func WalkWireType(t reflect.Type) *FieldDescription {
+//a go type.  Given a type it returns a pointer to a FieldDescription struct.  
+//This is public because it's likely to be useful to others.
+func WalkWireType(name string, t reflect.Type) *FieldDescription {
 	if strings.HasSuffix(t.PkgPath(), "seven5") {
 		switch t.Name() {
 		case "Floating", "String255", "Textblob", "Integer", "Id", "Boolean":
-			return &FieldDescription{Name: "Not_Known_Yet", TypeName: t.Name()}
+			return &FieldDescription{Name: name, TypeName: t.Name()}
 		}
 	}
 	if t.Kind() == reflect.Slice {
-		nested := WalkWireType(t.Elem())
-		return &FieldDescription{Name: "Not_Known_Yet", Array: nested}
+		nested := WalkWireType("slice", t.Elem())
+		return &FieldDescription{Name: name, Array: nested}
 	}
 	if t.Kind() == reflect.Struct || (t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct) {
 		var structType reflect.Type
@@ -97,11 +97,10 @@ func WalkWireType(t reflect.Type) *FieldDescription {
 			if ignore {
 				continue
 			}
-			nested := WalkWireType(f.Type)
-			nested.Name = f.Name
+			nested := WalkWireType(f.Name, f.Type)
 			fieldCollection = append(fieldCollection, nested)
 		}
-		return &FieldDescription{Name: "Not Known Yet", StructName: structType.Name(),
+		return &FieldDescription{Name: name, StructName: structType.Name(),
 			Struct: fieldCollection}
 	}
 	switch t.Kind() {

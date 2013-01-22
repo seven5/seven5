@@ -40,7 +40,7 @@ func verifyNoNesting(T *testing.T, f ...*FieldDescription) {
 /*-------------------------------------------------------------------------*/
 
 func TestRecursiveTraversal(T *testing.T) {
-	d := WalkWireType(reflect.TypeOf(Rec2{}))
+	d := WalkWireType("Rec2",reflect.TypeOf(Rec2{}))
 	if len(d.Struct) != 4 {
 		T.Errorf("expected 3 fields from Rec2 but found %d", len(d.Struct))
 	}
