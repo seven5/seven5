@@ -51,7 +51,7 @@ func (self *allowResource) Allow(id Id, method string, pb PBundle) bool {
 func TestAllow(t *testing.T) {
 	base := NewBaseDispatcher("myappname",nil)
 
-	serveMux := NewServeMux(nil)
+	serveMux := NewServeMux()
 	serveMux.Dispatch("/rest/", base)
 
 	res := &allowResource{}

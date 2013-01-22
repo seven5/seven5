@@ -38,11 +38,11 @@ type someWire struct {
 }
 
 func setupMux(f RestAll) *ServeMux {
-	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, "/rest")
+	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, nil, "/rest")
 
 	raw.ResourceSeparate("fleazil", &someWire{}, f, f, f, f, f)
 
-	mux := NewServeMux(nil)
+	mux := NewServeMux()
 	//note this prefix ends up _on_ all resources
 	mux.Dispatch("/rest/", raw)
 	return mux
@@ -136,10 +136,10 @@ func TestBadResource(t *testing.T) {
 
 	bad := &badlyWrittenResource{}
 
-	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, "/rest")
+	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, nil,"/rest")
 	raw.ResourceSeparate("badcoder", &someWire{}, nil, bad, nil, nil, nil)
 
-	mux := NewServeMux(nil)
+	mux := NewServeMux()
 	//note this prefix ends up _on_ all resources
 	mux.Dispatch("/rest/", raw)
 

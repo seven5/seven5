@@ -35,10 +35,18 @@ type ErrorDispatcher interface {
 
 //NewServeMux creates a new server mux (compatible with http.ServeMux) with the specified error
 //handler, which may be nil.  
-func NewServeMux(e ErrorDispatcher) *ServeMux {
+func NewServeMux() *ServeMux {
 	return &ServeMux{
-		http.NewServeMux(), e,
+		http.NewServeMux(), nil,
 	}
+}
+
+func (self *ServeMux) ErrorDispatcher() ErrorDispatcher{
+	return self.err
+}
+
+func (self *ServeMux) SetErrorDispatcher(e ErrorDispatcher) {
+	self.err = e
 }
 
 //ServeHTTP is a simple wrapper around the http.ServeMux method of the same name that incorporates

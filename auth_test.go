@@ -235,7 +235,7 @@ func createDispatcherWithMocks(ctrl *gomock.Controller, pm auth.PageMapper, cm C
 	authconn := auth.NewMockServiceConnector(ctrl)
 
 	//real serve mux so the dispatching really works with an HTTP conn
-	serveMux := NewServeMux(nil)
+	serveMux := NewServeMux()
 
 	//we use /fart because we don't want to end up with dependencies on /rest, the standard
 	disp := NewAuthDispatcherRaw("/fart", serveMux, pm, cm, sm)

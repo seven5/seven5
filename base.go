@@ -20,16 +20,23 @@ func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatche
 		sm=NewSimpleSessionManager()
 	}
 	cm := NewSimpleCookieMapper(appName)
+	holder:=NewSimpleTypeHolder()
 	result :=&BaseDispatcher{}
-	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, sm, result, "/rest")
+	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, sm, result, holder, "/rest")
 	return result
 }
 
+//BaseDispatcher is a slight "specialization" of the RawDispatcher for REST resources.  BaseDispatcher
+//understands how to dispatch to REST resources (like Raw) but can also handle the Allower protocol for
+//primitive, coarse-grained authorization.  Additionally, it allows easy creation of a BaseDispatcher
+//with a custom SessionManager, as this is often used with user roles (and Allow protocol).
 type BaseDispatcher struct {
 	*RawDispatcher
 }
 
 
+//Index checks with AllowReader.AllowRead to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
 func (self *BaseDispatcher) Index(d *restObj, bundle PBundle) bool {
 	allowReader, ok := d.index.(AllowReader)
 	if !ok {
@@ -38,6 +45,8 @@ func (self *BaseDispatcher) Index(d *restObj, bundle PBundle) bool {
 	return allowReader.AllowRead(bundle)
 }
 
+//Post checks with AllowWriter.AllowWrite to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
 func (self *BaseDispatcher) Post(d *restObj, bundle PBundle) bool {
 	allowWriter, ok := d.post.(AllowWriter)
 	if !ok {
@@ -46,6 +55,8 @@ func (self *BaseDispatcher) Post(d *restObj, bundle PBundle) bool {
 	return allowWriter.AllowWrite(bundle)
 }
 
+//Find checks with Allower.Allow(FIND) to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
 func (self *BaseDispatcher) Find(d *restObj,num Id,  bundle PBundle) bool {
 	allow, ok := d.find.(Allower)
 	if !ok {
@@ -54,6 +65,8 @@ func (self *BaseDispatcher) Find(d *restObj,num Id,  bundle PBundle) bool {
 	return allow.Allow(num, "GET", bundle)
 }
 
+//Find checks with Allower.Allow(PUT) to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
 func (self *BaseDispatcher) Put(d *restObj,num Id,  bundle PBundle) bool {
 	allow, ok := d.put.(Allower)
 	if !ok {
@@ -62,6 +75,8 @@ func (self *BaseDispatcher) Put(d *restObj,num Id,  bundle PBundle) bool {
 	return allow.Allow(num, "PUT", bundle)
 }
 
+//Find checks with Allower.Allow(DELETE) to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
 func (self *BaseDispatcher) Delete(d *restObj, num Id, bundle PBundle) bool {
 	allow, ok := d.del.(Allower)
 	if !ok {

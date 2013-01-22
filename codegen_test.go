@@ -31,7 +31,7 @@ func verifyHasString(T *testing.T, s string, code string) {
 /*                                 TEST CODE                               */
 /*-------------------------------------------------------------------------*/
 func TestDartFields(T *testing.T) {
-	f := WalkJsonType(reflect.TypeOf(Test1{}))
+	f := WalkWireType(reflect.TypeOf(Test1{}))
 
 	if f.HasId() {
 		T.Errorf("Test1 should not be a resource, no Id field!")
@@ -46,7 +46,7 @@ func TestDartFields(T *testing.T) {
 }
 
 func TestStructCollection(T *testing.T) {
-	f := WalkJsonType(reflect.TypeOf(Test1{}))
+	f := WalkWireType(reflect.TypeOf(Test1{}))
 	d := collectStructs(f)
 	if len(d) != 2 {
 		T.Fatalf("Expected to find %d structs but found %d", 2, len(d))
@@ -60,18 +60,11 @@ func TestStructCollection(T *testing.T) {
 }
 
 func TestDartFullResource(T *testing.T) {
-	T.Logf("codegen_test.TestDartFullResource needs updating!")
-	/*
-	h := NewSimpleHandler(nil)
-	h.AddResource(Ox{}, &oxFinder{})
+	holder := NewSimpleTypeHolder()
+	holder.Add(&someWire{})
 	
-	p := "/ox/129"
-
-	person, _, _ := h.resolve(p)
-	//people, _, _ := h.resolve(q)
-	doc := h.Describe(person)
-
-	decl := generateDartForResource(doc)
+	b := wrappedCodeGen(holder)
+	decl:= b.String()
 	verifyHasString(T, "class Ox {", decl)
 	verifyHasString(T, "int Id;", decl)
 	verifyHasString(T, "bool IsLarge;", decl)
@@ -79,5 +72,4 @@ func TestDartFullResource(T *testing.T) {
 	verifyHasString(T, "Ox.fromJson(Map json)", decl)
 	verifyHasString(T, "void Find(", decl)
 	verifyHasString(T, "static String resourceURL = \"/ox/\"", decl)
-	*/
 }

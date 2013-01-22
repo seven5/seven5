@@ -18,7 +18,7 @@ func (self *countDispatch) Dispatch(s *ServeMux, w http.ResponseWriter, r *http.
 
 func TestDispatchBasic(t *testing.T) {
 	d := &countDispatch{}
-	serveMux := NewServeMux(nil)
+	serveMux := NewServeMux()
 	serveMux.Dispatch("/countme", d)
 
 	go func() {
@@ -62,7 +62,8 @@ func (self *errDispatch) PanicDispatch(i interface{}, w http.ResponseWriter, r *
 
 func TestDispatchError(t *testing.T) {
 	e := &errDispatch{}
-	serveMux := NewServeMux(e)
+	serveMux := NewServeMux()
+	serveMux.SetErrorDispatcher(e)
 	go func() {
 		http.ListenAndServe(":8089", serveMux)
 	}()
@@ -89,11 +90,11 @@ func (self *continueDispatch) Dispatch(s *ServeMux, w http.ResponseWriter, r *ht
 func TestContinueDispatch(t *testing.T) {
 	count := &countDispatch{}
 
-	nestedMux := NewServeMux(nil)
+	nestedMux := NewServeMux()
 	nestedMux.Dispatch("/inner", count)
 
 	c := &continueDispatch{0, nestedMux}
-	serveMux := NewServeMux(nil)
+	serveMux := NewServeMux()
 	serveMux.Dispatch("/outer", c)
 
 	go func() {
@@ -118,7 +119,8 @@ func TestPanicDispatch(t *testing.T) {
 	p := &panicDispatch{}
 	e := &errDispatch{}
 
-	serveMux := NewServeMux(e)
+	serveMux := NewServeMux()
+	serveMux.SetErrorDispatcher(e)
 	serveMux.Dispatch("/die", p)
 
 	go func() {
@@ -154,7 +156,8 @@ func BenchmarkDispatching(b *testing.B) {
 	portCount++
 	c := &countDispatch{}
 	e := &errDispatch{}
-	serveMux := NewServeMux(e)
+	serveMux := NewServeMux()
+	serveMux.SetErrorDispatcher(e)
 	serveMux.Dispatch("/count", c)
 
 	go func() {

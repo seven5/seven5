@@ -19,7 +19,7 @@ const MAX_FORM_SIZE = 16 * 1024
 //it is mounted so it can "strip" this prefix from any URL paths it is decoding.  This should
 //be "" if the dispatcher is mounted at /; it should not end in a /.
 func NewRawDispatcher(enc Encoder, dec Decoder, cm CookieMapper, sm SessionManager, a Authorizer,
-	prefix string) *RawDispatcher {
+	hold TypeHolder, prefix string) *RawDispatcher {
 	return &RawDispatcher{
 		Res:        make(map[string]*restObj),
 		Enc:        enc,
@@ -27,6 +27,7 @@ func NewRawDispatcher(enc Encoder, dec Decoder, cm CookieMapper, sm SessionManag
 		CookieMap:  cm,
 		SessionMgr: sm,
 		Auth:       a,
+		Holder:     hold,
 		Prefix:     prefix,
 	}
 }
@@ -41,6 +42,7 @@ type RawDispatcher struct {
 	SessionMgr SessionManager
 	Auth       Authorizer
 	Prefix     string
+	Holder     TypeHolder
 }
 
 //ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods 
@@ -57,6 +59,8 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 	if under.Kind() != reflect.Struct {
 		panic("wire example is not a pointer to a struct (but is a pointer)")
 	}
+
+	self.Add(wireExample)
 
 	obj := &restObj{
 		t:     under,
@@ -388,7 +392,7 @@ func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj) {
 	return result, id, d
 }
 
-//parseId returns the id contained in a string or an error message about why the id is bad.
+//ParseId returns the id contained in a string or an error message about why the id is bad.
 func ParseId(candidate string) (Id, string) {
 	var num int64
 	var err error
@@ -397,3 +401,14 @@ func ParseId(candidate string) (Id, string) {
 	}
 	return Id(num), ""
 }
+
+//Add is required by the TypeHolder protocol.  Delegated into the TypeHolder passed at creation time.
+func (self *RawDispatcher) Add(wireType interface{}) {
+	self.Holder.Add(wireType)
+}
+
+//All is required by the TypeHolder protocol. Delegated into the TypeHolder passed at creation time.
+func (self *RawDispatcher) All() []*FieldDescription {
+	return self.Holder.All()
+}
+
