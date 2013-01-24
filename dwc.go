@@ -21,7 +21,7 @@ const (
 func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		//case 1: exactly /
-		if r.URL.Path == prefix {
+		if r.URL.Path == prefix && r.URL.RawQuery=="" {
 			http.Redirect(w, r, homePage, http.StatusTemporaryRedirect)
 			return
 		}
@@ -64,7 +64,7 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 							return
 						}
 						if redir {
-							http.Redirect(w, r, grandParent, http.StatusTemporaryRedirect)
+							http.Redirect(w, r, grandParent+"?"+r.URL.RawQuery, http.StatusTemporaryRedirect)
 							return
 						}
 					}
@@ -79,30 +79,36 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 				}
 			}
 		}
+		//case 4
 		if strings.HasSuffix(r.URL.Path, "_bootstrap.dart.js") {
 			dart := filepath.Join(truePath, r.URL.Path[0:len(r.URL.Path)-3])
 			src, _ := os.Open(dart)
 			if isTestMode && src != nil {
 				js := filepath.Join(truePath, r.URL.Path)
 				dest, _ := os.Open(js)
-				fmt.Printf("-->%s %s\n", dart, js)
-				dart2js, err := NeedsCompile(src, dest)
+				err:=CompileJS(dart,js,truePath,src,dest)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "error trying to determine js compilation status:%s\n", err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				if dart2js {
-					CompileJS(dart, js, truePath)
-				}
 			}
 		}
-		//case 4: give up and use FS
+		//case 5: give up and use FS
 		underlyingHandler.ServeHTTP(w, r)
 	})
 }
 
-func CompileJS(dart string, js string, truePath string) error {
+func CompileJS(dart string, js string, truePath string, src *os.File, dest *os.File) error {
+	dart2js, err := NeedsCompile(src, dest)
+	if err!=nil {
+		return err
+	}
+	if !dart2js {
+		fmt.Fprintf(os.Stderr, "-----------------------\n%s is up to date\n", js)
+		return nil
+	}
+	
 	cmd := exec.Command("dart2js",
 		fmt.Sprintf("--package-root=%s/packages/", truePath),
 		fmt.Sprintf("--out=%s", js),
@@ -135,17 +141,7 @@ func NeedsCompile(src, dest *os.File) (bool, error) {
 
 func CompileWebComponents(w http.ResponseWriter, r *http.Request,
 	srcF *os.File, destF *os.File, src string, outDir string, truePath string) error {
-	olddir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	err = os.Chdir(truePath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		os.Chdir(olddir)
-	}()
+	
 	compile, err := NeedsCompile(srcF, destF)
 	if err != nil {
 		return err
@@ -153,23 +149,25 @@ func CompileWebComponents(w http.ResponseWriter, r *http.Request,
 	if compile {
 		cmd := exec.Command("dart",
 			fmt.Sprintf("--package-root=%s/packages/", truePath),
-			"packages/web_ui/dwc.dart",
-			fmt.Sprintf("--out=%s", dwcDir), src)
+			fmt.Sprintf("%s/packages/web_ui/dwc.dart", truePath),
+			fmt.Sprintf("--out=%s/%s", truePath, dwcDir), 
+			src)
 		b, err := cmd.CombinedOutput()
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "------ DWC ERROR -------\n%s", string(b))
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "-----------------------\n%s", string(b))
+		fmt.Fprintf(os.Stderr, "---------------------------\n%s", string(b))
 		if err != nil {
 			return err
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "-----------------------\n%s is up to date\n", src)
+		fmt.Fprintf(os.Stderr, "-----------   DWC   -------\n%s is up to date\n", src)
 	}
 	orig := r.URL.Path
 	final := filepath.Dir(orig) + dwcDir + "/" + filepath.Base(orig)
 	//XXX WORK ON WINDOWS?
-	http.Redirect(w, r, final, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, final+"?"+r.URL.RawQuery, http.StatusTemporaryRedirect)
 	return nil
 }
 

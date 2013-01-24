@@ -330,18 +330,30 @@ func (self *RawDispatcher) verifyReturnType(obj *restObj, w interface{}) error {
 		return nil
 	}
 	p := reflect.TypeOf(w)
+	var e reflect.Type
 	if p.Kind() != reflect.Ptr {
 		//could be a slice of these pointers
 		if p.Kind() != reflect.Slice {
 			return errors.New(fmt.Sprintf("Marshalling problem: expected a pointer/slice type but got a %v", p.Kind()))
 		}
-		//check that the _inner_ type is a pointer
-		p = p.Elem()
-		if p.Kind() != reflect.Ptr {
-			return errors.New(fmt.Sprintf("Marshalling problem: expected a slice of point type but got slice of %v", p.Kind()))
+		s:=reflect.ValueOf(w)
+		//you can send an _empty_ slice of anything
+		if s.Len()==0 {
+			return nil
 		}
-	}
-	e := p.Elem()
+		v:=s.Index(0)
+		p=reflect.TypeOf(v)
+		if v.CanInterface() {
+			i:=v.Interface()
+			p=reflect.TypeOf(i)
+			fmt.Printf("now what? %v %v\n",p, p.Kind())
+		} 
+		if p.Kind() != reflect.Ptr {
+			return errors.New(fmt.Sprintf("Marshalling problem: expected a ptr but got %v", p.Kind()))
+		}
+	} 
+	e=p.Elem()
+	fmt.Printf("e is %v and %v\n",e,obj.t)
 	if e != obj.t {
 		return errors.New(fmt.Sprintf("Marshalling problem: expected pointer to %v but got pointer to %v",
 			obj.t, e))

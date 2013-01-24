@@ -14,10 +14,11 @@
 package user
 
 import (
-	"seven5"
-	"errors"
 	"code.google.com/p/goauth2/oauth"
+	"errors"
+	_ "fmt"
 	"net/http"
+	"seven5"
 )
 
 var BAD_ID = errors.New("Bad id supplied in request")
@@ -27,7 +28,7 @@ var BAD_ID = errors.New("Bad id supplied in request")
 //and to be able to convert to a "wire type" in an application defined way.
 type Basic interface {
 	Email() string
-	SetEmail(string) 
+	SetEmail(string)
 	WireId() seven5.Id
 	ToWire() interface{}
 }
@@ -44,7 +45,7 @@ type Support interface {
 	KnownUsers() []Basic
 	UpdateFields(p interface{}, e Basic)
 	Delete(seven5.Id) Basic
-	Generate(*oauth.Transport) (seven5.Session,error)
+	Generate(*oauth.Transport) (seven5.Session, error)
 }
 
 //BasicResource is a REST stateless resource.  It does have a field, but this field is set once
@@ -63,7 +64,7 @@ type BasicMetaResource struct {
 
 //This is wire type that is accessible only to staff members.  It can only be read.
 type UserMetadataWire struct {
-	Id seven5.Id
+	Id          seven5.Id
 	NumberUsers seven5.Integer
 	NumberStaff seven5.Integer
 }
@@ -71,16 +72,16 @@ type UserMetadataWire struct {
 //BasicManager stores a copy of the Support object and creates the necessary resources that are
 //going to be needed by the application code.
 type BasicManager struct {
-	Sup Support
+	Sup     Support
 	Wrapped *seven5.SimpleSessionManager
 }
 
 //NewBasicManager creates a new basic user manager with the given supporting object.  This should
 //be the only copy of Support in the application.
 func NewBasicManager(support Support) *BasicManager {
-	result:=&BasicManager {
+	result := &BasicManager{
 		Wrapped: seven5.NewSimpleSessionManager(),
-		Sup:support,
+		Sup:     support,
 	}
 	return result
 }
@@ -99,14 +100,13 @@ func (self *BasicManager) Destroy(id string) error {
 //ends up calling the Support method of the same name.
 func (self *BasicManager) Generate(t *oauth.Transport, ignore_req *http.Request,
 	ignore_state string, ignore_code string) (seven5.Session, error) {
-	
-	s,err:=self.Sup.Generate(t)
-	if err!=nil {
+
+	s, err := self.Sup.Generate(t)
+	if err != nil {
 		return nil, err
 	}
 	return self.Wrapped.Assign(s)
 }
-
 
 //UserResource produces an implementation of a rest resource that is hooked to the Support object
 //that was passed to this BasicManager at creation-time.
@@ -126,27 +126,26 @@ func (self *BasicManager) MetaResource() seven5.RestIndex {
 func (self *BasicResource) Index(bundle seven5.PBundle) (interface{}, error) {
 
 	b := bundle.Session().(Basic)
-	
+
 	//normal case, should be a list of size one with the _current_ user's info
 	list := []interface{}{b.ToWire()}
 	_, haveSelf := bundle.Query("self")
-	priv:=self.Sup.IsStaff(b) || self.Sup.IsAdmin(b)
+	priv := self.Sup.IsStaff(b) || self.Sup.IsAdmin(b)
 	if haveSelf || !priv {
-		return list,nil
+		return list, nil
 	}
 	list = []interface{}{}
 	for _, v := range self.Sup.KnownUsers() {
 		list = append(list, v.ToWire())
 	}
-	return list,nil
+	return list, nil
 }
-
 
 //Because of Allow, this resource is _only_ called when the logged in user asks
 //about himself or if the user is priviledged they can ask about anyone.
 func (self *BasicResource) Find(id seven5.Id, bundle seven5.PBundle) (interface{}, error) {
 	b := bundle.Session().(Basic)
-	
+
 	//simple case avoids the search
 	if b.WireId() == id {
 		return b.ToWire(), nil
@@ -157,26 +156,24 @@ func (self *BasicResource) Find(id seven5.Id, bundle seven5.PBundle) (interface{
 			return v.ToWire(), nil
 		}
 	}
-	return nil,nil
+	return nil, nil
 }
 
 //Put returns the values of the object, after all changes.   This ends up calling the support
 //object to copy over the needed fields.
-func (self *BasicResource)	Put(id seven5.Id, proposed interface{}, bundle seven5.PBundle)(interface{},error){
-		
+func (self *BasicResource) Put(id seven5.Id, proposed interface{}, bundle seven5.PBundle) (interface{}, error) {
 	var user Basic
-	
-	for _, v:= range self.Sup.KnownUsers() {
+	for _, v := range self.Sup.KnownUsers() {
 		if v.WireId() == id {
 			user = v
 			break
 		}
 	}
-	if user==nil {
+	if user == nil {
 		return nil, BAD_ID
 	}
-	self.Sup.UpdateFields(proposed,user)
-	
+	self.Sup.UpdateFields(proposed, user)
+
 	return user.ToWire(), nil
 }
 
@@ -187,7 +184,7 @@ func (self *BasicResource) Delete(id seven5.Id, ignored seven5.PBundle) (interfa
 
 func (self *BasicResource) Post(ignored interface{}, ignoredAlso seven5.PBundle) (interface{}, error) {
 	//this won't be called because of AllowWrite
-	return nil,nil
+	return nil, nil
 }
 
 ///////////////////////////////////
@@ -197,7 +194,7 @@ func (self *BasicResource) Post(ignored interface{}, ignoredAlso seven5.PBundle)
 //AllowRead checks to insure that you have a session before you are allowed to call
 //GET (Indexer) on this resource.
 func (self *BasicResource) AllowRead(bundle seven5.PBundle) bool {
-	return bundle.Session()!=nil
+	return bundle.Session() != nil
 }
 
 //AllowWrite refuses all requests to Post to this resource because we are assuming that users
@@ -207,7 +204,6 @@ func (self *BasicResource) AllowWrite(bundle seven5.PBundle) bool {
 	return false
 }
 
-
 //Users can only call Find, and Put methods on themselves.  Users cannot call DELETE, even on self.  
 //Priviledged members can call any method on any id.
 func (self *BasicResource) Allow(id seven5.Id, method string, bundle seven5.PBundle) bool {
@@ -216,7 +212,7 @@ func (self *BasicResource) Allow(id seven5.Id, method string, bundle seven5.PBun
 	if u == nil {
 		return false
 	}
-	if self.Sup.IsStaff(u) || self.Sup.IsAdmin(u){
+	if self.Sup.IsStaff(u) || self.Sup.IsAdmin(u) {
 		return true
 	}
 	//this is to prevent someone deleting themself
@@ -230,25 +226,24 @@ func (self *BasicResource) Allow(id seven5.Id, method string, bundle seven5.PBun
 // METADATA RESOURCE
 ///////////////////////////////////
 
-
 //Index can just return the metadata because the AllowRead function has already been called to check
 //to see if it is ok for the logged in user to read this data.
 func (self *BasicMetaResource) Index(bundle seven5.PBundle) (interface{}, error) {
-	
-	staff:=0
-	for _, u:=range self.Sup.KnownUsers() {
+
+	staff := 0
+	for _, u := range self.Sup.KnownUsers() {
 		if self.Sup.IsStaff(u) || self.Sup.IsAdmin(u) {
 			staff++
 		}
 	}
-	
-	metadata := &UserMetadataWire {
+
+	metadata := &UserMetadataWire{
 		seven5.Id(0),
 		seven5.Integer(len(self.Sup.KnownUsers())),
 		seven5.Integer(staff),
 	}
-	list:=[]*UserMetadataWire{metadata}
-	return &list,nil
+	list := []*UserMetadataWire{metadata}
+	return &list, nil
 }
 
 //AllowRead checks to insure that you have a session and you are staff before you can call
@@ -259,5 +254,5 @@ func (self *BasicMetaResource) AllowRead(bundle seven5.PBundle) bool {
 	if u == nil {
 		return false
 	}
-	return self.Sup.IsStaff(u)  || self.Sup.IsAdmin(u)
+	return self.Sup.IsStaff(u) || self.Sup.IsAdmin(u)
 }

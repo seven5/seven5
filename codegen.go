@@ -55,7 +55,7 @@ type fdWrapper struct {
 }
 func generateDartForResource(f *FieldDescription, prefix string) string {
 	var buffer bytes.Buffer
-	w:=&fdWrapper{f,prefix+"/"}
+	w:=&fdWrapper{f,prefix}
 	if err := codegenTemplate.ExecuteTemplate(&buffer, "CLASSDECL_TMPL", w); err != nil {
 		return err.Error()
 	}
