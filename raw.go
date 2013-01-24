@@ -48,7 +48,7 @@ type RawDispatcher struct {
 //ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods 
 //individually specified.  The name should be singular and the example should an example
 //of the wire type to be marshalled, unmarshalled.
-func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}, index RestIndex,
+func (self *RawDispatcher) ResourceSeparate(name string, dartClassname string, wireExample interface{}, index RestIndex,
 	find RestFind, post RestPost, put RestPut, del RestDelete) {
 
 	t := reflect.TypeOf(wireExample)
@@ -60,7 +60,7 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 		panic("wire example is not a pointer to a struct (but is a pointer)")
 	}
 
-	self.Add(name,wireExample)
+	self.Add(dartClassname,wireExample)
 
 	obj := &restObj{
 		t:     under,
@@ -78,8 +78,18 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 //in so long as it meets the interface RestAll.  Resource name must be singular and will be
 //converted to all lowercase.  The example wire type's fields must be public and must all be
 //types definde by seven5.
-func (self *RawDispatcher) Resource(name string, wireExample interface{}, r RestAll) {
-	self.ResourceSeparate(name, wireExample, r, r, r, r, r)
+func (self *RawDispatcher) Resource(name string, dartClassname string, wireExample interface{}, r RestAll) {
+	self.ResourceSeparate(name, dartClassname, wireExample, r, r, r, r, r)
+}
+
+//Rez is the really short form for adding a resource. It assumes that the dart classname is
+//the same as the wire type and that the resource supports RestAll.
+func (self *RawDispatcher) Rez(wireExample interface{}, r RestAll) {
+	long:=reflect.TypeOf(wireExample).String()
+	pieces:=strings.Split(long,".")
+	dartName:=pieces[len(pieces)-1]
+	name:=strings.ToLower(dartName)
+	self.Resource(name, dartName, wireExample, r)
 }
 
 //SendHook is called to encode and write the object provided onto the output via the response

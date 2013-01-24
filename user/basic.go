@@ -52,12 +52,20 @@ type Support interface {
 type BasicResource struct {
 	Sup Support
 }
+
 //BasicMetaResource is a REST stateless resource.  It does have a field, but this field is set once
 //at creation time.  BasicMetaResource represents meta information about all users and is only accessible
 //to Staff or Admin users so this is an easy way to "check" from the client side if you are running
 //as a privileged user.
 type BasicMetaResource struct {
 	Sup Support
+}
+
+//This is wire type that is accessible only to staff members.  It can only be read.
+type UserMetadataWire struct {
+	Id seven5.Id
+	NumberUsers seven5.Integer
+	NumberStaff seven5.Integer
 }
 
 //BasicManager stores a copy of the Support object and creates the necessary resources that are
@@ -81,6 +89,7 @@ func NewBasicManager(support Support) *BasicManager {
 func (self *BasicManager) Find(id string) (seven5.Session, error) {
 	return self.Wrapped.Find(id)
 }
+
 //Delete is required by seven5.Session.  Delegated to wrapped simple session manager.
 func (self *BasicManager) Destroy(id string) error {
 	return self.Wrapped.Destroy(id)
@@ -103,6 +112,12 @@ func (self *BasicManager) Generate(t *oauth.Transport, ignore_req *http.Request,
 //that was passed to this BasicManager at creation-time.
 func (self *BasicManager) UserResource() seven5.RestAll {
 	return &BasicResource{self.Sup}
+}
+
+//MetaResource produces an implementation of a rest resource that is hooked to the Support object
+//that was passed to this BasicManager at creation-time.
+func (self *BasicManager) MetaResource() seven5.RestIndex {
+	return &BasicMetaResource{self.Sup}
 }
 
 //This index a list of size one which is the currently logged in user unless the user is staff.
@@ -176,7 +191,7 @@ func (self *BasicResource) Post(ignored interface{}, ignoredAlso seven5.PBundle)
 }
 
 ///////////////////////////////////
-// ALLOWED ACTION SECTION
+// ALLOWED ACTION SECTION FOR USER
 ///////////////////////////////////
 
 //AllowRead checks to insure that you have a session before you are allowed to call
@@ -209,4 +224,40 @@ func (self *BasicResource) Allow(id seven5.Id, method string, bundle seven5.PBun
 		return false
 	}
 	return u.WireId() == id
+}
+
+///////////////////////////////////
+// METADATA RESOURCE
+///////////////////////////////////
+
+
+//Index can just return the metadata because the AllowRead function has already been called to check
+//to see if it is ok for the logged in user to read this data.
+func (self *BasicMetaResource) Index(bundle seven5.PBundle) (interface{}, error) {
+	
+	staff:=0
+	for _, u:=range self.Sup.KnownUsers() {
+		if self.Sup.IsStaff(u) || self.Sup.IsAdmin(u) {
+			staff++
+		}
+	}
+	
+	metadata := &UserMetadataWire {
+		seven5.Id(0),
+		seven5.Integer(len(self.Sup.KnownUsers())),
+		seven5.Integer(staff),
+	}
+	list:=[]*UserMetadataWire{metadata}
+	return &list,nil
+}
+
+//AllowRead checks to insure that you have a session and you are staff before you can call
+//this method.  This is the indexer and only method on this resource.
+func (self *BasicMetaResource) AllowRead(bundle seven5.PBundle) bool {
+	u := bundle.Session().(Basic)
+	//not logged in?
+	if u == nil {
+		return false
+	}
+	return self.Sup.IsStaff(u)  || self.Sup.IsAdmin(u)
 }

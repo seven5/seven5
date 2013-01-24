@@ -53,9 +53,9 @@ func TestAllow(t *testing.T) {
 
 	serveMux := NewServeMux()
 	serveMux.Dispatch("/rest/", base)
-
+	
 	res := &allowResource{}
-	base.Resource("frobnitz", &someWire{}, res)
+	base.Rez(&someWire{}, res)
 
 	go func() {
 		http.ListenAndServe(":8191", serveMux)
@@ -69,11 +69,11 @@ func TestAllow(t *testing.T) {
 		if b {
 			status = http.StatusOK
 		}
-		makeRequestCheckStatusNullBody(t, client, "GET", "http://localhost:8191/rest/frobnitz", "", status)
-		makeRequestCheckStatusNullBody(t, client, "GET", "http://localhost:8191/rest/frobnitz/12", "", status)
-		makeRequestCheckStatusNullBody(t, client, "POST", "http://localhost:8191/rest/frobnitz", "{}", status)
-		makeRequestCheckStatusNullBody(t, client, "PUT", "http://localhost:8191/rest/frobnitz/345", "{}", status)
-		makeRequestCheckStatusNullBody(t, client, "DELETE", "http://localhost:8191/rest/frobnitz/678", "", status)
+		makeRequestCheckStatusNullBody(t, client, "GET", "http://localhost:8191/rest/somewire", "", status)
+		makeRequestCheckStatusNullBody(t, client, "GET", "http://localhost:8191/rest/somewire/12", "", status)
+		makeRequestCheckStatusNullBody(t, client, "POST", "http://localhost:8191/rest/somewire", "{}", status)
+		makeRequestCheckStatusNullBody(t, client, "PUT", "http://localhost:8191/rest/somewire/345", "{}", status)
+		makeRequestCheckStatusNullBody(t, client, "DELETE", "http://localhost:8191/rest/somewire/678", "", status)
 	}
 }
 

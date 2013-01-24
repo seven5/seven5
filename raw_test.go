@@ -40,7 +40,7 @@ type someWire struct {
 func setupMux(f RestAll) *ServeMux {
 	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, NewSimpleTypeHolder(), "/rest")
 
-	raw.ResourceSeparate("fleazil", &someWire{}, f, f, f, f, f)
+	raw.Rez(&someWire{}, f)
 
 	mux := NewServeMux()
 	//note this prefix ends up _on_ all resources
@@ -57,25 +57,25 @@ func TestResourceMethods(t *testing.T) {
 
 	client := new(http.Client)
 
-	w := makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/fleazil", "",
+	w := makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire", "",
 		http.StatusOK, true)
 	checkBody(t, w, Id(1074), "index")
 
 	body := "{ \"Id\":-1, \"Foo\":\"grik\"}"
-	w = makeRequestAndCheckStatus(t, client, "POST", "http://localhost:8189/rest/fleazil", body,
+	w = makeRequestAndCheckStatus(t, client, "POST", "http://localhost:8189/rest/somewire", body,
 		http.StatusCreated, false)
 	checkBody(t, w, Id(999), "grik")
 
-	w = makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/fleazil/2989", "",
+	w = makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/2989", "",
 		http.StatusOK, false)
 	checkBody(t, w, Id(2989), "find")
 
 	body = "{ \"Id\":214, \"Foo\":\"grak\"}"
-	w = makeRequestAndCheckStatus(t, client, "PUT", "http://localhost:8189/rest/fleazil/214", body,
+	w = makeRequestAndCheckStatus(t, client, "PUT", "http://localhost:8189/rest/somewire/214", body,
 		http.StatusOK, false)
 	checkBody(t, w, Id(214), "grak?")
 
-	w = makeRequestAndCheckStatus(t, client, "DELETE", "http://localhost:8189/rest/fleazil/76199", "",
+	w = makeRequestAndCheckStatus(t, client, "DELETE", "http://localhost:8189/rest/somewire/76199", "",
 		http.StatusOK, false)
 	checkBody(t, w, Id(76199), "delete!")
 }
@@ -137,7 +137,7 @@ func TestBadResource(t *testing.T) {
 	bad := &badlyWrittenResource{}
 
 	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, NewSimpleTypeHolder(),"/rest")
-	raw.ResourceSeparate("badcoder", &someWire{}, nil, bad, nil, nil, nil)
+	raw.ResourceSeparate("badcoder", "ignored", &someWire{}, nil, bad, nil, nil, nil)
 
 	mux := NewServeMux()
 	//note this prefix ends up _on_ all resources
@@ -157,13 +157,13 @@ func TestBadJson(t *testing.T) {
 		http.ListenAndServe(":8187", mux)
 	}()
 	body := "{ \"Id\":1, \"Foo\":\"bar\""
-	resp, err := http.Post("http://localhost:8187/rest/fleazil", "text/json", strings.NewReader(body))
+	resp, err := http.Post("http://localhost:8187/rest/somewire", "text/json", strings.NewReader(body))
 	checkHttpStatus(t, resp, err, http.StatusBadRequest)
 
 	//if you try to send a really big bundle, the go level code disconnects you, so we send a bunch bunch
 	//of nothing to see what happens
 	x := make([]byte, 100000)
-	resp, err = http.Post("http://localhost:8187/rest/fleazil", "text/json", strings.NewReader(string(x)))
+	resp, err = http.Post("http://localhost:8187/rest/somewire", "text/json", strings.NewReader(string(x)))
 	checkHttpStatus(t, resp, err, http.StatusBadRequest)
 
 	all, err := ioutil.ReadAll(resp.Body)
@@ -183,30 +183,30 @@ func TestResourceNotImplementedMethods(t *testing.T) {
 		http.ListenAndServe(":8188", mux)
 	}()
 
-	resp, err := http.Get("http://localhost:8188/rest/fleazil")
+	resp, err := http.Get("http://localhost:8188/rest/somewire")
 	checkHttpStatus(t, resp, err, http.StatusNotImplemented)
 
 	body := "{}"
-	resp, err = http.Post("http://localhost:8188/rest/fleazil", "text/json", strings.NewReader(body))
+	resp, err = http.Post("http://localhost:8188/rest/somewire", "text/json", strings.NewReader(body))
 	checkHttpStatus(t, resp, err, http.StatusNotImplemented)
 
 	data := url.Values(map[string][]string{"nothing": []string{"bogus"}})
-	resp, err = http.PostForm("http://localhost:8188/rest/fleazil", data)
+	resp, err = http.PostForm("http://localhost:8188/rest/somewire", data)
 	checkHttpStatus(t, resp, err, http.StatusNotImplemented)
 
-	resp, err = http.Post("http://localhost:8188/rest/fleazil/2", "text/json", strings.NewReader(body))
+	resp, err = http.Post("http://localhost:8188/rest/somewire/2", "text/json", strings.NewReader(body))
 	checkHttpStatus(t, resp, err, http.StatusBadRequest)
 
-	resp, err = http.Get("http://localhost:8188/rest/fleazil/3")
+	resp, err = http.Get("http://localhost:8188/rest/somewire/3")
 	checkHttpStatus(t, resp, err, http.StatusNotImplemented)
 
 	client := new(http.Client)
 
-	req := makeReq(t, "PUT", "http://localhost:8188/rest/fleazil/4", "{}")
+	req := makeReq(t, "PUT", "http://localhost:8188/rest/somewire/4", "{}")
 	resp, err = client.Do(req)
 	checkHttpStatus(t, resp, err, http.StatusNotImplemented)
 
-	req = makeReq(t, "DELETE", "http://localhost:8188/rest/fleazil/5", "")
+	req = makeReq(t, "DELETE", "http://localhost:8188/rest/somewire/5", "")
 	resp, err = client.Do(req)
 	checkHttpStatus(t, resp, err, http.StatusNotImplemented)
 

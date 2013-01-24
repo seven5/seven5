@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"strconv"
+	"os"
 )
 
 const (
@@ -34,8 +35,11 @@ func NewHerokuDeploy(n string) *HerokuDeploy {
 }
 
 func (self *HerokuDeploy) IsTest() bool {
-	fmt.Printf("--IS TEST: '%v'\n", self.env.GetAppValue("TEST"))
-	return self.env.GetAppValue("TEST") != ""
+	t:=self.env.GetAppValue("TEST")
+	if (t!="") {
+		fmt.Fprintf(os.Stderr,"Running in test mode\n")
+	}
+	return t != ""
 }
 
 func (self *HerokuDeploy) Environment() *EnvironmentVars {

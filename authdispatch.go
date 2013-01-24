@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+const (
+	callbackURL = "oauth2callback"
+)
+
+//AuthDispatcher is a special dispatcher that understands how to interact with Oauth2-based services for 
+//authenticating the currently logged in user.  
 type AuthDispatcher struct {
 	provider   []auth.ServiceConnector
 	mux        *ServeMux
@@ -17,14 +23,17 @@ type AuthDispatcher struct {
 	SessionMgr SessionManager
 }
 
+
 //NewAuthDispatcher is a wrapper around NewAuthDispatcherRaw that provides some defaults that work for
-//a simple application.  It use SimplePageMapper, SimpleCookieManager, and SimpleSession manager for
+//a simple application.  It uses SimplePageMapper, SimpleCookieManager, and SimpleSession manager for
 //the implementations of the needed object.  It assumes that the application login landing page
 //is /login.html and similarly the logout page is /logout.html.  Authentication errors are routed
 //the page /error.html.  The supplied application name is used to name the browser cookie.
 func NewAuthDispatcher(appName string, prefix string, mux *ServeMux) *AuthDispatcher {
-	return NewAuthDispatcherRaw(prefix, mux, auth.NewSimplePageMapper("/login.html", "/logout.html", "/error.html"),
-		NewSimpleCookieMapper(appName), NewSimpleSessionManager())
+	return NewAuthDispatcherRaw(prefix, mux, 
+		auth.NewSimplePageMapper("/login.html", "/logout.html", "/error.html"),
+		NewSimpleCookieMapper(appName), 
+		NewSimpleSessionManager())
 }
 
 //NewAuthDispatcher returns a new auth dispatcher which assumes it is mapped at the prefix provided.
@@ -80,11 +89,11 @@ func (self *AuthDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *ht
 		return nil
 	}
 	switch split[2] {
-	case auth.LOGIN_URL:
+	case "login":
 		return self.Login(targ, w, r)
-	case auth.LOGOUT_URL:
+	case "logout":
 		return self.Logout(targ, w, r)
-	case auth.CALLBACK_URL:
+	case callbackURL:
 		return self.Callback(targ, w, r)
 	}
 
@@ -124,7 +133,7 @@ func (self *AuthDispatcher) Callback(conn auth.ServiceConnector, w http.Response
 }
 
 func (self *AuthDispatcher) callback(conn auth.ServiceConnector) string {
-	return self.prefix + "/" + conn.Name() + "/" + auth.CALLBACK_URL
+	return self.prefix + "/" + conn.Name() + "/" + callbackURL
 }
 
 func (self *AuthDispatcher) Connect(conn auth.ServiceConnector, code string, w http.ResponseWriter, r *http.Request) *ServeMux {
@@ -167,8 +176,10 @@ func UDID() string {
 //AuthDispatcherFromRaw is a convenience method that creates an auth dispatcher from an already
 //existing RawDispatcher.  It requires a handle to the ServeMux because the AuthDispatcher creates
 //mappings. It maps the AuthDispatcher functions to /auth/serviceName/{login,logout,oauth2callback}.
+//The application should have pages at error.html, login.html, and logout.html as landing zones
+//for the respective actions.
 func AuthDispatcherFromRaw(raw *RawDispatcher, mux *ServeMux)  *AuthDispatcher{
-	pm:=auth.NewSimplePageMapper("/login.html","/logout.html","error.html")
+	pm:=auth.NewSimplePageMapper("error.html","/login.html","/logout.html",)
 	return NewAuthDispatcherRaw("/auth", mux, pm, raw.CookieMap, raw.SessionMgr)
 }
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"seven5/auth"
 	"os"
+	"strings"
 )
 
 
@@ -55,6 +56,16 @@ func SetIcon(mux *ServeMux, binaryIcon []byte) {
 	mux.HandleFunc("/favicon.ico", generateBinPrinter(binaryIcon, "image/x-icon"))
 }
 
+func noDirListing(h http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+
 //WebContent adds an http handler for the 'web' subdir of a dart app.  The project
 //name is the subdir of 'dart' so the content is dart/projectName/web.  The prefix
 //can be used if you don't want the static content mounted at '/' (the default if you pass ""
@@ -69,7 +80,7 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf auth.Projec
 		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
 	if prefix == "" || prefix == "/" {
-		mux.Handle("/", http.FileServer(http.Dir(truePath)))
+			mux.Handle("/",noDirListing(http.FileServer(http.Dir(truePath))))
 	} else {
 		mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
 	}

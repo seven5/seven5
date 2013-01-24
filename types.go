@@ -28,6 +28,8 @@ type Id int64
 //Boolean is either true or false. 
 type Boolean bool
 
+type DateTime float64
+
 func TrimSpace(s String255) String255 {
 	return String255(strings.TrimSpace(string(s)))
 }
