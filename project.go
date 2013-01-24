@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"seven5/auth"
 	"os"
-	"strings"
 )
 
 
@@ -39,31 +38,14 @@ func generateBinPrinter(content []byte, contentType string) func(http.ResponseWr
 func DefaultProjectBindings(projectName string, pf auth.ProjectFinder) *ServeMux {
 	mux:=NewServeMux()
 	WebContent(mux, projectName, "/", pf)
-	Seven5Content(mux, "/seven5/")
 	SetIcon(mux, gopher_ico)
 	return mux
-}
-
-//Seven5Content maps internal handlers to be inside the urlPath provided.
-func Seven5Content(mux *ServeMux, urlPath string) {
-	mux.HandleFunc(fmt.Sprintf("%ssupport", urlPath),
-		generateStringPrinter(seven5_dart, "text/plain"))
 }
 
 //SetIcon creates a go handler in h that will return an icon to be displayed in response to /favicon.ico.
 //The binaryIcon should be an array of bytes (usually created via 'seven5tool embedfile')
 func SetIcon(mux *ServeMux, binaryIcon []byte) {
 	mux.HandleFunc("/favicon.ico", generateBinPrinter(binaryIcon, "image/x-icon"))
-}
-
-func noDirListing(h http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/") {
-			http.NotFound(w, r)
-			return
-		}
-		h.ServeHTTP(w, r)
-	})
 }
 
 //WebContent adds an http handler for the 'web' subdir of a dart app.  The project
@@ -80,7 +62,7 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf auth.Projec
 		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
 	if prefix == "" || prefix == "/" {
-			mux.Handle("/",noDirListing(http.FileServer(http.Dir(truePath))))
+			mux.Handle("/",DartWebComponents(http.FileServer(http.Dir(truePath)),truePath,"/"))
 	} else {
 		mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
 	}

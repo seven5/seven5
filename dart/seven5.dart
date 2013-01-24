@@ -35,7 +35,7 @@ class Seven5Support {
 		
 		Seven5Support.addHeaders(headers,req);
 		
-		req.on.load.add(function (HttpRequestProgressEvent progressEvent) {
+		req.on.load.add((HttpRequestProgressEvent progressEvent) {
 			if (req.status/100==2) {
 				List raw = JSON.parse(req.responseText);
 				List result = createList();

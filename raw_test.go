@@ -57,7 +57,7 @@ func TestResourceMethods(t *testing.T) {
 
 	client := new(http.Client)
 
-	w := makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire", "",
+	w := makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/", "",
 		http.StatusOK, true)
 	checkBody(t, w, Id(1074), "index")
 
@@ -66,7 +66,7 @@ func TestResourceMethods(t *testing.T) {
 		http.StatusCreated, false)
 	checkBody(t, w, Id(999), "grik")
 
-	w = makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/2989", "",
+	w = makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/2989/?foo=bar", "",
 		http.StatusOK, false)
 	checkBody(t, w, Id(2989), "find")
 
@@ -137,7 +137,7 @@ func TestBadResource(t *testing.T) {
 	bad := &badlyWrittenResource{}
 
 	raw := NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, nil, nil, nil, NewSimpleTypeHolder(),"/rest")
-	raw.ResourceSeparate("badcoder", "ignored", &someWire{}, nil, bad, nil, nil, nil)
+	raw.ResourceSeparate("BadCoder", &someWire{}, nil, bad, nil, nil, nil)
 
 	mux := NewServeMux()
 	//note this prefix ends up _on_ all resources
@@ -146,7 +146,10 @@ func TestBadResource(t *testing.T) {
 	go func() {
 		http.ListenAndServe(":8186", mux)
 	}()
-	resp, err := http.Get("http://localhost:8186/rest/badcoder/88")
+	resp, err := http.Get("http://localhost:8186/rest/BadCoder/88")
+	checkHttpStatus(t, resp, err, http.StatusNotFound)
+
+	resp, err = http.Get("http://localhost:8186/rest/badcoder/88")
 	checkHttpStatus(t, resp, err, http.StatusExpectationFailed)
 }
 

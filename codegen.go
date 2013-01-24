@@ -158,14 +158,14 @@ func dartPrettyPrint(raw string) []byte {
 
 //GeneratedDartContent adds an http handler for a particular path.  The restPrefix must be the same one
 //used by the TypeHolder (probably a dispatcher) to map its rest resources.
-func GeneratedDartContent(mux *ServeMux, holder TypeHolder, urlPath string, restPrefix string) {
-	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder, restPrefix))
-}
+//func GeneratedDartContent(mux *ServeMux, holder TypeHolder, urlPath string, restPrefix string) {
+//	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder, restPrefix))
+//}
 
 
 const LIBRARY_INFO = `
 library generated;
-import '/seven5/support';
+import 'package:seven5/support';
 import 'dart:json';
 `
 
