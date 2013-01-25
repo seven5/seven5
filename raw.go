@@ -346,14 +346,12 @@ func (self *RawDispatcher) verifyReturnType(obj *restObj, w interface{}) error {
 		if v.CanInterface() {
 			i:=v.Interface()
 			p=reflect.TypeOf(i)
-			fmt.Printf("now what? %v %v\n",p, p.Kind())
 		} 
 		if p.Kind() != reflect.Ptr {
 			return errors.New(fmt.Sprintf("Marshalling problem: expected a ptr but got %v", p.Kind()))
 		}
 	} 
 	e=p.Elem()
-	fmt.Printf("e is %v and %v\n",e,obj.t)
 	if e != obj.t {
 		return errors.New(fmt.Sprintf("Marshalling problem: expected pointer to %v but got pointer to %v",
 			obj.t, e))

@@ -1,6 +1,7 @@
 library seven5support;
 
-import 'dart:json';
+//import 'dart:json';
+import "dart:json" as JSON;
 import 'dart:html';
 
 class Seven5Support {

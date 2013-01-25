@@ -63,7 +63,7 @@ func TestDartFullResource(T *testing.T) {
 	holder := NewSimpleTypeHolder()
 	holder.Add("someWire", &someWire{})
 	
-	b := wrappedCodeGen(holder,"/rest")
+	b := wrappedCodeGen(holder,"/rest/")
 	decl:= b.String()
 	verifyHasString(T, "class someWire {", decl)
 	verifyHasString(T, "int Id;", decl)

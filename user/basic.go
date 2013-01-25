@@ -207,11 +207,10 @@ func (self *BasicResource) AllowWrite(bundle seven5.PBundle) bool {
 //Users can only call Find, and Put methods on themselves.  Users cannot call DELETE, even on self.  
 //Priviledged members can call any method on any id.
 func (self *BasicResource) Allow(id seven5.Id, method string, bundle seven5.PBundle) bool {
-	u := bundle.Session().(Basic)
-	//not logged in?
-	if u == nil {
+	if bundle.Session()==nil {
 		return false
 	}
+	u := bundle.Session().(Basic)
 	if self.Sup.IsStaff(u) || self.Sup.IsAdmin(u) {
 		return true
 	}
