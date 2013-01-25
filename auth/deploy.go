@@ -3,7 +3,6 @@ package auth
 import (
 	"fmt"
 	"strconv"
-	"os"
 )
 
 const (
@@ -36,9 +35,6 @@ func NewHerokuDeploy(n string) *HerokuDeploy {
 
 func (self *HerokuDeploy) IsTest() bool {
 	t:=self.env.GetAppValue("TEST")
-	if (t!="") {
-		fmt.Fprintf(os.Stderr,"Running in test mode\n")
-	}
 	return t != ""
 }
 
@@ -59,7 +55,7 @@ func (self *HerokuDeploy) Port() int {
 
 //RedirectHost is needed in cases where you are using oauth because this must sent to the 
 //"other side" of the handshake without any extra knowlege.
-func (self *HerokuDeploy) RedirectHost(ignored ServiceConnector) string {
+func (self *HerokuDeploy) RedirectHost(string) string {
 	if self.IsTest() {
 		return fmt.Sprintf(REDIRECT_HOST_TEST, self.Port())
 	}
@@ -90,7 +86,7 @@ func (self *RemoteDeployment) Port() int {
 	return self.testPort
 }
 
-func (self *RemoteDeployment) RedirectHost(ServiceConnector) string {
+func (self *RemoteDeployment) RedirectHost(string) string {
 	if self.IsTest() {
 		return fmt.Sprintf(REDIRECT_HOST_TEST, self.Port())
 	}

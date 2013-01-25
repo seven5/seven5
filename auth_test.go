@@ -77,22 +77,26 @@ func TestGoogleLogin(t *testing.T) {
 
 	//we are testing the AuthURL method, and NOT testing ExchangeForToken() as it requires a
 	//real network and a real client id and seekret
-	google := auth.NewGoogleAuthConnector(SCOPE, PROMPT, detail, deploy)
+	google := auth.NewGoogleOauth2(SCOPE, PROMPT, detail, deploy)
 
 	//these are just accessing the constants, so don't care how many times
 	//authconn.EXPECT().Name().Return("google").AnyTimes()
 	authconn.EXPECT().StateValueName().Return("state").AnyTimes()
 	authconn.EXPECT().ErrorValueName().Return("error").AnyTimes()
 	authconn.EXPECT().CodeValueName().Return("code").AnyTimes()
+	authconn.EXPECT().ClientTokenValueName().Return("notused").AnyTimes()
+	
+	//phase1 is not used by google because of oauth2
+	authconn.EXPECT().Phase1(gomock.Any(),gomock.Any()).Return(nil,nil).AnyTimes()
 
 	//this is actually under test, the google.AuthURL method
-	authconn.EXPECT().AuthURL(returl, st).Return(google.AuthURL(returl, st))
+	authconn.EXPECT().UserInteractionURL(gomock.Any(), st, returl).Return(google.UserInteractionURL(nil, st, returl))
 
 	//this is mocked out because it has the side effect of a network call... we can use the mocks
 	//to return an error which we do in the second case
 	gomock.InOrder(
-		authconn.EXPECT().ExchangeForToken(returl, code).Return(nil, nil),
-		authconn.EXPECT().ExchangeForToken(returl, code).Return(nil, badTransport),
+		authconn.EXPECT().Phase2("", code).Return(nil, nil),
+		authconn.EXPECT().Phase2("", code).Return(nil, badTransport),
 	)
 
 	//testing that page mapper's login method gets called during the login process to generate the
@@ -135,7 +139,6 @@ func TestGoogleLogin(t *testing.T) {
 	}
 
 	createReqAndDo(t, client, loginURL.String(), nil)
-
 	// next stage is to test that if we get the callabck we land on the right page
 	// in the right state... compute a URL like google would send us
 	v = url.Values{
@@ -231,8 +234,8 @@ func createReqAndDo(t *testing.T, client *http.Client, targ string, c *http.Cook
 
 /*-------------------------------------------------------------------------------*/
 func createDispatcherWithMocks(ctrl *gomock.Controller, pm auth.PageMapper, cm CookieMapper,
-	sm SessionManager) (*ServeMux, *auth.MockServiceConnector) {
-	authconn := auth.NewMockServiceConnector(ctrl)
+	sm SessionManager) (*ServeMux, *auth.MockOauthConnector) {
+	authconn := auth.NewMockOauthConnector(ctrl)
 
 	//real serve mux so the dispatching really works with an HTTP conn
 	serveMux := NewServeMux()
@@ -274,6 +277,7 @@ func TestCallbackError(t *testing.T) {
 	//just to get the constants
 	authConn.EXPECT().ErrorValueName().Return("error")
 	authConn.EXPECT().CodeValueName().Return("code")
+	authConn.EXPECT().ClientTokenValueName().Return("dontbotherimnotgoingtousethisanyway")
 
 	// this is what happens when google refuses
 	v := url.Values{

@@ -27,7 +27,7 @@ type DeploymentEnvironment interface {
 	Port() int
 	//RedirectHost is needed in cases where you are using oauth because this must sent to the 
 	//"other side" of the handshake without any extra knowlege.
-	RedirectHost(ServiceConnector) string
+	RedirectHost(string) string
 }
 
 //PublicSettings is an interface representing information that you want the client to have
@@ -78,17 +78,17 @@ func (self *EnvironmentVars) GetAppValue(key string) string {
 }
 
 //ClientId returns the value of the client id that
-//has been given out the by the service associated with conn.  The environment variable
+//has been given out the by the service associated with service.  The environment variable
 //is APPNAME_SERVICENAME_CLIENT_ID and is read only once.
-func (self *EnvironmentVars) ClientId(conn ServiceConnector) string {
-	return self.GetValueOrPanic(fmt.Sprintf("%s_%s_CLIENT_ID", self.name, strings.ToUpper(conn.Name())))
+func (self *EnvironmentVars) ClientId(name string) string {
+	return self.GetValueOrPanic(fmt.Sprintf("%s_%s_CLIENT_ID", self.name, strings.ToUpper(name)))
 }
 
 //ClientSecret returns the value of the environment value of the client secret that
-//has been given out the by the service associated with conn.  The environment variable
+//has been given out the by the service associated with service.  The environment variable
 //is APPNAME_SERVICENAME_CLIENT_SECRET and is read only once.
-func (self *EnvironmentVars) ClientSecret(conn ServiceConnector) string {
-	return self.GetValueOrPanic(fmt.Sprintf("%s_%s_CLIENT_SECRET", self.name, strings.ToUpper(conn.Name())))
+func (self *EnvironmentVars) ClientSecret(name string) string {
+	return self.GetValueOrPanic(fmt.Sprintf("%s_%s_CLIENT_SECRET", self.name, strings.ToUpper(name)))
 }
 
 //ProjectFind defaults to looking at the GOPATH environment variable to work out the location

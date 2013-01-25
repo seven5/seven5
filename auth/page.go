@@ -11,9 +11,9 @@ import (
 //text and the login page receives both the state parameter and the code (via oauth) that was received
 //on successfully getting an oauth token.    These functions should return a URL as a string.
 type PageMapper interface {
-	ErrorPage(ServiceConnector, string) string
-	LoginLandingPage(ServiceConnector, string, string) string
-	LogoutLandingPage(ServiceConnector) string
+	ErrorPage(OauthConnector, string) string
+	LoginLandingPage(OauthConnector, string, string) string
+	LogoutLandingPage(OauthConnector) string
 }
 
 //SimplePageMapper encodes the "landing page" URLs for a particular application as constants.
@@ -35,7 +35,7 @@ func NewSimplePageMapper(errUrl string, loginUrl string, logoutUrl string) *Simp
 
 //Returns the error page and passes the error text message and service name as query parameters to the 
 //page.
-func (self *SimplePageMapper) ErrorPage(conn ServiceConnector, errorText string) string {
+func (self *SimplePageMapper) ErrorPage(conn OauthConnector, errorText string) string {
 	v := url.Values{
 		"service": []string{conn.Name()},
 		"error":   []string{errorText},
@@ -45,7 +45,7 @@ func (self *SimplePageMapper) ErrorPage(conn ServiceConnector, errorText string)
 
 //Returns the login landing page constant with the service name and state passed through as a query parameter.  
 //Note, the 'code' probably should not be passed through the client side code!
-func (self *SimplePageMapper) LoginLandingPage(conn ServiceConnector, state string, code string) string {
+func (self *SimplePageMapper) LoginLandingPage(conn OauthConnector, state string, code string) string {
 	v := url.Values{
 		"service": []string{conn.Name()},
 		"state":   []string{state},
@@ -54,7 +54,7 @@ func (self *SimplePageMapper) LoginLandingPage(conn ServiceConnector, state stri
 }
 
 //Returns the logout landing page constant.  Add's the name of the service to the URL as a query parameter.
-func (self *SimplePageMapper) LogoutLandingPage(conn ServiceConnector) string {
+func (self *SimplePageMapper) LogoutLandingPage(conn OauthConnector) string {
 	v := url.Values{
 		"service": []string{conn.Name()},
 	}

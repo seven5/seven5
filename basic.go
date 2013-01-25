@@ -1,57 +1,43 @@
-// Package user implements two resources that can be used as a basic user
-// authentication and manipulation system.  This is intended more as a "getting started quickly"
-// tool than a proper user user system.  User systems tend to be very tightly coupled to the
-// application, so attempted to build a user system that can handle any possible application is
-// pointless.
-// 
-// The two resources provided are BasicResource and BasicMetaResource.  These _must_ be used in 
-// conjunction with a BaseDispatcher, or other Dispatcher that understand the "Allow" protocol since 
-// this is how the resources enforce user roles.  
-//
-// This package assumes that you are going to implement your "users" as a aggregrate that is also
-// a seven5 "session." 
-// 
-package user
+package seven5
 
 import (
-	"code.google.com/p/goauth2/oauth"
 	"errors"
 	_ "fmt"
 	"net/http"
-	"seven5"
+	"seven5/auth"
 )
 
 var BAD_ID = errors.New("Bad id supplied in request")
 
-//Basic is an interface representing a "basic" user (user.Basic) and only understands the value of
+//BasicUser is an interface representing a "basic" user and only understands the value of
 //"email" field on the user.  It requires the implementor to return his Id field (the wire type's Id)
 //and to be able to convert to a "wire type" in an application defined way.
-type Basic interface {
+type BasicUser interface {
 	Email() string
 	SetEmail(string)
-	WireId() seven5.Id
+	WireId() Id
 	ToWire() interface{}
 }
 
-//Support is the storage interface for the basic user system. It requires that the implementation
+//BasicUserSupport is the storage interface for the basic user system. It requires that the implementation
 //supply a way to check for Admin and Staff roles and that the implementation can supply all known
 //users as a list.  This is a good place to connect to a database, if you would like your users
 //to be stored that way.  This implementation should be safe to call from multiple goroutines.
 //The UpdateFields method is passed a "proposed" instance of the wire type and the current value
 //of that type for possible updating.
-type Support interface {
-	IsAdmin(Basic) bool
-	IsStaff(Basic) bool
-	KnownUsers() []Basic
-	UpdateFields(p interface{}, e Basic)
-	Delete(seven5.Id) Basic
-	Generate(*oauth.Transport) (seven5.Session, error)
+type BasicUserSupport interface {
+	IsAdmin(BasicUser) bool
+	IsStaff(BasicUser) bool
+	KnownUsers() []BasicUser
+	UpdateFields(p interface{}, e BasicUser)
+	Delete(Id) BasicUser
+	Generate(c auth.OauthConnection) (Session, error)
 }
 
 //BasicResource is a REST stateless resource.  It does have a field, but this field is set once
 //at creation time.  BasicResource represents a user.
 type BasicResource struct {
-	Sup Support
+	Sup BasicUserSupport
 }
 
 //BasicMetaResource is a REST stateless resource.  It does have a field, but this field is set once
@@ -59,73 +45,77 @@ type BasicResource struct {
 //to Staff or Admin users so this is an easy way to "check" from the client side if you are running
 //as a privileged user.
 type BasicMetaResource struct {
-	Sup Support
+	Sup BasicUserSupport
 }
 
 //This is wire type that is accessible only to staff members.  It can only be read.
 type UserMetadataWire struct {
-	Id          seven5.Id
-	NumberUsers seven5.Integer
-	NumberStaff seven5.Integer
+	Id          Id
+	NumberUsers Integer
+	NumberStaff Integer
 }
 
-//BasicManager stores a copy of the Support object and creates the necessary resources that are
+//BasicManager stores a copy of the BasicUserSupport object and creates the necessary resources that are
 //going to be needed by the application code.
 type BasicManager struct {
-	Sup     Support
-	Wrapped *seven5.SimpleSessionManager
+	Sup     BasicUserSupport
+	Wrapped *SimpleSessionManager
 }
 
 //NewBasicManager creates a new basic user manager with the given supporting object.  This should
-//be the only copy of Support in the application.
-func NewBasicManager(support Support) *BasicManager {
+//be the only copy of BasicUserSupport in the application.
+func NewBasicManager(support BasicUserSupport) *BasicManager {
 	result := &BasicManager{
-		Wrapped: seven5.NewSimpleSessionManager(),
+		Wrapped: NewSimpleSessionManager(),
 		Sup:     support,
 	}
 	return result
 }
 
-//Find is required by seven5.Session.  Delegated to wrapped simple session manager.
-func (self *BasicManager) Find(id string) (seven5.Session, error) {
+//Find is required by Session.  Delegated to wrapped simple session manager.
+func (self *BasicManager) Find(id string) (Session, error) {
 	return self.Wrapped.Find(id)
 }
 
-//Delete is required by seven5.Session.  Delegated to wrapped simple session manager.
+//Delete is required by Session.  Delegated to wrapped simple session manager.
 func (self *BasicManager) Destroy(id string) error {
 	return self.Wrapped.Destroy(id)
 }
 
 //Generate is our override of the default implementation in the SimpleSessionManager.  This
-//ends up calling the Support method of the same name.
-func (self *BasicManager) Generate(t *oauth.Transport, ignore_req *http.Request,
-	ignore_state string, ignore_code string) (seven5.Session, error) {
+//ends up calling the BasicUserSupport method of the same name.
+func (self *BasicManager) Generate(c auth.OauthConnection, ignore_req *http.Request,
+	ignore_state string, ignore_code string) (Session, error) {
 
-	s, err := self.Sup.Generate(t)
+	s, err := self.Sup.Generate(c)
 	if err != nil {
 		return nil, err
+	}
+	//ignored by our Generate in Support
+	if s==nil {
+		return nil, nil
 	}
 	return self.Wrapped.Assign(s)
 }
 
-//UserResource produces an implementation of a rest resource that is hooked to the Support object
+//UserResource produces an implementation of a rest resource that is hooked to the BasicUserSupport object
 //that was passed to this BasicManager at creation-time.
-func (self *BasicManager) UserResource() seven5.RestAll {
+func (self *BasicManager) UserResource() RestAll {
 	return &BasicResource{self.Sup}
 }
 
-//MetaResource produces an implementation of a rest resource that is hooked to the Support object
+//MetaResource produces an implementation of a rest resource that is hooked to the BasicUserSupport object
 //that was passed to this BasicManager at creation-time.
-func (self *BasicManager) MetaResource() seven5.RestIndex {
+func (self *BasicManager) MetaResource() RestIndex {
 	return &BasicMetaResource{self.Sup}
 }
 
 //This index a list of size one which is the currently logged in user unless the user is staff.
 //Staff users are shown all users, unless the query string specifies self=true.  Because of
 //AllowRead this will never be called unless the user at least has a session.
-func (self *BasicResource) Index(bundle seven5.PBundle) (interface{}, error) {
+func (self *BasicResource) Index(bundle PBundle) (interface{}, error) {
 
-	b := bundle.Session().(Basic)
+	b := bundle.Session().(BasicUser)
 
 	//normal case, should be a list of size one with the _current_ user's info
 	list := []interface{}{b.ToWire()}
@@ -143,8 +133,8 @@ func (self *BasicResource) Index(bundle seven5.PBundle) (interface{}, error) {
 
 //Because of Allow, this resource is _only_ called when the logged in user asks
 //about himself or if the user is priviledged they can ask about anyone.
-func (self *BasicResource) Find(id seven5.Id, bundle seven5.PBundle) (interface{}, error) {
-	b := bundle.Session().(Basic)
+func (self *BasicResource) Find(id Id, bundle PBundle) (interface{}, error) {
+	b := bundle.Session().(BasicUser)
 
 	//simple case avoids the search
 	if b.WireId() == id {
@@ -161,8 +151,8 @@ func (self *BasicResource) Find(id seven5.Id, bundle seven5.PBundle) (interface{
 
 //Put returns the values of the object, after all changes.   This ends up calling the support
 //object to copy over the needed fields.
-func (self *BasicResource) Put(id seven5.Id, proposed interface{}, bundle seven5.PBundle) (interface{}, error) {
-	var user Basic
+func (self *BasicResource) Put(id Id, proposed interface{}, bundle PBundle) (interface{}, error) {
+	var user BasicUser
 	for _, v := range self.Sup.KnownUsers() {
 		if v.WireId() == id {
 			user = v
@@ -177,12 +167,12 @@ func (self *BasicResource) Put(id seven5.Id, proposed interface{}, bundle seven5
 	return user.ToWire(), nil
 }
 
-func (self *BasicResource) Delete(id seven5.Id, ignored seven5.PBundle) (interface{}, error) {
+func (self *BasicResource) Delete(id Id, ignored PBundle) (interface{}, error) {
 	result := self.Sup.Delete(id).ToWire()
 	return result, nil
 }
 
-func (self *BasicResource) Post(ignored interface{}, ignoredAlso seven5.PBundle) (interface{}, error) {
+func (self *BasicResource) Post(ignored interface{}, ignoredAlso PBundle) (interface{}, error) {
 	//this won't be called because of AllowWrite
 	return nil, nil
 }
@@ -193,24 +183,24 @@ func (self *BasicResource) Post(ignored interface{}, ignoredAlso seven5.PBundle)
 
 //AllowRead checks to insure that you have a session before you are allowed to call
 //GET (Indexer) on this resource.
-func (self *BasicResource) AllowRead(bundle seven5.PBundle) bool {
+func (self *BasicResource) AllowRead(bundle PBundle) bool {
 	return bundle.Session() != nil
 }
 
 //AllowWrite refuses all requests to Post to this resource because we are assuming that users
 //are not "created" in this system but are copied in from external sources like Google.
-func (self *BasicResource) AllowWrite(bundle seven5.PBundle) bool {
+func (self *BasicResource) AllowWrite(bundle PBundle) bool {
 	//if you change this implementation, you need to change Post()
 	return false
 }
 
 //Users can only call Find, and Put methods on themselves.  Users cannot call DELETE, even on self.  
 //Priviledged members can call any method on any id.
-func (self *BasicResource) Allow(id seven5.Id, method string, bundle seven5.PBundle) bool {
+func (self *BasicResource) Allow(id Id, method string, bundle PBundle) bool {
 	if bundle.Session()==nil {
 		return false
 	}
-	u := bundle.Session().(Basic)
+	u := bundle.Session().(BasicUser)
 	if self.Sup.IsStaff(u) || self.Sup.IsAdmin(u) {
 		return true
 	}
@@ -227,7 +217,7 @@ func (self *BasicResource) Allow(id seven5.Id, method string, bundle seven5.PBun
 
 //Index can just return the metadata because the AllowRead function has already been called to check
 //to see if it is ok for the logged in user to read this data.
-func (self *BasicMetaResource) Index(bundle seven5.PBundle) (interface{}, error) {
+func (self *BasicMetaResource) Index(bundle PBundle) (interface{}, error) {
 
 	staff := 0
 	for _, u := range self.Sup.KnownUsers() {
@@ -237,9 +227,9 @@ func (self *BasicMetaResource) Index(bundle seven5.PBundle) (interface{}, error)
 	}
 
 	metadata := &UserMetadataWire{
-		seven5.Id(0),
-		seven5.Integer(len(self.Sup.KnownUsers())),
-		seven5.Integer(staff),
+		Id(0),
+		Integer(len(self.Sup.KnownUsers())),
+		Integer(staff),
 	}
 	list := []*UserMetadataWire{metadata}
 	return &list, nil
@@ -247,8 +237,8 @@ func (self *BasicMetaResource) Index(bundle seven5.PBundle) (interface{}, error)
 
 //AllowRead checks to insure that you have a session and you are staff before you can call
 //this method.  This is the indexer and only method on this resource.
-func (self *BasicMetaResource) AllowRead(bundle seven5.PBundle) bool {
-	u := bundle.Session().(Basic)
+func (self *BasicMetaResource) AllowRead(bundle PBundle) bool {
+	u := bundle.Session().(BasicUser)
 	//not logged in?
 	if u == nil {
 		return false
