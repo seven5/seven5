@@ -3,7 +3,6 @@ package seven5
 import (
 	_ "fmt"
 	"net/http"
-	"github.com/seven5/seven5/auth"//ungithub
 )
 var goroutineChannel chan *sessionPacket
 
@@ -12,7 +11,7 @@ var goroutineChannel chan *sessionPacket
 //to sessions.
 type SessionManager interface {
 	Find(id string) (Session, error)
-	Generate(c auth.OauthConnection, id string, r *http.Request, state string, code string) (Session, error)
+	Generate(c OauthConnection, id string, r *http.Request, state string, code string) (Session, error)
 	Destroy(id string) error
 }
 
@@ -105,7 +104,7 @@ func handleSessionChecks(ch chan *sessionPacket) {
 //Generate is called when we need to create a new session for a given browser, typically because they
 //have successfully authenticated.  This method ignores all the parameters passed but they present
 //in the interface for more sophisticated SessionManager implementations.
-func (self *SimpleSessionManager) Generate(c auth.OauthConnection, oldId string, r *http.Request, state string, code string) (Session, error) {
+func (self *SimpleSessionManager) Generate(c OauthConnection, oldId string, r *http.Request, state string, code string) (Session, error) {
 	//create the default cruft needed for any session
 	result := NewSimpleSession()
 	return self.Assign(result)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"github.com/seven5/seven5/auth"//ungithub
 	"strings"
 )
 
@@ -15,10 +14,10 @@ const (
 //AuthDispatcher is a special dispatcher that understands how to interact with Oauth2-based services for 
 //authenticating the currently logged in user.  
 type AuthDispatcher struct {
-	provider   []auth.OauthConnector
+	provider   []OauthConnector
 	mux        *ServeMux
 	prefix     string
-	PageMap    auth.PageMapper
+	PageMap    PageMapper
 	CookieMap  CookieMapper
 	SessionMgr SessionManager
 }
@@ -31,7 +30,7 @@ type AuthDispatcher struct {
 //the page /oautherror.html.  The supplied application name is used to name the browser cookie.
 func NewAuthDispatcher(appName string, prefix string, mux *ServeMux) *AuthDispatcher {
 	return NewAuthDispatcherRaw(prefix, mux, 
-		auth.NewSimplePageMapper("/oautherror.html", "/login.html", "/logout.html", ),
+		NewSimplePageMapper("/oautherror.html", "/login.html", "/logout.html", ),
 		NewSimpleCookieMapper(appName), 
 		NewSimpleSessionManager())
 }
@@ -41,7 +40,7 @@ func NewAuthDispatcher(appName string, prefix string, mux *ServeMux) *AuthDispat
 //because as providers are added to the dispatcher it has to register handlers for them.  Note that
 //this dispatcher adds mappings in the mux, based on the prefix provided, so it should not be
 //manually added to the ServeMux via the Dispatch() method.
-func NewAuthDispatcherRaw(prefix string, mux *ServeMux, pm auth.PageMapper, cm CookieMapper,
+func NewAuthDispatcherRaw(prefix string, mux *ServeMux, pm PageMapper, cm CookieMapper,
 	sm SessionManager) *AuthDispatcher {
 	return &AuthDispatcher{
 		prefix:     prefix,
@@ -55,7 +54,7 @@ func NewAuthDispatcherRaw(prefix string, mux *ServeMux, pm auth.PageMapper, cm C
 
 //AddProvider creates the necessary mappings in the AuthDispatcher (and the associated ServeMux)
 //handle connectivity with the provider supplied.
-func (self *AuthDispatcher) AddProvider(p auth.OauthConnector) {
+func (self *AuthDispatcher) AddProvider(p OauthConnector) {
 	pref := self.prefix + "/" + p.Name() + "/"
 	self.mux.Dispatch(pref+"login", self)
 	self.mux.Dispatch(pref+"logout", self)
@@ -77,7 +76,7 @@ func (self *AuthDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *ht
 		http.Error(w, fmt.Sprintf("Could not dispatch authentication URL: %s", r.URL), http.StatusNotFound)
 		return nil
 	}
-	var targ auth.OauthConnector
+	var targ OauthConnector
 	for _, c := range self.provider {
 		if c.Name() == split[1] {
 			targ = c
@@ -101,7 +100,7 @@ func (self *AuthDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *ht
 	return nil
 }
 
-func (self *AuthDispatcher) Login(conn auth.OauthConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
+func (self *AuthDispatcher) Login(conn OauthConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
 	state := r.URL.Query().Get(conn.StateValueName())
 	p1cred, err:=conn.Phase1(state, self.callback(conn))
 	if err!=nil {
@@ -113,7 +112,7 @@ func (self *AuthDispatcher) Login(conn auth.OauthConnector, w http.ResponseWrite
 	return nil
 }
 
-func (self *AuthDispatcher) Logout(conn auth.OauthConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
+func (self *AuthDispatcher) Logout(conn OauthConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
 	id, err := self.CookieMap.Value(r)
 	if err != nil && err != NO_SUCH_COOKIE {
 		fmt.Fprintf(os.Stderr, "Problem understanding cookie in request: %s", err)
@@ -127,7 +126,7 @@ func (self *AuthDispatcher) Logout(conn auth.OauthConnector, w http.ResponseWrit
 	return nil
 }
 
-func (self *AuthDispatcher) Callback(conn auth.OauthConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
+func (self *AuthDispatcher) Callback(conn OauthConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
 	code := r.URL.Query().Get(conn.CodeValueName())
 	e := r.URL.Query().Get(conn.ErrorValueName())
 	tok := r.URL.Query().Get(conn.ClientTokenValueName())
@@ -138,11 +137,11 @@ func (self *AuthDispatcher) Callback(conn auth.OauthConnector, w http.ResponseWr
 	return self.Connect(conn, tok, code, w, r)
 }
 
-func (self *AuthDispatcher) callback(conn auth.OauthConnector) string {
+func (self *AuthDispatcher) callback(conn OauthConnector) string {
 	return self.prefix + "/" + conn.Name() + "/" + callbackURL
 }
 
-func (self *AuthDispatcher) Connect(conn auth.OauthConnector, clientTok string, code string, w http.ResponseWriter, r *http.Request) *ServeMux {
+func (self *AuthDispatcher) Connect(conn OauthConnector, clientTok string, code string, w http.ResponseWriter, r *http.Request) *ServeMux {
 	connection, err := conn.Phase2(clientTok, code,)
 	if err != nil {
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
@@ -191,7 +190,7 @@ func UDID() string {
 //The application should have pages at oautherror.html, login.html, and logout.html as landing zones
 //for the respective actions.
 func AuthDispatcherFromRaw(raw *RawDispatcher, mux *ServeMux)  *AuthDispatcher{
-	pm:=auth.NewSimplePageMapper("/oautherror.html","/login.html","/logout.html",)
+	pm:=NewSimplePageMapper("/oautherror.html","/login.html","/logout.html",)
 	return NewAuthDispatcherRaw("/auth", mux, pm, raw.CookieMap, raw.SessionMgr)
 }
 

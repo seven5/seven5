@@ -1,4 +1,4 @@
-package auth
+package seven5
 
 import (
 	oauth2 "code.google.com/p/goauth2/oauth"

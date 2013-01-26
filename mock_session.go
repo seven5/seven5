@@ -6,7 +6,6 @@ package seven5
 import (
 	gomock "code.google.com/p/gomock/gomock"
 	http "net/http"
-	auth "seven5/auth"
 )
 
 // Mock of SessionManager interface
@@ -41,7 +40,7 @@ func (_mr *_MockSessionManagerRecorder) Find(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Find", arg0)
 }
 
-func (_m *MockSessionManager) Generate(c auth.OauthConnection, id string, r *http.Request, state string, code string) (Session, error) {
+func (_m *MockSessionManager) Generate(c OauthConnection, id string, r *http.Request, state string, code string) (Session, error) {
 	ret := _m.ctrl.Call(_m, "Generate", c, id, r, state, code)
 	ret0, _ := ret[0].(Session)
 	ret1, _ := ret[1].(error)

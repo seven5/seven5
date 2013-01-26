@@ -4,7 +4,6 @@ import (
 	"errors"
 	_ "fmt"
 	"net/http"
-	"github.com/seven5/seven5/auth"//ungithub
 )
 
 var BAD_ID = errors.New("Bad id supplied in request")
@@ -31,7 +30,7 @@ type BasicUserSupport interface {
 	KnownUsers() []BasicUser
 	UpdateFields(p interface{}, e BasicUser)
 	Delete(Id) BasicUser
-	Generate(c auth.OauthConnection, existing Session) (Session, error)
+	Generate(c OauthConnection, existing Session) (Session, error)
 }
 
 //BasicResource is a REST stateless resource.  It does have a field, but this field is set once
@@ -84,7 +83,7 @@ func (self *BasicManager) Destroy(id string) error {
 
 //Generate is our override of the default implementation in the SimpleSessionManager.  This
 //ends up calling the BasicUserSupport method of the same name.
-func (self *BasicManager) Generate(c auth.OauthConnection, existingId string, ignore_req *http.Request,
+func (self *BasicManager) Generate(c OauthConnection, existingId string, ignore_req *http.Request,
 	ignore_state string, ignore_code string) (Session, error) {
 
 	existing, err:=self.Find(existingId)

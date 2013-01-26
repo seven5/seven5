@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"github.com/seven5/seven5/auth"//ungithub
 	"strings"
 	"testing"
 )
@@ -19,7 +18,7 @@ const (
 /*-------------------------------------------------------------------------------*/
 
 func TestHerokuName(T *testing.T) {
-	n := auth.HerokuName("fleazil")
+	n := HerokuName("fleazil")
 	if n != "https://fleazil.herokuapp.com" {
 		fmt.Printf("Unexpected name for heroku app fleazil: %s", n)
 	}
@@ -57,7 +56,7 @@ func TestGoogleLogin(t *testing.T) {
 
 	//authconn is a wrapper around the google auth connector with all mock methods, except AuthURL
 	//pm is a mock for testing that we get a call to LoginLandingPage
-	pm := auth.NewMockPageMapper(ctrl)
+	pm := NewMockPageMapper(ctrl)
 	sm := NewMockSessionManager(ctrl)
 	cm := NewSimpleCookieMapper(appName)
 	serveMux, authconn := createDispatcherWithMocks(ctrl, pm, cm, sm)
@@ -68,16 +67,16 @@ func TestGoogleLogin(t *testing.T) {
 	sm.EXPECT().Generate(gomock.Any(), gomock.Any(), gomock.Any(), st, code).Return(session, nil)
 
 	//consumed by the google object under test
-	deploy := auth.NewMockDeploymentEnvironment(ctrl)
+	deploy := NewMockDeploymentEnvironment(ctrl)
 	deploy.EXPECT().RedirectHost(gomock.Any()).Return(fmt.Sprintf("http://localhost:%d", port))
 
-	detail := auth.NewMockOauthClientDetail(ctrl)
+	detail := NewMockOauthClientDetail(ctrl)
 	detail.EXPECT().ClientId(gomock.Any()).Return(id)
 	detail.EXPECT().ClientSecret(gomock.Any()).Return(seekret)
 
 	//we are testing the AuthURL method, and NOT testing ExchangeForToken() as it requires a
 	//real network and a real client id and seekret
-	google := auth.NewGoogleOauth2(SCOPE, PROMPT, detail, deploy)
+	google := NewGoogleOauth2(SCOPE, PROMPT, detail, deploy)
 
 	//these are just accessing the constants, so don't care how many times
 	//authconn.EXPECT().Name().Return("google").AnyTimes()
@@ -125,8 +124,8 @@ func TestGoogleLogin(t *testing.T) {
 	client := new(http.Client)
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		checkRedirValues(t, "phase 1 of login", via, map[string][]string{
-			"path":       []string{req.URL.Path, auth.GOOGLE_AUTH_URL_PATH},
-			"host":       []string{req.URL.Host, auth.GOOGLE_AUTH_URL_HOST[len("https://"):]},
+			"path":       []string{req.URL.Path, GOOGLE_AUTH_URL_PATH},
+			"host":       []string{req.URL.Host, GOOGLE_AUTH_URL_HOST[len("https://"):]},
 			"scheme":     []string{req.URL.Scheme, "https"},
 			"state":      []string{req.URL.Query().Get("state"), st},
 			"client_id":  []string{req.URL.Query().Get("client_id"), id},
@@ -233,9 +232,9 @@ func createReqAndDo(t *testing.T, client *http.Client, targ string, c *http.Cook
 }
 
 /*-------------------------------------------------------------------------------*/
-func createDispatcherWithMocks(ctrl *gomock.Controller, pm auth.PageMapper, cm CookieMapper,
-	sm SessionManager) (*ServeMux, *auth.MockOauthConnector) {
-	authconn := auth.NewMockOauthConnector(ctrl)
+func createDispatcherWithMocks(ctrl *gomock.Controller, pm PageMapper, cm CookieMapper,
+	sm SessionManager) (*ServeMux, *MockOauthConnector) {
+	authconn := NewMockOauthConnector(ctrl)
 
 	//real serve mux so the dispatching really works with an HTTP conn
 	serveMux := NewServeMux()
@@ -264,7 +263,7 @@ func TestCallbackError(t *testing.T) {
 	loser := "you are a loser"
 	state := "jabba da hut/:)" //make sure we are decoding correctly by adding strange chars
 
-	pageMapper := auth.NewSimplePageMapper(three, "notused", "notused")
+	pageMapper := NewSimplePageMapper(three, "notused", "notused")
 	cookieMapper := NewMockCookieMapper(ctrl)
 	serveMux, authConn := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper, nil)
 	go func() {
@@ -322,7 +321,7 @@ func TestLogout(t *testing.T) {
 	//check mocks at end
 	defer ctrl.Finish()
 
-	pageMapper := auth.NewSimplePageMapper("notused", "notused", two)
+	pageMapper := NewSimplePageMapper("notused", "notused", two)
 	sm := NewMockSessionManager(ctrl)
 	cookieMapper := NewSimpleCookieMapper(appName)
 	serveMux, _ := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper, sm)

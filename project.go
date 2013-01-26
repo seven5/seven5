@@ -3,7 +3,6 @@ package seven5
 import (
 	"fmt"
 	"net/http"
-	"github.com/seven5/seven5/auth"//ungithub
 	"os"
 )
 
@@ -35,7 +34,7 @@ func generateBinPrinter(content []byte, contentType string) func(http.ResponseWr
 //seven5 project.  The ProjectFinder is used to find things inside the project, notably the
 //static web content. Content added here is all fixed by the build of seven5 and the 
 //underlying filesystem.
-func DefaultProjectBindings(projectName string, pf auth.ProjectFinder) *ServeMux {
+func DefaultProjectBindings(projectName string, pf ProjectFinder) *ServeMux {
 	mux:=NewServeMux()
 	WebContent(mux, projectName, "/", pf)
 	SetIcon(mux, gopher_ico)
@@ -52,8 +51,8 @@ func SetIcon(mux *ServeMux, binaryIcon []byte) {
 //name is the subdir of 'dart' so the content is dart/projectName/web.  The prefix
 //can be used if you don't want the static content mounted at '/' (the default if you pass ""
 //as the prefix).  If you supply a prefix, it should end with /.
-func WebContent(mux *ServeMux, projectName string, prefix string, pf auth.ProjectFinder) {
-	truePath, err := pf.ProjectFind("web", projectName, auth.DART_FLAVOR)
+func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFinder) {
+	truePath, err := pf.ProjectFind("web", projectName, DART_FLAVOR)
 	if err != nil {
 		panic(fmt.Sprintf("can't understand GOPATH or not using default project layout: %s", err))
 	}

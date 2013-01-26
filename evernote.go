@@ -1,4 +1,4 @@
-package auth
+package seven5
 
 import (
 	"errors"

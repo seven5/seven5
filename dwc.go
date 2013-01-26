@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"github.com/seven5/seven5/auth"//ungithub
 	"strings"
 )
 
@@ -196,8 +195,8 @@ func createPath(parent string, d string, f string) (*os.File, error) {
 	return cr, nil
 }
 
-func GenerateDartForJS(t TypeHolder, pre string, name string, pf auth.ProjectFinder) error {
-	dir, err := pf.ProjectFind(filepath.Join("web", "packages"), name, auth.DART_FLAVOR)
+func GenerateDartForJS(t TypeHolder, pre string, name string, pf ProjectFinder) error {
+	dir, err := pf.ProjectFind(filepath.Join("web", "packages"), name, DART_FLAVOR)
 	if err != nil {
 		return err
 	}
