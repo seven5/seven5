@@ -3,7 +3,7 @@ package seven5
 import (
 	_ "fmt"
 	"net/http"
-	"seven5/auth"//githubme:seven5:
+	"github.com/seven5/seven5/auth"//ungithub
 )
 var goroutineChannel chan *sessionPacket
 

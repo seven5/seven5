@@ -4,7 +4,7 @@ import (
 	"errors"
 	_ "fmt"
 	"net/http"
-	"seven5/auth"//githubme:seven5:
+	"github.com/seven5/seven5/auth"//ungithub
 )
 
 var BAD_ID = errors.New("Bad id supplied in request")

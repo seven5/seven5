@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"seven5/auth"//githubme:seven5:
+	"github.com/seven5/seven5/auth"//ungithub
 	"strings"
 	"testing"
 )

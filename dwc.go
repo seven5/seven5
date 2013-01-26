@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"seven5/auth"//githubme:seven5:
+	"github.com/seven5/seven5/auth"//ungithub
 	"strings"
 )
 
