@@ -7,7 +7,7 @@ import (
 func TestSessionBasic(t *testing.T) {
 	mgr := NewSimpleSessionManager()
 	packetsProcessed = 0
-	
+
 	s, err := mgr.Find("bogus")
 	if err != nil {
 		t.Fatalf("Failed to communicate to the session manager: %s", err)
@@ -15,21 +15,21 @@ func TestSessionBasic(t *testing.T) {
 	if s != nil {
 		t.Errorf("Unexpected find of 'bogus'")
 	}
-	s, err = mgr.Generate(nil, nil, "", "")
+	s, err = mgr.Generate(nil, "", nil, "", "")
 	if err != nil {
 		t.Fatalf("Failed to communicate to the session manager: %s", err)
 	}
-	
+
 	f, err := mgr.Find(s.SessionId())
 	if err != nil {
 		t.Fatalf("Failed to communicate to the session manager: %s", err)
 	}
-	
-	if f.SessionId()!=s.SessionId() {
-		t.Errorf("Unexpected session returned (expected %s but got %s)",s.SessionId(),f.SessionId())
-		
+
+	if f.SessionId() != s.SessionId() {
+		t.Errorf("Unexpected session returned (expected %s but got %s)", s.SessionId(), f.SessionId())
+
 	}
-	
+
 	err = mgr.Destroy("bogus")
 	if err != nil {
 		t.Fatalf("Failed to communicate to the session manager: %s", err)
@@ -39,18 +39,18 @@ func TestSessionBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to communicate to the session manager: %s", err)
 	}
-	
+
 	f, err = mgr.Find(s.SessionId())
 	if err != nil {
 		t.Fatalf("Failed to communicate to the session manager: %s", err)
 	}
-	
-	if f!=nil {
+
+	if f != nil {
 		t.Errorf("Unexpected find of '%s'", s.SessionId())
 	}
-	
+
 	if packetsProcessed != 6 {
 		t.Errorf("Expected to have processed %d packets, but found %d\n", 6, packetsProcessed)
 	}
-	
+
 }

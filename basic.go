@@ -4,7 +4,7 @@ import (
 	"errors"
 	_ "fmt"
 	"net/http"
-	"seven5/auth"
+	"seven5/auth"//githubme:seven5:
 )
 
 var BAD_ID = errors.New("Bad id supplied in request")
@@ -31,7 +31,7 @@ type BasicUserSupport interface {
 	KnownUsers() []BasicUser
 	UpdateFields(p interface{}, e BasicUser)
 	Delete(Id) BasicUser
-	Generate(c auth.OauthConnection) (Session, error)
+	Generate(c auth.OauthConnection, existing Session) (Session, error)
 }
 
 //BasicResource is a REST stateless resource.  It does have a field, but this field is set once
@@ -84,10 +84,14 @@ func (self *BasicManager) Destroy(id string) error {
 
 //Generate is our override of the default implementation in the SimpleSessionManager.  This
 //ends up calling the BasicUserSupport method of the same name.
-func (self *BasicManager) Generate(c auth.OauthConnection, ignore_req *http.Request,
+func (self *BasicManager) Generate(c auth.OauthConnection, existingId string, ignore_req *http.Request,
 	ignore_state string, ignore_code string) (Session, error) {
 
-	s, err := self.Sup.Generate(c)
+	existing, err:=self.Find(existingId)
+	if err!=nil {
+		return nil, err
+	}
+	s, err := self.Sup.Generate(c, existing)
 	if err != nil {
 		return nil, err
 	}
@@ -232,16 +236,16 @@ func (self *BasicMetaResource) Index(bundle PBundle) (interface{}, error) {
 		Integer(staff),
 	}
 	list := []*UserMetadataWire{metadata}
-	return &list, nil
+	return list, nil
 }
 
 //AllowRead checks to insure that you have a session and you are staff before you can call
 //this method.  This is the indexer and only method on this resource.
 func (self *BasicMetaResource) AllowRead(bundle PBundle) bool {
-	u := bundle.Session().(BasicUser)
 	//not logged in?
-	if u == nil {
+	if bundle.Session()==nil {
 		return false
 	}
+	u := bundle.Session().(BasicUser)
 	return self.Sup.IsStaff(u) || self.Sup.IsAdmin(u)
 }

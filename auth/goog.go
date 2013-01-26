@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 const (
@@ -18,8 +19,8 @@ const (
 )
 
 type GoogleOauth2 struct {
-	cfg       *oauth2.Config
-	host      string
+	cfg  *oauth2.Config
+	host string
 }
 
 func NewGoogleOauth2(scope string, prompt string, d OauthClientDetail, dep DeploymentEnvironment) *GoogleOauth2 {
@@ -33,8 +34,8 @@ func NewGoogleOauth2(scope string, prompt string, d OauthClientDetail, dep Deplo
 		ApprovalPrompt: prompt,
 	}
 	return &GoogleOauth2{
-		host:      dep.RedirectHost("google"),
-		cfg:       cfg,
+		host: dep.RedirectHost("google"),
+		cfg:  cfg,
 	}
 }
 
@@ -112,21 +113,21 @@ func (self *GoogleOauth2) UserInteractionURL(ignored OauthCred, state string, ca
 	return self.cfg.AuthCodeURL(state)
 }
 
-func (self *GoogleOauth2) Phase2(ignored string, code string) (OauthConnection,error) {
+func (self *GoogleOauth2) Phase2(ignore string, code string, ignored url.Values) (OauthConnection, error) {
 	transport := &oauth2.Transport{
 		Config: self.cfg,
 	}
 	_, err := transport.Exchange(code)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return &GoogleConnection{transport},nil
+	return &GoogleConnection{transport}, nil
 }
 
 type GoogleConnection struct {
 	*oauth2.Transport
 }
 
-func (self *GoogleConnection) SendAuthenticated(r *http.Request) (*http.Response,error){
+func (self *GoogleConnection) SendAuthenticated(r *http.Request) (*http.Response, error) {
 	return self.Client().Do(r)
 }

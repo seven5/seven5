@@ -5,8 +5,8 @@ package seven5
 
 import (
 	http "net/http"
-	auth "seven5/auth"
 	gomock "code.google.com/p/gomock/gomock"
+	auth "seven5/auth"
 )
 
 // Mock of SessionManager interface
@@ -41,15 +41,15 @@ func (_mr *_MockSessionManagerRecorder) Find(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Find", arg0)
 }
 
-func (_m *MockSessionManager) Generate(c auth.OauthConnection, r *http.Request, state string, code string) (Session, error) {
-	ret := _m.ctrl.Call(_m, "Generate", c, r, state, code)
+func (_m *MockSessionManager) Generate(c auth.OauthConnection, id string, r *http.Request, state string, code string) (Session, error) {
+	ret := _m.ctrl.Call(_m, "Generate", c, id, r, state, code)
 	ret0, _ := ret[0].(Session)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockSessionManagerRecorder) Generate(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Generate", arg0, arg1, arg2, arg3)
+func (_mr *_MockSessionManagerRecorder) Generate(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Generate", arg0, arg1, arg2, arg3, arg4)
 }
 
 func (_m *MockSessionManager) Destroy(id string) error {

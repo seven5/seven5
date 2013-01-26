@@ -6,6 +6,7 @@ import (
 	oauth1 "github.com/iansmith/go-oauth/oauth"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 const (
@@ -56,8 +57,21 @@ func (self *EvernoteOauth1) Phase2(token string, verifier string) (OauthConnecti
 	if err != nil {
 		return nil,err
 	}
-	fmt.Printf("got phase2 result:cr=%+v v=%+v\n", cr, v)
-	result:=&EvernoteConnection{cr}
+	id:=v["edam_userId"][0]
+	i,err:=strconv.ParseInt(id, 10, 64)
+	if err!=nil {
+		return nil,err
+	}
+	u:=v["edam_noteStoreUrl"][0]
+	url, err:=url.Parse(u)
+	if err!=nil {
+		return nil,err
+	}
+	result:=&EvernoteConnection{
+		Credentials:cr,
+		EvernoteId:i,
+		Notestore: url,
+	}
 	delete(self.knownCreds,token)
 	return result,nil
 }
@@ -102,9 +116,10 @@ func (self *EvernoteOauth1) ErrorValueName() string {
 
 type EvernoteConnection struct {
 	*oauth1.Credentials
+	EvernoteId int64
+	Notestore *url.URL
 }
 
 func (self *EvernoteConnection) SendAuthenticated(r *http.Request) (*http.Response,error) {
 	return nil,nil
 }
-

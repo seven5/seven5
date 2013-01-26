@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"seven5/auth"
+	"seven5/auth"//githubme:seven5:
 	"strings"
 )
 
@@ -143,13 +143,18 @@ func (self *AuthDispatcher) callback(conn auth.OauthConnector) string {
 }
 
 func (self *AuthDispatcher) Connect(conn auth.OauthConnector, clientTok string, code string, w http.ResponseWriter, r *http.Request) *ServeMux {
-	connection, err := conn.Phase2(clientTok, code)
+	connection, err := conn.Phase2(clientTok, code,)
 	if err != nil {
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
 		return nil
 	}
 	state := r.URL.Query().Get(conn.StateValueName())
-	session, err := self.SessionMgr.Generate(connection, r, state, code)
+	v, err:=self.CookieMap.Value(r)
+	if err!=nil && err!=NO_SUCH_COOKIE {
+		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
+		return nil
+	}
+	session, err := self.SessionMgr.Generate(connection, v, r, state, code)
 	if err != nil {
 		error_msg := fmt.Sprintf("failed to create session")
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)

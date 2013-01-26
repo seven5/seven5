@@ -3,7 +3,7 @@ package seven5
 import (
 	"fmt"
 	"net/http"
-	"seven5/auth"
+	"seven5/auth"//githubme:seven5:
 	"os"
 )
 
