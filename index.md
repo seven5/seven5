@@ -42,6 +42,6 @@ tagline: "Restful without remorse or pity."
 <p>
 Seven5 could be called many things, but we prefer to think of it as an encoding of a set of strategies and a code generator.  Building a modern web application has a lot of parts that are stupid boilerplate, repetitive and niggling, already solved by others, or just boring.  <em>Seven5</em> generates Dart, SQL, and HTML that is linked together with your application to eliminate this type of work.  
 </p>
-
+[![Build Status](https://drone.io/github.com/seven5/seven5/status.png)](https://github.com/seven5/seven5/latest)
 </div>
 
