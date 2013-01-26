@@ -4,8 +4,8 @@
 package seven5
 
 import (
-	gomock "code.google.com/p/gomock/gomock"
 	http "net/http"
+	gomock "code.google.com/p/gomock/gomock"
 )
 
 // Mock of CookieMapper interface

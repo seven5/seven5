@@ -4,8 +4,8 @@
 package seven5
 
 import (
-	http "net/http"
 	gomock "code.google.com/p/gomock/gomock"
+	http "net/http"
 	auth "seven5/auth"
 )
 
