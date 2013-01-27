@@ -240,12 +240,12 @@ func createDispatcherWithMocks(ctrl *gomock.Controller, pm PageMapper, cm Cookie
 	serveMux := NewServeMux()
 
 	//we use /fart because we don't want to end up with dependencies on /rest, the standard
-	disp := NewAuthDispatcherRaw("/fart", serveMux, pm, cm, sm)
+	disp := NewAuthDispatcherRaw("/fart", pm, cm, sm)
 
 	//put our mostly stub auth connector into the URL space and we don't care how many times
 	//it gets asked its name
 	authconn.EXPECT().Name().Return("google").AnyTimes()
-	disp.AddProvider(authconn)
+	disp.AddConnector(authconn, serveMux)
 
 	return serveMux, authconn
 }

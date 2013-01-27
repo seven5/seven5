@@ -15,7 +15,6 @@ const (
 //authenticating the currently logged in user.  
 type AuthDispatcher struct {
 	provider   []OauthConnector
-	mux        *ServeMux
 	prefix     string
 	PageMap    PageMapper
 	CookieMap  CookieMapper
@@ -23,28 +22,16 @@ type AuthDispatcher struct {
 }
 
 
-//NewAuthDispatcher is a wrapper around NewAuthDispatcherRaw that provides some defaults that work for
-//a simple application.  It uses SimplePageMapper, SimpleCookieManager, and SimpleSession manager for
-//the implementations of the needed object.  It assumes that the application login landing page
-//is /login.html and similarly the logout page is /logout.html.  Authentication errors are routed
-//the page /oautherror.html.  The supplied application name is used to name the browser cookie.
-func NewAuthDispatcher(appName string, prefix string, mux *ServeMux) *AuthDispatcher {
-	return NewAuthDispatcherRaw(prefix, mux, 
-		NewSimplePageMapper("/oautherror.html", "/login.html", "/logout.html", ),
-		NewSimpleCookieMapper(appName), 
-		NewSimpleSessionManager())
-}
 
 //NewAuthDispatcherRaw returns a new auth dispatcher which assumes it is mapped at the prefix provided.
-//This should not end with / so mapping at / is passed as "".  The serve mux must be passed because
-//because as providers are added to the dispatcher it has to register handlers for them.  Note that
-//this dispatcher adds mappings in the mux, based on the prefix provided, so it should not be
-//manually added to the ServeMux via the Dispatch() method.
-func NewAuthDispatcherRaw(prefix string, mux *ServeMux, pm PageMapper, cm CookieMapper,
+//This should not end with / so mapping at / is passed as "".  Note that this Dispatcher should
+//not be added to the mux since it uses the "AddConnector" method to register particular
+//URLs for each provider.    Note that most applications will have a BaseDispatcher
+//and so creating this type may be simpler with the function AuthDispatcherFromBase.
+func NewAuthDispatcherRaw(prefix string, pm PageMapper, cm CookieMapper,
 	sm SessionManager) *AuthDispatcher {
 	return &AuthDispatcher{
 		prefix:     prefix,
-		mux:        mux,
 		PageMap:    pm,
 		CookieMap:  cm,
 		SessionMgr: sm,
@@ -52,17 +39,18 @@ func NewAuthDispatcherRaw(prefix string, mux *ServeMux, pm PageMapper, cm Cookie
 
 }
 
-//AddProvider creates the necessary mappings in the AuthDispatcher (and the associated ServeMux)
+//AddConnector creates the necessary mappings in the AuthDispatcher (and the associated ServeMux)
 //handle connectivity with the provider supplied.
-func (self *AuthDispatcher) AddProvider(p OauthConnector) {
+func (self *AuthDispatcher) AddConnector(p OauthConnector, mux *ServeMux) {
 	pref := self.prefix + "/" + p.Name() + "/"
-	self.mux.Dispatch(pref+"login", self)
-	self.mux.Dispatch(pref+"logout", self)
-	self.mux.Dispatch(self.callback(p), self)
-
+	mux.Dispatch(pref+"login", self)
+	mux.Dispatch(pref+"logout", self)
+	mux.Dispatch(self.callback(p), self)
 	self.provider = append(self.provider, p)
 }
 
+//Dispatch is the main entry point for dispating an http request.  This is typically called
+//with /auth/connectorName/{login,logout,oauth2callback}
 func (self *AuthDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *http.Request) *ServeMux {
 	split := strings.Split(r.URL.Path, "/")
 	if split[0] == "" {
@@ -187,8 +175,8 @@ func UDID() string {
 //AuthDispatcherFromBase is a convenience method that creates an auth dispatcher from an already
 //existing BaseDispatcher.  It requires a handle to the ServeMux because the AuthDispatcher creates
 //mappings.  It maps the AuthDispatcher functions to /auth/serviceName/{login,logout,oauth2callback}.
-func AuthDispatcherFromBase(b *BaseDispatcher, mux *ServeMux) *AuthDispatcher {
+func AuthDispatcherFromBase(b *BaseDispatcher) *AuthDispatcher {
 	raw:=b.RawDispatcher
 	pm:=NewSimplePageMapper("/oautherror.html","/login.html","/logout.html",)
-	return NewAuthDispatcherRaw(raw.Prefix, mux, pm, raw.IO.CookieMapper(), raw.SessionMgr)
+	return NewAuthDispatcherRaw("/auth", pm, raw.IO.CookieMapper(), raw.SessionMgr)
 }

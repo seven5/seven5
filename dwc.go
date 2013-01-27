@@ -17,7 +17,6 @@ import (
 const (
 	homePage   = "/home.html"
 	dwcDir     = "app"
-	isTestMode = true
 )
 
 var hrefRE = regexp.MustCompile("href=\"([^\"]+)\"")
@@ -137,7 +136,7 @@ func IsJSTarget(path string) bool {
 	return strings.HasSuffix(path, "_bootstrap.dart.js")
 }
 
-func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix string) http.HandlerFunc {
+func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix string, isTestMode bool) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		//case 1: exactly /
 		if r.URL.Path == prefix && r.URL.RawQuery == "" {
@@ -165,12 +164,12 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 		//exist at this point
 		if IsDWCTargetPath(r.URL.Path) {
 			sourceCode := ToDWCSource(r.URL.Path)
-			CompileWebComponents(w, r, sourceCode, r.URL.Path, truePath)
+			CompileWebComponents(w, r, sourceCode, r.URL.Path, truePath, isTestMode)
 			//we ran the compiler, now can let this go to completion
 		}
 		//case 5
 		if IsJSTarget(r.URL.Path) {
-			CompileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath)
+			CompileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath, isTestMode)
 		}
 		//give up and use FS
 		underlyingHandler.ServeHTTP(w, r)
@@ -178,7 +177,7 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 }
 
 func CompileJS(w http.ResponseWriter, r *http.Request,
-	dartSource string, jsTarget string, truePath string) {
+	dartSource string, jsTarget string, truePath string, isTestMode bool) {
 	dart := filepath.Join(truePath, dartSource)
 	js := filepath.Join(truePath, jsTarget)
 
@@ -245,7 +244,7 @@ func NeedsCompileFiles(src, dest *os.File) (bool, error) {
 }
 
 func CompileWebComponents(w http.ResponseWriter, r *http.Request,
-	src string, dest string, truePath string) {
+	src string, dest string, truePath string, isTestMode bool) {
 
 	fullSource := filepath.Join(truePath, src)
 	fullDest := filepath.Join(truePath, dest)
@@ -259,7 +258,6 @@ func CompileWebComponents(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	fmt.Printf("NEED COMPILE? %v %s %s\n",needCompile,src,truePath)
 	if !needCompile {
 		needCompile=checkNestedComponents(src, src, truePath)
 	}
@@ -285,11 +283,6 @@ func CompileWebComponents(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	fmt.Fprintf(os.Stderr, "----------- DWC ----------\n%s\n", string(b))
-	fmt.Fprintf(os.Stderr, "COMMAND LINE WAS: dart %s %s %s %s\n",
-		fmt.Sprintf("--package-root=%s/packages/", truePath),
-		fmt.Sprintf("%s/packages/web_ui/dwc.dart", truePath),
-		fmt.Sprintf("--out=%s/%s", truePath, dwcDir),
-		fullSource)
 	return
 }
 
@@ -318,7 +311,10 @@ func createPath(parent string, d string, f string) (*os.File, error) {
 	return cr, nil
 }
 
-func GenerateDartForJS(t TypeHolder, pre string, name string, pf ProjectFinder) error {
+//GenerateDartForWireTypes emits dart source code that allows the client side dart code
+//to manipulate the defined types (in TypeHolder argument) conveniently.  It uses
+//the projectfinder supplied to know where to place the resulting file.
+func GenerateDartForWireTypes(t TypeHolder, pre string, name string, pf ProjectFinder) error {
 	dir, err := pf.ProjectFind(filepath.Join("web", "packages"), name, DART_FLAVOR)
 	if err != nil {
 		return err

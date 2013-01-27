@@ -99,7 +99,6 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 				return nil, find_err
 			}
 			if session == nil && err != NO_SUCH_COOKIE {
-				fmt.Printf("dropping cookie, can't match it to a session\n")
 				self.CookieMap.RemoveCookie(w)
 			}
 		}

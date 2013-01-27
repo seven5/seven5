@@ -34,9 +34,9 @@ func generateBinPrinter(content []byte, contentType string) func(http.ResponseWr
 //seven5 project.  The ProjectFinder is used to find things inside the project, notably the
 //static web content. Content added here is all fixed by the build of seven5 and the 
 //underlying filesystem.
-func DefaultProjectBindings(projectName string, pf ProjectFinder) *ServeMux {
+func DefaultProjectBindings(projectName string, pf ProjectFinder, dep DeploymentEnvironment) *ServeMux {
 	mux:=NewServeMux()
-	WebContent(mux, projectName, "/", pf)
+	WebContent(mux, projectName, "/", pf, dep.IsTest())
 	SetIcon(mux, gopher_ico)
 	return mux
 }
@@ -51,7 +51,7 @@ func SetIcon(mux *ServeMux, binaryIcon []byte) {
 //name is the subdir of 'dart' so the content is dart/projectName/web.  The prefix
 //can be used if you don't want the static content mounted at '/' (the default if you pass ""
 //as the prefix).  If you supply a prefix, it should end with /.
-func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFinder) {
+func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFinder, isTestMode bool) {
 	truePath, err := pf.ProjectFind("web", projectName, DART_FLAVOR)
 	if err != nil {
 		panic(fmt.Sprintf("can't understand GOPATH or not using default project layout: %s", err))
@@ -61,7 +61,7 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFind
 		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
 	if prefix == "" || prefix == "/" {
-			mux.Handle("/",DartWebComponents(http.FileServer(http.Dir(truePath)),truePath,"/"))
+			mux.Handle("/",DartWebComponents(http.FileServer(http.Dir(truePath)),truePath,"/", isTestMode))
 	} else {
 		mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
 	}
