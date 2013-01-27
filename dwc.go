@@ -171,7 +171,7 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 		if IsJSTarget(r.URL.Path) {
 			CompileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath, isTestMode)
 		}
-		fmt.Printf("WEB REQUEST FOR FS: %+v\n",r.URL)
+		fmt.Printf("WEB REQUEST FOR FS: %+v (on %s)\n",r.URL, truepath)
 		//give up and use FS
 		underlyingHandler.ServeHTTP(w, r)
 	})
