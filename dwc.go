@@ -148,6 +148,9 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 			http.NotFound(w, r)
 			return
 		}
+		w.Header().Add("Cache-Control","no-cache, must-revalidate"); //HTTP 1.1
+		w.Header().Add("Pragma","no-cache"); //HTTP 1.0
+		
 		//fmt.Printf("---'%v'---%v\n", r.URL.Path, IsDWCTargetPath(r.URL.Path))
 		//case 3: could be a true source file that we need to convert to a DWT target
 		t := DWCTarget(r.URL.Path, truePath)
