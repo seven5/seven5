@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -113,7 +112,7 @@ func (self *GoogleOauth2) UserInteractionURL(ignored OauthCred, state string, ca
 	return self.cfg.AuthCodeURL(state)
 }
 
-func (self *GoogleOauth2) Phase2(ignore string, code string, ignored url.Values) (OauthConnection, error) {
+func (self *GoogleOauth2) Phase2(ignore string, code string) (OauthConnection, error) {
 	transport := &oauth2.Transport{
 		Config: self.cfg,
 	}
