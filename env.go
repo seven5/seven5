@@ -46,10 +46,10 @@ type ProjectFinder interface {
 	ProjectFind(target string, projectName string, flavor FileFlavor) (string, error)
 }
 
-//EnvironmentVars is ProjectFinder, OauthClientDetail, and PublicSettings
+//EnvironmentVars is ProjectFinder, OauthClientDetail, and PublicSettings handler
 //implementation that reads values from a standard arrangement of unix-ish environment variables.  
 //Typically the enivornment variables are prefixed with the application name and that must be
-//provided to NewEnviroment. 
+//provided to NewEnviromentVars. 
 type EnvironmentVars struct {
 	name string
 }

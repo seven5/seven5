@@ -35,7 +35,7 @@ func NewAuthDispatcher(appName string, prefix string, mux *ServeMux) *AuthDispat
 		NewSimpleSessionManager())
 }
 
-//NewAuthDispatcher returns a new auth dispatcher which assumes it is mapped at the prefix provided.
+//NewAuthDispatcherRaw returns a new auth dispatcher which assumes it is mapped at the prefix provided.
 //This should not end with / so mapping at / is passed as "".  The serve mux must be passed because
 //because as providers are added to the dispatcher it has to register handlers for them.  Note that
 //this dispatcher adds mappings in the mux, based on the prefix provided, so it should not be
@@ -184,20 +184,11 @@ func UDID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
 
-//AuthDispatcherFromRaw is a convenience method that creates an auth dispatcher from an already
-//existing RawDispatcher.  It requires a handle to the ServeMux because the AuthDispatcher creates
-//mappings. It maps the AuthDispatcher functions to /auth/serviceName/{login,logout,oauth2callback}.
-//The application should have pages at oautherror.html, login.html, and logout.html as landing zones
-//for the respective actions.
-func AuthDispatcherFromRaw(raw *RawDispatcher, mux *ServeMux)  *AuthDispatcher{
-	pm:=NewSimplePageMapper("/oautherror.html","/login.html","/logout.html",)
-	return NewAuthDispatcherRaw("/auth", mux, pm, raw.CookieMap, raw.SessionMgr)
-}
-
-//AuthDispatcherFromRaw is a convenience method that creates an auth dispatcher from an already
+//AuthDispatcherFromBase is a convenience method that creates an auth dispatcher from an already
 //existing BaseDispatcher.  It requires a handle to the ServeMux because the AuthDispatcher creates
 //mappings.  It maps the AuthDispatcher functions to /auth/serviceName/{login,logout,oauth2callback}.
 func AuthDispatcherFromBase(b *BaseDispatcher, mux *ServeMux) *AuthDispatcher {
 	raw:=b.RawDispatcher
-	return AuthDispatcherFromRaw(raw, mux)
+	pm:=NewSimplePageMapper("/oautherror.html","/login.html","/logout.html",)
+	return NewAuthDispatcherRaw(raw.Prefix, mux, pm, raw.IO.CookieMapper(), raw.SessionMgr)
 }

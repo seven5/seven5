@@ -23,7 +23,8 @@ func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatche
 	cm := NewSimpleCookieMapper(appName)
 	holder:=NewSimpleTypeHolder()
 	result :=&BaseDispatcher{}
-	result.RawDispatcher = NewRawDispatcher(&JsonEncoder{}, &JsonDecoder{}, cm, sm, result, holder, prefix)
+	io:=&RawIOHook{&JsonDecoder{},&JsonEncoder{}, cm}
+	result.RawDispatcher = NewRawDispatcher(io, sm, result, holder, prefix)
 	return result
 }
 
