@@ -174,7 +174,6 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 		if IsJSTarget(r.URL.Path) {
 			CompileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath, isTestMode)
 		}
-		fmt.Printf("WEB REQUEST FOR FS: %+v (on %s)\n",r.URL, truePath)
 		//give up and use FS
 		underlyingHandler.ServeHTTP(w, r)
 	})
@@ -322,6 +321,10 @@ func GenerateDartForWireTypes(t TypeHolder, pre string, name string, pf ProjectF
 	dir, err := pf.ProjectFind(filepath.Join("web", "packages"), name, DART_FLAVOR)
 	if err != nil {
 		return err
+	}
+	_, err=os.Open(dir)
+	if os.IsNotExist(err) {
+		panic(fmt.Sprintf("No package directory for dart packages (%s): did you forget to run pub install?", dir))
 	}
 	buffer := wrappedCodeGen(t, pre)
 	c, err := createPath(dir, "generated", "dart")
