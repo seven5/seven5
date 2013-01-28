@@ -21,6 +21,8 @@ const (
 
 var hrefRE = regexp.MustCompile("href=\"([^\"]+)\"")
 
+//checkNestedComponents is a recursive routine to determine if a given path contains
+//referencs to other components that are newer.
 func checkNestedComponents(origPath string, shortPath string, truePath string) bool {
 	components := generateNestedComponents(shortPath, truePath)
 	for _, comp := range components {
@@ -32,7 +34,7 @@ func checkNestedComponents(origPath string, shortPath string, truePath string) b
 			fmt.Fprintf(os.Stderr, "WARNING: Absolute paths in link elements may crash "+
 				"dart web components compiler: %s\n", compPath)
 		}
-		c, err := NeedsCompile(filepath.Join(truePath, shortPath), filepath.Join(truePath, compPath))
+		c, err := needsCompile(filepath.Join(truePath, shortPath), filepath.Join(truePath, compPath))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error determining compilation needed for component: %s\n", err.Error())
 			return false
@@ -46,6 +48,8 @@ func checkNestedComponents(origPath string, shortPath string, truePath string) b
 	return false
 }
 
+//generateNestedComponents looks for this type of string via a regular expression
+// <link rel="components" href="blah"...> and returns a slice of the href values.
 func generateNestedComponents(shortPath string, truePath string) []string {
 	fullPath := filepath.Join(truePath, shortPath)
 	f, err := os.Open(fullPath)
@@ -79,11 +83,11 @@ func generateNestedComponents(shortPath string, truePath string) []string {
 	return collection
 }
 
-//IsDWCTargetPath returns true iff the path supplied corresponds to a dart web components generated
+//isDWCTargetPath returns true iff the path supplied corresponds to a dart web components generated
 //dart file (derived from an html file _not_ in the app dir).  Note that this operates on a
 //path only, not the filesystem, because the path may not exist because it needs to be
 //generated.
-func IsDWCTargetPath(path string) bool {
+func isDWCTargetPath(path string) bool {
 	if !strings.HasPrefix(path, "/"+dwcDir) {
 		return false
 	}
@@ -101,10 +105,10 @@ func IsDWCTargetPath(path string) bool {
 	return true
 }
 
-//ToDWCSource returns the html+template source for a given target (output) path. This assumes that the
+//toDWCSource returns the html+template source for a given target (output) path. This assumes that the
 //IsDWCPath function has already returned true.  This operates on a path, without touching the
 //filesystem, because the path may not exist because it needs to be generated.
-func ToDWCSource(path string) string {
+func toDWCSource(path string) string {
 	pieces := strings.Split(path, "/")
 	last := pieces[len(pieces)-1]
 	start := strings.Join(pieces[2:len(pieces)-1], "/")
@@ -114,7 +118,10 @@ func ToDWCSource(path string) string {
 	return "/" + start + "/" + last
 }
 
-func DWCTarget(path string, truePath string) string {
+//dWCTarget takes a path plus a piece of the filesystem and returns true if that
+//path is present inside the truePath tree and if the path makes sense as a target
+//file of DWC.
+func dWCTarget(path string, truePath string) string {
 	if !strings.HasSuffix(path, ".html") {
 		return ""
 	}
@@ -132,7 +139,9 @@ func DWCTarget(path string, truePath string) string {
 	return "/" + dwcDir + path
 }
 
-func IsJSTarget(path string) bool {
+//isJSTarget returns true if the path is one that should trigger a JS compilation
+//from dart source.
+func isJSTarget(path string) bool {
 	return strings.HasSuffix(path, "_bootstrap.dart.js")
 }
 
@@ -153,7 +162,7 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 		
 		//fmt.Printf("---'%v'---%v\n", r.URL.Path, IsDWCTargetPath(r.URL.Path))
 		//case 3: could be a true source file that we need to convert to a DWT target
-		t := DWCTarget(r.URL.Path, truePath)
+		t := dWCTarget(r.URL.Path, truePath)
 		if t != "" {
 			//we have a target, need to do a redir to force compilation
 			suffix := r.URL.Query().Encode()
@@ -165,26 +174,27 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 		}
 		//case 4: check for DWC TARGET being passed to us.... note that this may not
 		//exist at this point
-		if IsDWCTargetPath(r.URL.Path) {
-			sourceCode := ToDWCSource(r.URL.Path)
-			CompileWebComponents(w, r, sourceCode, r.URL.Path, truePath, isTestMode)
+		if isDWCTargetPath(r.URL.Path) {
+			sourceCode := toDWCSource(r.URL.Path)
+			compileWebComponents(w, r, sourceCode, r.URL.Path, truePath, isTestMode)
 			//we ran the compiler, now can let this go to completion
 		}
 		//case 5
-		if IsJSTarget(r.URL.Path) {
-			CompileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath, isTestMode)
+		if isJSTarget(r.URL.Path) {
+			compileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath, isTestMode)
 		}
 		//give up and use FS
 		underlyingHandler.ServeHTTP(w, r)
 	})
 }
 
-func CompileJS(w http.ResponseWriter, r *http.Request,
+//compileJS runs the dart2js compiler.
+func compileJS(w http.ResponseWriter, r *http.Request,
 	dartSource string, jsTarget string, truePath string, isTestMode bool) {
 	dart := filepath.Join(truePath, dartSource)
 	js := filepath.Join(truePath, jsTarget)
 
-	need, err := NeedsCompile(dart, js)
+	need, err := needsCompile(dart, js)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -207,11 +217,11 @@ func CompileJS(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	fmt.Fprintf(os.Stdout, "----------- DART2JS ----------\n%s", string(b))
-	fmt.Fprintf(os.Stdout, "Compilation time: %2.2f seconds\n", t2.Sub(t1).Seconds())
+	fmt.Fprintf(os.Stdout, "Compilation time: %2.2f seconds on %s\n", t2.Sub(t1).Seconds(), dartSource)
 	return
 }
 
-func NeedsCompile(src, dest string) (bool, error) {
+func needsCompile(src, dest string) (bool, error) {
 	d, errDest := os.Open(dest)
 	if errDest != nil && !os.IsNotExist(errDest) {
 		return false, errDest
@@ -228,10 +238,10 @@ func NeedsCompile(src, dest string) (bool, error) {
 	}
 	defer s.Close()
 
-	return NeedsCompileFiles(s, d)
+	return needsCompileFiles(s, d)
 }
 
-func NeedsCompileFiles(src, dest *os.File) (bool, error) {
+func needsCompileFiles(src, dest *os.File) (bool, error) {
 	if dest == nil {
 		return true, nil
 	}
@@ -246,12 +256,12 @@ func NeedsCompileFiles(src, dest *os.File) (bool, error) {
 	return d.ModTime().Before(s.ModTime()), nil
 }
 
-func CompileWebComponents(w http.ResponseWriter, r *http.Request,
+func compileWebComponents(w http.ResponseWriter, r *http.Request,
 	src string, dest string, truePath string, isTestMode bool) {
 
 	fullSource := filepath.Join(truePath, src)
 	fullDest := filepath.Join(truePath, dest)
-	needCompile, err := NeedsCompile(fullSource, fullDest)
+	needCompile, err := needsCompile(fullSource, fullDest)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

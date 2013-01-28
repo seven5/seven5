@@ -12,13 +12,13 @@ func TestDWCDir(t *testing.T) {
 	x := []string{"/foo", "/foo.dart", "foo.html", "foo/app", "app", "/app/foo", "/app/dart",
 		"/app/foo.dart", "/foo.html.dart", "/app/.html.dart"}
 	for _, path := range x {
-		if IsDWCTargetPath(path) {
+		if isDWCTargetPath(path) {
 			t.Errorf("%s should not be considered a DWC path!", path)
 		}
 	}
 	x = []string{"/app/foo.html", "/app/bar/foo.html", "/app/app/foo.html"}
 	for _, path := range x {
-		if !IsDWCTargetPath(path) {
+		if !isDWCTargetPath(path) {
 			t.Errorf("%s should be considered a DWC path!", path)
 		}
 	}
@@ -28,7 +28,7 @@ func TestToDWCSource(t *testing.T) {
 	x := []string{"/app/foo.html", "/app/bar/foo.html", "/app/app/app/app.html"}
 	y := []string{"/foo.html", "/bar/foo.html", "/app/app/app.html"}
 	for i, path := range x {
-		if ToDWCSource(path) != y[i] {
+		if toDWCSource(path) != y[i] {
 			t.Errorf("%s should have source path %s!", path, y[i])
 		}
 	}
@@ -45,14 +45,14 @@ func TestDWCTargetPath(t *testing.T) {
 	x := []string{"/foo", "/foo.dart", "foo/app", "app", "/app/foo", "/app/dart",
 		"/app/foo.dart", "/foo.html.dart", "/app/.html.dart", "/app/foo.html"}
 	for _, path := range x {
-		if DWCTarget(path, truePath) != "" {
+		if dWCTarget(path, truePath) != "" {
 			t.Errorf("%s should not have target path!", path)
 		}
 	}
 
 	x = []string{"/foo.html", "/foo/bar/fleazil.html", "/app.html"}
 	for _, path := range x {
-		if DWCTarget(path, truePath) != "" {
+		if dWCTarget(path, truePath) != "" {
 			t.Errorf("%s should not have target path because it does not exist!", path)
 		}
 		//create the file now so we can test again
@@ -71,8 +71,8 @@ func TestDWCTargetPath(t *testing.T) {
 	
 	y := []string{"/app/foo.html", "/app/foo/bar/fleazil.html", "/app/app.html"}
 	for i, path := range x {
-		if DWCTarget(path, truePath) != y[i] {
-			t.Errorf("%s should have target path %d %s but got '%s'!", path, i, y[i], DWCTarget(path,truePath))
+		if dWCTarget(path, truePath) != y[i] {
+			t.Errorf("%s should have target path %d %s but got '%s'!", path, i, y[i], dWCTarget(path,truePath))
 		}
 	}
 }
