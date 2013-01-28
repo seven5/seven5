@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	homePage   = "/home.html"
-	dwcDir     = "app"
+	homePage = "/home.html"
+	dwcDir   = "app"
 )
 
 var hrefRE = regexp.MustCompile("href=\"([^\"]+)\"")
@@ -34,13 +34,25 @@ func checkNestedComponents(origPath string, shortPath string, truePath string) b
 			fmt.Fprintf(os.Stderr, "WARNING: Absolute paths in link elements may crash "+
 				"dart web components compiler: %s\n", compPath)
 		}
-		c, err := needsCompile(filepath.Join(truePath, shortPath), filepath.Join(truePath, compPath))
+		targ := dWCTarget(compPath, truePath)
+		c, err := needsCompile(filepath.Join(truePath, compPath), filepath.Join(truePath, targ))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error determining compilation needed for component: %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "Error determining compilation needed for component source: %s\n", err.Error())
 			return false
 		}
+		if !c {
+			c, err = needsCompile(filepath.Join(truePath, shortPath), filepath.Join(truePath, targ))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error determining compilation needed for component: %s\n", err.Error())
+				return false
+			}
+		} else {
+			fmt.Fprintf(os.Stdout, "Dependent component %s out of date (compared to %s)\n", compPath, targ)
+			dwc(compPath, targ, truePath)
+		}
 		if c {
-			fmt.Printf("Dependent component %s is newer, forcing recompilation of %s\n", compPath, origPath)
+			fmt.Fprintf(os.Stdout, "----------- DWC ----------\n")
+			fmt.Fprintf(os.Stdout, "Dependent component %s is newer, forcing recompilation of %s\n", targ, origPath)
 			return true
 		}
 		return checkNestedComponents(origPath, compPath, truePath)
@@ -157,9 +169,9 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Add("Cache-Control","no-cache, must-revalidate"); //HTTP 1.1
-		w.Header().Add("Pragma","no-cache"); //HTTP 1.0
-		
+		w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
+		w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
+
 		//fmt.Printf("---'%v'---%v\n", r.URL.Path, IsDWCTargetPath(r.URL.Path))
 		//case 3: could be a true source file that we need to convert to a DWT target
 		t := dWCTarget(r.URL.Path, truePath)
@@ -199,8 +211,14 @@ func compileJS(w http.ResponseWriter, r *http.Request,
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	//fmt.Printf("isTestMode? %v %v, '%s'->'%s'\n",isTestMode, need, dart,js)
 	if !isTestMode && need {
 		fmt.Fprintf(os.Stderr, "Out of date generated javascript file %s!\n", jsTarget)
+		return
+	}
+	if !need {
+		fmt.Fprintf(os.Stdout, "----------- DART2JS ----------\n")
+		fmt.Fprintf(os.Stdout, "%s is up to date\n", jsTarget)
 		return
 	}
 
@@ -214,6 +232,7 @@ func compileJS(w http.ResponseWriter, r *http.Request,
 	t2 := time.Now()
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "-------- DART2JS ERROR -------\n%s", string(b))
+		fmt.Fprintf(os.Stdout, "Dart source was %s\n", dartSource)
 		return
 	}
 	fmt.Fprintf(os.Stdout, "----------- DART2JS ----------\n%s", string(b))
@@ -272,14 +291,21 @@ func compileWebComponents(w http.ResponseWriter, r *http.Request,
 	}
 
 	if !needCompile {
-		needCompile=checkNestedComponents(src, src, truePath)
+		needCompile = checkNestedComponents(src, src, truePath)
 	}
 
 	if !needCompile {
-		fmt.Fprintf(os.Stderr, "---------------------------\n")
+		fmt.Fprintf(os.Stderr, "-----------  DWC  ----------\n")
 		fmt.Fprintf(os.Stdout, "%s is up to date\n", dest)
 		return
 	}
+	dwc(src,dest,truePath)
+}
+
+//dwc actually runs the compiler and prints output to the terminal
+func dwc(src string, dest string, truePath string) {
+	fullSource := filepath.Join(truePath, src)
+	
 	cmd := exec.Command("dart",
 		fmt.Sprintf("--package-root=%s/packages/", truePath),
 		fmt.Sprintf("%s/packages/web_ui/dwc.dart", truePath),
@@ -287,7 +313,7 @@ func compileWebComponents(w http.ResponseWriter, r *http.Request,
 		fullSource)
 	b, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "-------- DWC ERROR -------\n%s\n", string(b))
+		fmt.Fprintf(os.Stderr, "-------- DWC ERROR -------\n%s", string(b))
 		fmt.Fprintf(os.Stderr, "COMMAND LINE WAS: dart %s %s %s %s\n",
 			fmt.Sprintf("--package-root=%s/packages/", truePath),
 			fmt.Sprintf("%s/packages/web_ui/dwc.dart", truePath),
@@ -295,7 +321,7 @@ func compileWebComponents(w http.ResponseWriter, r *http.Request,
 			fullSource)
 		return
 	}
-	fmt.Fprintf(os.Stderr, "----------- DWC ----------\n%s\n", string(b))
+	fmt.Fprintf(os.Stderr, "----------- DWC ----------\n%s", string(b))
 	return
 }
 
@@ -332,7 +358,7 @@ func GenerateDartForWireTypes(t TypeHolder, pre string, name string, pf ProjectF
 	if err != nil {
 		return err
 	}
-	_, err=os.Open(dir)
+	_, err = os.Open(dir)
 	if os.IsNotExist(err) {
 		panic(fmt.Sprintf("No package directory for dart packages (%s): did you forget to run pub install?", dir))
 	}
