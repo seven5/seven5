@@ -39,26 +39,12 @@ type BasicResource struct {
 	Sup BasicUserSupport
 }
 
-//BasicMetaResource is a REST stateless resource.  It does have a field, but this field is set once
-//at creation time.  BasicMetaResource represents meta information about all users and is only accessible
-//to Staff or Admin users so this is an easy way to "check" from the client side if you are running
-//as a privileged user.
-type BasicMetaResource struct {
-	Sup BasicUserSupport
-}
-
-//This is wire type that is accessible only to staff members.  It can only be read.
-type UserMetadataWire struct {
-	Id          Id
-	NumberUsers Integer
-	NumberStaff Integer
-}
-
 //BasicManager stores a copy of the BasicUserSupport object and creates the necessary resources that are
 //going to be needed by the application code.
 type BasicManager struct {
 	Sup     BasicUserSupport
 	Wrapped *SimpleSessionManager
+	Mux     *ServeMux
 }
 
 //NewBasicManager creates a new basic user manager with the given supporting object.  This should
@@ -67,6 +53,7 @@ func NewBasicManager(support BasicUserSupport) *BasicManager {
 	result := &BasicManager{
 		Wrapped: NewSimpleSessionManager(),
 		Sup:     support,
+		Mux:     NewServeMux(),
 	}
 	return result
 }
@@ -86,8 +73,8 @@ func (self *BasicManager) Destroy(id string) error {
 func (self *BasicManager) Generate(c OauthConnection, existingId string, ignore_req *http.Request,
 	ignore_state string, ignore_code string) (Session, error) {
 
-	existing, err:=self.Find(existingId)
-	if err!=nil {
+	existing, err := self.Find(existingId)
+	if err != nil {
 		return nil, err
 	}
 	s, err := self.Sup.Generate(c, existing)
@@ -95,7 +82,7 @@ func (self *BasicManager) Generate(c OauthConnection, existingId string, ignore_
 		return nil, err
 	}
 	//ignored by our Generate in Support
-	if s==nil {
+	if s == nil {
 		return nil, nil
 	}
 	return self.Wrapped.Assign(s)
@@ -105,12 +92,6 @@ func (self *BasicManager) Generate(c OauthConnection, existingId string, ignore_
 //that was passed to this BasicManager at creation-time.
 func (self *BasicManager) UserResource() RestAll {
 	return &BasicResource{self.Sup}
-}
-
-//MetaResource produces an implementation of a rest resource that is hooked to the BasicUserSupport object
-//that was passed to this BasicManager at creation-time.
-func (self *BasicManager) MetaResource() RestIndex {
-	return &BasicMetaResource{self.Sup}
 }
 
 //This index a list of size one which is the currently logged in user unless the user is staff.
@@ -200,7 +181,7 @@ func (self *BasicResource) AllowWrite(bundle PBundle) bool {
 //Users can only call Find, and Put methods on themselves.  Users cannot call DELETE, even on self.  
 //Priviledged members can call any method on any id.
 func (self *BasicResource) Allow(id Id, method string, bundle PBundle) bool {
-	if bundle.Session()==nil {
+	if bundle.Session() == nil {
 		return false
 	}
 	u := bundle.Session().(BasicUser)
@@ -212,39 +193,4 @@ func (self *BasicResource) Allow(id Id, method string, bundle PBundle) bool {
 		return false
 	}
 	return u.WireId() == id
-}
-
-///////////////////////////////////
-// METADATA RESOURCE
-///////////////////////////////////
-
-//Index can just return the metadata because the AllowRead function has already been called to check
-//to see if it is ok for the logged in user to read this data.
-func (self *BasicMetaResource) Index(bundle PBundle) (interface{}, error) {
-
-	staff := 0
-	for _, u := range self.Sup.KnownUsers() {
-		if self.Sup.IsStaff(u) || self.Sup.IsAdmin(u) {
-			staff++
-		}
-	}
-
-	metadata := &UserMetadataWire{
-		Id(0),
-		Integer(len(self.Sup.KnownUsers())),
-		Integer(staff),
-	}
-	list := []*UserMetadataWire{metadata}
-	return list, nil
-}
-
-//AllowRead checks to insure that you have a session and you are staff before you can call
-//this method.  This is the indexer and only method on this resource.
-func (self *BasicMetaResource) AllowRead(bundle PBundle) bool {
-	//not logged in?
-	if bundle.Session()==nil {
-		return false
-	}
-	u := bundle.Session().(BasicUser)
-	return self.Sup.IsStaff(u) || self.Sup.IsAdmin(u)
 }
