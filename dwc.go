@@ -177,6 +177,7 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 			http.NotFound(w, r)
 			return
 		}
+
 		w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
 		w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
 
