@@ -25,6 +25,7 @@ var hrefRE = regexp.MustCompile("href=\"([^\"]+)\"")
 //referencs to other components that are newer.
 func checkNestedComponents(origPath string, shortPath string, truePath string) bool {
 	components := generateNestedComponents(shortPath, truePath)
+	recompile:=false
 	for _, comp := range components {
 		compPath := comp
 		if !strings.HasPrefix(comp, "/") {
@@ -49,15 +50,22 @@ func checkNestedComponents(origPath string, shortPath string, truePath string) b
 		} else {
 			fmt.Fprintf(os.Stdout, "Dependent component %s out of date (compared to %s)\n", compPath, targ)
 			dwc(compPath, targ, truePath)
+			recompile=true;
+			break
 		}
 		if c {
 			fmt.Fprintf(os.Stdout, "----------- DWC ----------\n")
 			fmt.Fprintf(os.Stdout, "Dependent component %s is newer, forcing recompilation of %s\n", targ, origPath)
-			return true
+			recompile=true
+			break
 		}
-		return checkNestedComponents(origPath, compPath, truePath)
+		//recurse into component
+		if checkNestedComponents(origPath, compPath, truePath) {
+			recompile=true
+			break
+		}
 	}
-	return false
+	return recompile
 }
 
 //generateNestedComponents looks for this type of string via a regular expression
