@@ -39,25 +39,6 @@ type someWire struct {
 	Foo String255
 }
 
-/*---------------------------------------------------------------------------------------*/
-
-type otherWire struct {
-	Id Id
-	Grik String255 
-}
-
-type otherResource struct {
-}
-
-func (self *someResource) Index(p PBundle) (interface{}, error) {
-	return []*otherWire{
-		&otherWire{Id: Id(0), Grik:"Grak"}, 
-		&otherWire{Id: Id(42), Grik:"Frak"}, 
-	}, nil
-}
-func (self *someResource) Find(id Id, p PBundle) (interface{}, error) {
-	return &someWire{id, "get off my land!"}, nil
-}
 
 /*---------------------------------------------------------------------------------------*/
 
@@ -258,18 +239,3 @@ func makeReq(t *testing.T, method string, url string, body string) *http.Request
 	return result
 }
 
-func TestSubResource(t *testing.T) {
-
-	mux := setupMux(nil)
-	go func() {
-		http.ListenAndServe(":8139", mux)
-	}()
-	
-	
-	
-
-	w := makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/", "",
-		http.StatusOK, true)
-			w := makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/", "",
-				http.StatusOK, true)
-			

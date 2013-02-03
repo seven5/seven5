@@ -16,7 +16,7 @@ import (
 //or to change the parameters passed to rest resources in the PBundle (for example to
 //modify query parameter arguments programmatically).
 type IOHook interface {
-	SendHook(d *restObj, w http.ResponseWriter, i interface{}, location string)
+	SendHook(d *restObj, w http.ResponseWriter, pb PBundle, i interface{}, location string)
 	BundleHook(w http.ResponseWriter, r *http.Request, sm SessionManager) (PBundle, error)
 	BodyHook(r *http.Request, obj *restObj) (interface{}, error) 
 	CookieMapper() CookieMapper
@@ -114,9 +114,10 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 //SendHook is called to encode and write the object provided onto the output via the response
 //writer.  The last parameter if not "" is assumed to be a location header.  If the location
 //parameter is provided, then the response code is "Created" otherwise "OK" is returned.
-//SendHook calls the encoder for the encoding of the object
-//into a sequence of bytes for transmission.
-func (self *RawIOHook) SendHook(d *restObj, w http.ResponseWriter, i interface{}, location string) {
+//SendHook calls the encoder for the encoding of the object into a sequence of bytes for transmission.
+//If the pb is not null, then the SendHook should examine it for outgoing headers, trailers, and
+//transmit them.
+func (self *RawIOHook) SendHook(d *restObj, w http.ResponseWriter, pb PBundle, i interface{}, location string) {
 	if err := self.verifyReturnType(d, i); err != nil {
 		http.Error(w, fmt.Sprintf("%s", err), http.StatusExpectationFailed)
 		return
@@ -125,6 +126,9 @@ func (self *RawIOHook) SendHook(d *restObj, w http.ResponseWriter, i interface{}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("unable to encode: %s", err), http.StatusInternalServerError)
 		return
+	}
+	for _, k:=range pb.ReturnHeaders() {
+		w.Header().Add(k,pb.ReturnHeader(k))
 	}
 	w.Header().Add("Content-Type", "text/json")
 	if location != "" {

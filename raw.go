@@ -144,7 +144,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 				http.Error(w, fmt.Sprintf("Internal error on Index: %s", err), http.StatusInternalServerError)
 			} else {
 				//go through encoding
-				self.IO.SendHook(d, w, result, "")
+				self.IO.SendHook(d, w, bundle, result, "")
 			}
 			return nil
 		} else { //FINDER
@@ -162,7 +162,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Internal error on Find: %s", err), http.StatusInternalServerError)
 			} else {
-				self.IO.SendHook(d, w, result, "")
+				self.IO.SendHook(d, w, bundle, result, "")
 			}
 			return nil
 		}
@@ -183,7 +183,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Internal error on Post: %s", err), http.StatusInternalServerError)
 		} else {
-			self.IO.SendHook(d, w, result, self.location(d, result))
+			self.IO.SendHook(d, w, bundle, result, self.location(d, result))
 		}
 		return nil
 	case "PUT", "DELETE":
@@ -204,7 +204,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Internal error on Put: %s", err), http.StatusInternalServerError)
 			} else {
-				self.IO.SendHook(d, w, result, "")
+				self.IO.SendHook(d, w, bundle, result, "")
 			}
 		} else {
 			if d.del == nil {
@@ -219,7 +219,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Internal error on Delete: %s", err), http.StatusInternalServerError)
 			} else {
-				self.IO.SendHook(d, w, result, "")
+				self.IO.SendHook(d, w, bundle, result, "")
 			}
 		}
 		return nil

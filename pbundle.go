@@ -10,12 +10,31 @@ type PBundle interface {
 	Header(string) (string,bool)
 	Query(string) (string,bool)
 	Session() Session
+	ReturnHeader(string) string
+	SetReturnHeader(string,string)
+	ReturnHeaders() []string
 }
 
 type simplePBundle struct {
 	h map[string]string
 	q map[string]string
 	s Session
+	out map[string] string
+}
+
+func (self *simplePBundle) ReturnHeaders() []string {
+	result:=[]string{}
+	for k, _:=range self.out {
+		result=append(result,k)
+	}
+	return result
+}
+
+func (self *simplePBundle) SetReturnHeader(k string, v string) {
+	self.out[k]=v
+}
+func (self *simplePBundle) ReturnHeader(k string) string {
+	return self.out[k]
 }
 
 func (self *simplePBundle) Header(s string) (string,bool) {
@@ -40,6 +59,7 @@ func NewSimplePBundle(r *http.Request, s Session) (PBundle,error) {
 		h:ToSimpleMap(r.Header),
 		q:ToSimpleMap(map[string][]string(r.Form)),
 		s:s,
+		out:make(map[string]string),
 	}, nil
 }
 

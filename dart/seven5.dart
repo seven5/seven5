@@ -13,7 +13,13 @@ class Seven5Support {
 			return url;
 		}
 		StringBuffer buff = new StringBuffer();
+		bool first=true;
 		qp.forEach((String k,String v) {
+			if (!first) {
+				buff.add("&");
+			} else {
+				first=false;
+			}
 			buff.add("${k}=${v}");
 		});
 		//no sense trying to get to fancy as this will be url encoded anyway

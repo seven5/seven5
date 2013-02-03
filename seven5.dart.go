@@ -14,8 +14,14 @@ class Seven5Support {
 		if (qp==null) {
 			return url;
 		}
+		bool first=true;
 		StringBuffer buff = new StringBuffer();
 		qp.forEach((String k,String v) {
+			if (!first) {
+				buff.add("&");
+			} else {
+				first=false;
+			}
 			buff.add("${k}=${v}");
 		});
 		//no sense trying to get to fancy as this will be url encoded anyway
