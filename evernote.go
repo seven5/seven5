@@ -3,7 +3,8 @@ package seven5
 import (
 	"errors"
 	"fmt"
-	oauth1 "github.com/iansmith/go-oauth/oauth"
+	//oauth1 "github.com/iansmith/go-oauth/oauth"
+	oauth1 "github.com/garyburd/go-oauth/oauth"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -53,7 +54,7 @@ func (self *EvernoteOauth1) Phase2(token string, verifier string) (OauthConnecti
 	if !ok {
 		return nil,errors.New(fmt.Sprintf("Unable to find token %s in known credentials!", token))
 	}
-	cr, v, err := evClient.RequestToken(http.DefaultClient, creds, verifier, true)
+	cr, v, err := evClient.RequestToken(http.DefaultClient, creds, verifier)
 	if err != nil {
 		return nil,err
 	}

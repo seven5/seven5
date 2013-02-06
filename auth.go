@@ -1,7 +1,8 @@
 package seven5
 
 import (
-	oauth1 "github.com/iansmith/go-oauth/oauth"
+	//oauth1 "github.com/iansmith/go-oauth/oauth"
+	oauth1 "github.com/garyburd/go-oauth/oauth"
 	"net/http"
 )
 
