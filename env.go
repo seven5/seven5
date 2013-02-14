@@ -77,6 +77,12 @@ func (self *EnvironmentVars) GetAppValue(key string) string {
 	return os.Getenv(fmt.Sprintf("%s_%s", self.name, strings.ToUpper(key)))
 }
 
+//MustAppValue returns a value "inside" the application namespace of environment vars or APPNAME_KEY 
+//(key converted to upper case) and then fetched.  It panics if the value is not found.
+func (self *EnvironmentVars) MustAppValue(key string) string {
+	return self.GetValueOrPanic(fmt.Sprintf("%s_%s", self.name, strings.ToUpper(key)))
+}
+
 //ClientId returns the value of the client id that
 //has been given out the by the service associated with service.  The environment variable
 //is APPNAME_SERVICENAME_CLIENT_ID and is read only once.

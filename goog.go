@@ -117,17 +117,11 @@ func (self *GoogleOauth2) Phase2(ignore string, code string) (OauthConnection, e
 	transport := &oauth2.Transport{
 		Config: self.cfg,
 	}
-	var buff bytes.Buffer
-	enc:=json.NewEncoder(&buff)
-	err:=enc.Encode(transport);
-	if err!=nil{
-		panic(err)
-	}
-	fmt.Printf("TRANSPORT:%s\n",buff.String())
-	_, err = transport.Exchange(code)
+	_, err := transport.Exchange(code)
 	if err != nil {
 		return nil, err
 	}
+	
 	return &GoogleConnection{transport}, nil
 }
 
@@ -136,5 +130,11 @@ type GoogleConnection struct {
 }
 
 func (self *GoogleConnection) SendAuthenticated(r *http.Request) (*http.Response, error) {
+	var buff bytes.Buffer
+	enc:=json.NewEncoder(&buff)
+	err:=enc.Encode(self.Transport);
+	if err!=nil{
+		panic(err)
+	}
 	return self.Client().Do(r)
 }

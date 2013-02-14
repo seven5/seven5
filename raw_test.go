@@ -16,7 +16,13 @@ import (
 type someResource struct {
 }
 
+var accepted=false
+var outOfBandLocation="http://foo.bar/baz"
+
 func (self *someResource) Index(p PBundle) (interface{}, error) {
+	if accepted {
+		return nil,HTTPError(http.StatusAccepted, outOfBandLocation)
+	}
 	return []*someWire{&someWire{Id(1074), "index"}}, nil
 }
 func (self *someResource) Find(id Id, p PBundle) (interface{}, error) {
@@ -239,3 +245,22 @@ func makeReq(t *testing.T, method string, url string, body string) *http.Request
 	return result
 }
 
+func TestResponseCodes(t *testing.T) {
+	resource := &someResource{}
+	mux := setupMux(resource)
+	go func() {
+		http.ListenAndServe(":8190", mux)
+	}()
+
+	accepted=true
+	resp, err := http.Get("http://localhost:8190/rest/somewire")
+	checkHttpStatus(t, resp, err, http.StatusAccepted)
+	
+	b, err:=ioutil.ReadAll(resp.Body)
+	if err!=nil {
+		t.Fatalf("could not ready body of response: %s", err)
+	}
+	if strings.TrimSpace(string(b))!=outOfBandLocation {
+		t.Fatalf("didn't find expected location in body: %s",string(b))
+	}
+}

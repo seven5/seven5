@@ -165,7 +165,7 @@ func dartPrettyPrint(raw string) []byte {
 
 const LIBRARY_INFO = `
 library generated;
-import 'package:seven5/support';
+import 'package:seven5/support.dart';
 import 'dart:json' as JSON;
 `
 

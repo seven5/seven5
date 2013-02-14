@@ -183,6 +183,7 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 
 		//fmt.Printf("---'%v'---%v\n", r.URL.Path, IsDWCTargetPath(r.URL.Path))
 		//case 3: could be a true source file that we need to convert to a DWT target
+		
 		t := dWCTarget(r.URL.Path, truePath)
 		if t != "" {
 			//we have a target, need to do a redir to force compilation
@@ -204,6 +205,8 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 		if isJSTarget(r.URL.Path) {
 			compileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath, isTestMode)
 		}
+		
+		fmt.Printf("---> %v\n", r.URL)
 		//give up and use FS
 		underlyingHandler.ServeHTTP(w, r)
 	})

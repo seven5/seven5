@@ -141,7 +141,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			}
 			result, err := d.index.Index(bundle)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("Internal error on Index: %s", err), http.StatusInternalServerError)
+				self.SendError(err, w, "Internal error on Index")
 			} else {
 				//go through encoding
 				self.IO.SendHook(d, w, bundle, result, "")
@@ -160,7 +160,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			}
 			result, err := d.find.Find(num, bundle)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("Internal error on Find: %s", err), http.StatusInternalServerError)
+				self.SendError(err, w, "Internal error on Find")
 			} else {
 				self.IO.SendHook(d, w, bundle, result, "")
 			}
@@ -181,7 +181,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 		}
 		result, err := d.post.Post(body, bundle)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Internal error on Post: %s", err), http.StatusInternalServerError)
+			self.SendError(err, w, "Internal error on Post")
 		} else {
 			self.IO.SendHook(d, w, bundle, result, self.location(d, result))
 		}
@@ -202,7 +202,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			}
 			result, err := d.put.Put(num, body, bundle)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("Internal error on Put: %s", err), http.StatusInternalServerError)
+				self.SendError(err, w, "Internal error on Put")
 			} else {
 				self.IO.SendHook(d, w, bundle, result, "")
 			}
@@ -217,7 +217,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			}
 			result, err := d.del.Delete(num, bundle)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("Internal error on Delete: %s", err), http.StatusInternalServerError)
+				self.SendError(err, w, "Internal error on Delete")
 			} else {
 				self.IO.SendHook(d, w, bundle, result, "")
 			}
@@ -227,6 +227,14 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 	panic("should not be able to reach here, probably bad method? from bad client?")
 }
 
+func (self *RawDispatcher) SendError(err error, w http.ResponseWriter, msg string) {
+	ours, ok:=err.(*Error)
+	if !ok {
+		http.Error(w, fmt.Sprintf("%s: %s", msg, err), http.StatusInternalServerError)
+	} else {
+		http.Error(w, ours.Msg, ours.StatusCode)
+	}
+}
 
 //Location computes the url path to the object provided
 func (self *RawDispatcher) location(obj *restObj, i interface{}) string {
