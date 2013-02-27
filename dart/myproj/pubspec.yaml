@@ -1,0 +1,12 @@
+name: myproj
+version: 0.1.0
+description: >
+  This is my application. 
+author: Your Name <author@example.com>
+homepage: http://example.com/
+dependencies:
+  #browser bootstrap
+  browser: any
+  #web_ui is probably something you want to "lock" to a version as you do development
+  web_ui: any
+
