@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Seven5 -- What Not To Do And How Not To Do It</title>
+
+		<meta name="description" content="The why and why not of seven5">
+		<meta name="author" content="Ian Smith">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/beige.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+
+				<section>
+					<h2>Seven5</h2>
+					<img style="border:0px;" src="image/gargoyle.jpg"/>
+					<p>
+						<small>Ian Smith, iansmith at acm dot org, GoSF, March 27 2013</small>
+					</p>
+					<aside class="notes">
+					    Seven5 is named "Seven5" because names don't matter much.  Google
+					    is a terrible name for a search engine company; no amount of good
+					    naming will save a bad project.
+					</aside>
+					<aside class="notes">
+					    Seven5 is the prefix for the postal codes of Paris--in the city proper.
+					    Having a "75xxx" zip code is, for those of you old enough to remember,
+					    like having a 212-xxx-xxxx phone number.
+					</aside>
+				</section>
+				<section>
+					<h1>Why</h1>
+					<h1 style="padding-top:100px;">Not</h1>
+					<aside class="notes">
+					    In the interest of time, I can only really talk about why Seven5
+					    is what it is and what it is not.
+					</aside>
+					<aside class="notes">
+					    Defining web tools in opposition to something has worked well in
+					    the past.  Rails, I argue, was defined in opposition to the
+					    horror that is (was?) J2EE.   Camping and Flask are defined
+					    against what Rails and Django have become.
+					</aside>
+					
+				</section>
+				<section>
+					<h1><span style="color:red;">Slogans!</span> Seven5 is...</h1>
+                    <h3>Restful without remorse or pity.</h3>
+                    <h3>Fiercely strong on typing.</h3>
+                    <h3>Not much bothered about data storage.</h3>
+                    <h3>Brutally reactionary towards the forces of dynamism.</h3>
+                    <h3>Generally opposed to server side content generation.</h3>
+                    <h3>... yet, strangely refreshing for web development. </h3>		
+                    <aside class="notes">
+					    I made up these quotes because I was inspired by Rob Pike's
+					    sense of brevity and pithiness.
+					</aside>
+					<aside class="notes">
+					    <ul>
+					        <li>REST is the only option</li>
+					        <li>Tries to be strongly typed on both sides of the wire
+					            (Dart + optional typing)</li>
+					        <li>Pushing towards "the single binary principle" -- no
+					            deps on filesystem.  Want everything known at
+					            build time, understood behavior under load.</li>
+					        <li>No template language, no way to generate web page on the
+					            server.</li>
+					    </ul>
+					</aside>
+					<aside class="notes">
+					    We pity the fools.
+					</aside>
+				</section>
+				<section>
+				    <h3>The World Is Different Now</h3>
+				    <img style="border:0px;" src="image/horsebuggy.gif"/>
+					<aside class="notes">
+					    The world has changed.  Today's highly interactive applications
+					    a run almost entirely on the client side.  
+					</aside>
+					<aside class="notes">
+					    Client applications (browsers or otherwise) speak an <em>protocol</em> 
+					    with the server. Content is generated on the client side based on
+					    interactions over the protocol (sometimes called API).  
+					</aside>
+					<aside class="notes">
+					    Seven5 has no way to generate server-side content. It helps you 
+					    build a simple REST-based protocol that your clients can talk to.
+					</aside>
+				</section>
+				<section>
+				    <h1>Static Fans: Stand Up!</h1>
+				    <img style="border:0px;" src="image/churchill.jpg"/>
+					<aside class="notes">
+					    Watch Rob Pike's talk at Stanford about go (to a EE class).
+					    It sets up the argument that people have confused 'not sucking'
+					    with dynamic languages.
+					</aside>
+					<aside class="notes">
+					    No real static option on the client side, ATM.  Gollvm is
+					    clearly the right answer with asm.js.
+					</aside>
+                </section>
+                <section>
+				    <h1>You don't have a data problem.</h1>
+				    <aside class="notes">
+				        Simple rule of thumb: If Ian hasn't heard of your company
+				        you don't have a data problem.
+				    </aside>
+				    <aside class="notes">
+				        There are plenty of good choices for data storage. Fun ones include
+				        beedb, hood, modsql, etc.
+				    </aside>
+				    <aside class="notes">
+				        If you are thinking about using a NO-SQL solution, read this
+				        slide again.
+				    </aside>
+                </section>
+                <section>
+                    <h4>So... What *does* it do?</h4>
+                    <pre>
+<code>
+
+import "github.com/seven5/seven5"                            
+type ContactQueueWire struct {
+        Id        seven5.Id
+        MsgId     seven5.Id
+        Error     seven5.String255
+        Completed seven5.Integer
+        Total     seven5.Integer
+        Display   seven5.String255
+}
+</code>
+<code>
+class ContactQueue {
+    int Id;
+    int MsgId;
+    String Error;
+    int Completed;
+    int Total;
+    String Display;
+
+    static String resourceURL = "/rest/contactqueue/";
+
+	void Find(int id, Function successFunc, [Function errorFunc, Map headers, Map requestParameters]) {
+	    ...
+}
+
+</code>
+                    </pre>
+                </section>
+                <section>
+<h1>myproj</h1>
+<pre>
+<code>
+    export PORT=4000
+    git clone -b myproj github.com/seven5/seven5 myproj
+    cd myproj
+    export GOPATH=`pwd`/go  
+    export PATH=$PATH:$GOPATH/bin  
+    go get github.com/seven5/seven5
+    go install myproj/runmyproj
+</code>
+</pre>
+                </section>
+                <section>
+                    <h3>Fun things we don't have time to talk about:</h3>
+				    <ul>
+				        <li>Users/sessions</li>
+				        <li>Oauth1/2</li>
+				        <li>Testing</li>
+				        <li>Project layout</li>
+				        <li>Authorization</li>
+				        <li>Pbundles</li>
+				        <li>Errors/Panics</li>
+				        <li>Queues (10 seconds on Safari)</li>
+				    </ul>
+                </section>
+				<section>
+				    <h1>Thanks.</h1>
+				    <h5>Questions? $1.</h5>
+				    <h5>Fundraising.</h5>
+                </section>
+        </div>
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/showdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+					// { src: 'plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; } }
+					// { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
