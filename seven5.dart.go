@@ -44,7 +44,7 @@ class Seven5Support {
 		
 		Seven5Support.addHeaders(headers,req);
 		
-		req.on.load.add((HttpRequestProgressEvent progressEvent) {
+		req.onLoadEnd.listen((HttpRequestProgressEvent progressEvent) {
 			if (req.status/100==2) {
 				List raw = JSON.parse(req.responseText);
 				List result = createList();
@@ -72,7 +72,7 @@ class Seven5Support {
 		
 		Seven5Support.addHeaders(headers,req);
 		
-		req.on.load.add((HttpRequestProgressEvent progressEvent) {
+		req.onLoadEnd.listen((HttpRequestProgressEvent progressEvent) {
 			if (req.status/100==2) {
 				obj.copyFromJson(JSON.parse(req.responseText));
 				successFunc(obj, req);

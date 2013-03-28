@@ -67,7 +67,7 @@ type FieldDescription struct {
 func WalkWireType(name string, t reflect.Type) *FieldDescription {
 	if strings.HasSuffix(t.PkgPath(), "seven5") {
 		switch t.Name() {
-		case "Floating", "String255", "Textblob", "Integer", "Id", "Boolean":
+		case "Floating", "String255", "Textblob", "Integer", "Id", "Boolean", "DateTime":
 			return &FieldDescription{Name: name, TypeName: t.Name()}
 		}
 	}

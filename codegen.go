@@ -75,6 +75,8 @@ func (self *FieldDescription) Dart() string {
 	switch self.TypeName {
 	case "Boolean":
 		return "bool"
+	case "DateTime":
+		return "int"
 	case "Integer":
 		return "int"
 	case "Floating":

@@ -30,7 +30,7 @@ func checkNestedComponents(origPath string, shortPath string, truePath string) b
 		compPath := comp
 		if !strings.HasPrefix(comp, "/") {
 			dir := filepath.Dir(shortPath)
-			compPath = dir + comp
+			compPath = filepath.Join(dir,comp)
 		} else {
 			fmt.Fprintf(os.Stderr, "WARNING: Absolute paths in link elements may crash "+
 				"dart web components compiler: %s\n", compPath)
@@ -206,7 +206,7 @@ func DartWebComponents(underlyingHandler http.Handler, truePath string, prefix s
 			compileJS(w, r, r.URL.Path[0:len(r.URL.Path)-3], r.URL.Path, truePath, isTestMode)
 		}
 		
-		fmt.Printf("---> %v\n", r.URL)
+		//fmt.Printf("---> %v\n", r.URL)
 		//give up and use FS
 		underlyingHandler.ServeHTTP(w, r)
 	})
@@ -298,7 +298,7 @@ func compileWebComponents(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if !isTestMode && needCompile {
-		fmt.Fprintf(os.Stderr, "Out of date generated dart file %s!\n", dest)
+		fmt.Fprintf(os.Stderr, "Out of date generated dart file %s! %s,%s\n", dest, fullSource, fullDest)
 		return
 	}
 
@@ -318,17 +318,20 @@ func compileWebComponents(w http.ResponseWriter, r *http.Request,
 func dwc(src string, dest string, truePath string) {
 	fullSource := filepath.Join(truePath, src)
 	
+	packageParent := filepath.Dir(truePath)
+	
+	fmt.Printf("where is lib?\"%s\" and \"%s\"\n",packageParent,dwcDir)
 	cmd := exec.Command("dart",
-		fmt.Sprintf("--package-root=%s/packages/", truePath),
-		fmt.Sprintf("%s/packages/web_ui/dwc.dart", truePath),
+		fmt.Sprintf("--package-root=%s/packages/", packageParent),
+		fmt.Sprintf("%s/packages/web_ui/dwc.dart", packageParent),
 		fmt.Sprintf("--out=%s/%s", truePath, dwcDir),
 		fullSource)
 	b, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "-------- DWC ERROR -------\n%s", string(b))
 		fmt.Fprintf(os.Stderr, "COMMAND LINE WAS: dart %s %s %s %s\n",
-			fmt.Sprintf("--package-root=%s/packages/", truePath),
-			fmt.Sprintf("%s/packages/web_ui/dwc.dart", truePath),
+			fmt.Sprintf("--package-root=%s/packages/", packageParent),
+			fmt.Sprintf("%s/packages/web_ui/dwc.dart", packageParent),
 			fmt.Sprintf("--out=%s/%s", truePath, dwcDir),
 			fullSource)
 		return
@@ -383,7 +386,7 @@ func GenerateDartForWireTypes(t TypeHolder, pre string, name string, pf ProjectF
 	if err != nil {
 		return err
 	}
-	c, err = createPath(dir, "seven5", "support")
+	c, err = createPath(dir, "seven5", "support.dart")
 	if err != nil {
 		return err
 	}

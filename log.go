@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/syslog"
 	"os"
-	"time"
-	"strings"
 	"runtime"
+	"strings"
+	"time"
 )
 
 func init() {
@@ -44,6 +44,26 @@ type SimpleLogger struct {
 	Err    *os.File
 }
 
+func PriorityToString(self syslog.Priority) string {
+	switch self {
+	case syslog.LOG_DEBUG:
+		return "DEBUG"
+	case syslog.LOG_INFO:
+		return "INFO"
+	case syslog.LOG_WARNING:
+		return "WARN"
+	case syslog.LOG_ERR:
+		return "ERR"
+	case syslog.LOG_ALERT:
+		return "ALRT"
+	case syslog.LOG_CRIT:
+		return "CRIT"
+	case syslog.LOG_EMERG:
+		return "EMERG"
+	}
+	return "NOTICE"
+}
+
 //L is for convenience of notation so that seven5.L.Fatalf() works.  It's also kept here
 //to avoid needing to pass the logger all over through all functions.
 var L Logger
@@ -74,15 +94,15 @@ func (self *SimpleLogger) Outf(prio syslog.Priority, spec string, other ...inter
 			if self.date {
 				fmt.Fprintf(self.Out, "%s ", time.Now().Format(time.RFC3339))
 			}
-			fmt.Fprintf(self.Out, self.prefix)
+			fmt.Fprintf(self.Out, self.prefix+" %s ", PriorityToString(prio))
 			_, f, l, ok := runtime.Caller(2)
 			if ok {
 				pieces := strings.Split(f, "/")
-				fmt.Fprintf(self.Out,"%s:%d:", pieces[len(pieces)-1], l)
+				fmt.Fprintf(self.Out, "%s:%d:", pieces[len(pieces)-1], l)
 			}
 			fmt.Fprintf(self.Out, spec, other...)
-			if !strings.HasSuffix(spec,"\n") {
-				fmt.Fprintf(self.Out,"\n")
+			if !strings.HasSuffix(spec, "\n") {
+				fmt.Fprintf(self.Out, "\n")
 			}
 		}
 	}
@@ -91,7 +111,8 @@ func (self *SimpleLogger) Outf(prio syslog.Priority, spec string, other ...inter
 func (self *SimpleLogger) ErrorLevelf(prio syslog.Priority, where string, err error) {
 	if self.Err != nil {
 		if prio <= self.thresh {
-			fmt.Fprintf(self.Err, "---------------- ERROR   ---------------------\n")
+			fmt.Fprintf(self.Err, "---------------- ERROR [Type:%T] ---------------------\n", err)
+			fmt.Fprintf(self.Err, "%+v\n", err)
 			if self.date {
 				fmt.Fprintf(self.Err, "%s ", time.Now().Format(time.RFC3339))
 			}
@@ -99,7 +120,7 @@ func (self *SimpleLogger) ErrorLevelf(prio syslog.Priority, where string, err er
 			for _, i := range []int{2, 3, 4, 5} {
 				_, f, l, ok := runtime.Caller(i)
 				if ok {
-					fmt.Fprintf(self.Err,"%s:%d\n", f, l)
+					fmt.Fprintf(self.Err, "%s:%d\n", f, l)
 				}
 			}
 			fmt.Fprintf(self.Err, "--------------------------------------------\n")
