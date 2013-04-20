@@ -130,13 +130,14 @@ func (self *AuthDispatcher) callback(conn OauthConnector) string {
 }
 
 func (self *AuthDispatcher) Connect(conn OauthConnector, clientTok string, code string, w http.ResponseWriter, r *http.Request) *ServeMux {
-	connection, err := conn.Phase2(clientTok, code,)
+	connection, err := conn.Phase2(clientTok, code)
 	if err != nil {
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
 		return nil
 	}
+	
 	state := r.URL.Query().Get(conn.StateValueName())
-	v, err:=self.CookieMap.Value(r)
+	v, err:=self.CookieMap.Value(r)	
 	if err!=nil && err!=NO_SUCH_COOKIE {
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
 		return nil
@@ -147,9 +148,11 @@ func (self *AuthDispatcher) Connect(conn OauthConnector, clientTok string, code 
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
 		return nil
 	}
+	
 	if session!=nil {
 		self.CookieMap.AssociateCookie(w, session)
 	}
+	
 	http.Redirect(w, r, self.PageMap.LoginLandingPage(conn, state, code), http.StatusTemporaryRedirect)
 	return nil
 }

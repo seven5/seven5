@@ -53,7 +53,7 @@ func TestGoogleLogin(t *testing.T) {
 	code := "barfly"
 	one := "/1.html"
 	sid := "id of session, sid vicious?"
-
+	
 	//authconn is a wrapper around the google auth connector with all mock methods, except AuthURL
 	//pm is a mock for testing that we get a call to LoginLandingPage
 	pm := NewMockPageMapper(ctrl)
@@ -168,6 +168,9 @@ func TestGoogleLogin(t *testing.T) {
 	//make sure cookie manager sent us something
 	resp := createReqAndDo(t, client, returnURL.String(), nil)
 	found := false
+	if resp==nil {
+		t.Fatalf("Unable to find a response to %s\n", returnURL)
+	}
 	for k, v := range resp.Header {
 		if k == "Set-Cookie" {
 			found = true
