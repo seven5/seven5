@@ -1,6 +1,6 @@
 {{define "FIELD_DECL"}}
 	{{range .Struct}} 
-		{{.Dart}} {{.Name}};
+		{{.DartName}} {{.Name}};
 	{{end}}	
 {{end}}
 
@@ -10,7 +10,7 @@
 		{{if .StructName}}
 			this.{{.Name}} = new {{.StructName}}.fromJson(json["{{.Name}}"]);
 		{{else}}
-			this.{{.Name}} = json["{{.Name}}"];
+			this.{{.Name}} = {{.DartFromGo}};
 			{{end}}{{/* if */}}
 		{{end}} {{/* range */}}
 {{end}} {{/* define */}}
@@ -26,8 +26,35 @@ Map toMapForJson() {
 {{end}} {{/* define */}}
 
 class {{.Name}} {
-	{{template "FIELD_DECL" .Field}}
+	{{template "FIELD_DECL" .}}
 
+	//convenience constructor
+	{{.Name}}.fromJson(Map json) {
+		copyFromJson(json);
+	}
+	
+	//nothing to do in default constructor
+	{{.Name}}();
+	
+	//this is the "magic" that changes from untyped Json to typed object
+	{{.Name}} copyFromJson(Map json) {
+		{{template "COPY_JSON_FIELDS" .}}
+		return this;
+	}
+	
+	{{template "EMIT_JSON_FIELDS" .}}
+	
+	//this converts the object to a map so JSON serialization will like it
+	toJson() {
+		try {
+			return this.toMapForJson();
+		} catch (e) {
+			print("something went wrong during JSON encoding: ${e}");
+		}
+	}
+}
+
+class {{.Name}}Resource {
 	static String resourceURL = "{{.RestPrefix}}{{tolower .Name}}/";
 
 	static void Index(Function successFunc, [Function errorFunc, Map headers, Map requestParameters]) {
@@ -46,34 +73,23 @@ class {{.Name}} {
 		Seven5Support.Post(JSON.stringify(example), resourceURL, new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
 	}
 
-	void Find(int id, Function successFunc, [Function errorFunc, Map headers, Map requestParameters]) {
-		Seven5Support.Find(id, resourceURL, new {{.Name}}(), successFunc, errorFunc, headers, requestParameters);
-	}
-	
-	//convenience constructor
-	{{.Name}}.fromJson(Map json) {
-		copyFromJson(json);
-	}
-	
-	//nothing to do in default constructor
-	{{.Name}}();
-	
-	//this is the "magic" that changes from untyped Json to typed object
-	{{.Name}} copyFromJson(Map json) {
-		{{template "COPY_JSON_FIELDS" .Field}}
-		return this;
-	}
-	
-	{{template "EMIT_JSON_FIELDS" .Field}}
-	
-	//this converts the object to a map so JSON serialization will like it
-	toJson() {
-		try {
-			return this.toMapForJson();
-		} catch (e) {
-			print("something went wrong during JSON encoding: ${e}");
-		}
-	}
+	Future<{{.Name}}> find(int id,[Map headers, Map requestParameters]) {
+		Completer<{{.Name}}> completer = new Completer<{{.Name}}>();
+		HttpRequest.request(resourceURL+"$id")
+			.then((HttpRequest req) {
+				AccessCode result = new {{.Name}}.fromJson(JSON.parse(req.responseText));
+				completer.complete(result);
+			})
+			.catchError((Object error) {
+				if (error is HttpRequestProgressEvent) {
+				  HttpRequestProgressEvent ex = error as HttpRequestProgressEvent;
+					completer.completeError(new HttpLevelException.fromBadRequest(ex.target));
+				} else {
+					completer.completeError(error);
+				}
+			});
+		return completer.future;		
+	}	
 }
 
 {{define "SUPPORT_STRUCT_TMPL"}}

@@ -16,7 +16,7 @@ import (
 
 const (
 	homePage = "/home.html"
-	dwcDir   = "app"
+	dwcDir   = "out"
 )
 
 var hrefRE = regexp.MustCompile("href=\"([^\"]+)\"")
@@ -320,7 +320,6 @@ func dwc(src string, dest string, truePath string) {
 	
 	packageParent := filepath.Dir(truePath)
 	
-	fmt.Printf("where is lib?\"%s\" and \"%s\"\n",packageParent,dwcDir)
 	cmd := exec.Command("dart",
 		fmt.Sprintf("--package-root=%s/packages/", packageParent),
 		fmt.Sprintf("%s/packages/web_ui/dwc.dart", packageParent),
@@ -369,7 +368,7 @@ func createPath(parent string, d string, f string) (*os.File, error) {
 //to manipulate the defined types (in TypeHolder argument) conveniently.  It uses
 //the projectfinder supplied to know where to place the resulting file.
 func GenerateDartForWireTypes(t TypeHolder, pre string, name string, pf ProjectFinder) error {
-	dir, err := pf.ProjectFind(filepath.Join("web", "packages"), name, DART_FLAVOR)
+	dir, err := pf.ProjectFind("lib", name, DART_FLAVOR)
 	if err != nil {
 		return err
 	}
@@ -377,8 +376,9 @@ func GenerateDartForWireTypes(t TypeHolder, pre string, name string, pf ProjectF
 	if os.IsNotExist(err) {
 		panic(fmt.Sprintf("No package directory for dart packages (%s): did you forget to run pub install?", dir))
 	}
+	fmt.Printf("seven5: generating dart code to %s\n", dir)
 	buffer := wrappedCodeGen(t, pre)
-	c, err := createPath(dir, "generated", "dart")
+	c, err := createPath(dir, "generated", fmt.Sprintf("%s.dart",name))
 	if err != nil {
 		return err
 	}

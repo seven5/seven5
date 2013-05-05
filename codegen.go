@@ -57,7 +57,8 @@ func generateDartForResource(f *FieldDescription, prefix string) string {
 	var buffer bytes.Buffer
 	w:=&fdWrapper{f,prefix}
 	if err := codegenTemplate.ExecuteTemplate(&buffer, "CLASSDECL_TMPL", w); err != nil {
-		return err.Error()
+		fmt.Fprintf(os.Stderr, "%s\n",err.Error())
+		return err.Error()+"\n"
 	}
 	return buffer.String()
 }
@@ -71,12 +72,12 @@ func generateDartForSupportStruct(f *FieldDescription) string {
 }
 
 //Dart returns the Dart name for a particular _type_ name or panics if it does not understand.
-func (self *FieldDescription) Dart() string {
+func (self *FieldDescription) DartName() string {
 	switch self.TypeName {
 	case "Boolean":
 		return "bool"
 	case "DateTime":
-		return "int"
+		return "DateTime"
 	case "Integer":
 		return "int"
 	case "Floating":
@@ -89,13 +90,26 @@ func (self *FieldDescription) Dart() string {
 		return "int"
 	}
 	if self.Array != nil {
-		return "List<" + self.Array.Dart() + ">"
+		return "List<" + self.Array.DartName() + ">"
 	}
 	if self.StructName != "" {
 		return self.StructName
 	}
 	panic(fmt.Sprintf("unable to convert type %s to Dart type!", self.TypeName))
 }
+
+//Dart returns special construction needed to convert a wire value to a dart type
+func (self *FieldDescription) DartFromGo() string {
+	//result['Token']=Token;
+	switch self.TypeName {
+	case "Boolean", "Integer", "Floating", "String255", "Id":
+		return fmt.Sprintf("json['%s']",self.Name)
+	case "DateTime":
+		return fmt.Sprintf("new DateTime.fromMillisecondsSinceEpoch((json['%s']*1000).round())", self.Name);
+	}
+	panic(fmt.Sprintf("unable to figure out how to convert %s to Dart type from a wire value!", self.TypeName))
+}
+
 
 //HasId returns true if this struct has a field Id of type seven5.Id.
 func (self *FieldDescription) HasId() bool {
@@ -169,6 +183,8 @@ const LIBRARY_INFO = `
 library generated;
 import 'package:seven5/support.dart';
 import 'dart:json' as JSON;
+import 'dart:html';
+import 'dart:async';
 `
 
 
@@ -190,10 +206,14 @@ func wrappedCodeGen(holder TypeHolder,prefix string) bytes.Buffer{
 	resourceStructs := []*FieldDescription{}
 	supportStructs := []*FieldDescription{}
 	text.WriteString(LIBRARY_INFO)
+	fmt.Printf("seven5: generating source code for ")
+	
 	for _, d := range holder.All() {
 		text.WriteString(generateDartForResource(d, prefix))
 		resourceStructs = append(resourceStructs, d)
+		fmt.Printf("%s(%s) ",d.Name,d.StructName)
 	}
+	fmt.Printf("\n")
 	for _, d := range holder.All() {
 		candidates := collectStructs(d)
 		for _, s := range candidates {
@@ -202,6 +222,7 @@ func wrappedCodeGen(holder TypeHolder,prefix string) bytes.Buffer{
 			}
 		}
 	}
+	
 	for _, i := range supportStructs {
 		text.WriteString(generateDartForSupportStruct(i))
 	}

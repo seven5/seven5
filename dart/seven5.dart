@@ -3,7 +3,18 @@ library seven5support;
 //import 'dart:json';
 import "dart:json" as JSON;
 import 'dart:html';
+class HttpLevelException implements Exception {
+	HttpRequest request;
+	HttpLevelException.fromBadRequest(HttpRequest r): request=r {
+		
+	}
+}
 
+///
+///
+/// XXXX SOON TO BE DEAD CODE
+///
+///
 class Seven5Support {
 	static const int NOT_FETCHED = -1092; //signal value for object is not loaded from server
 	

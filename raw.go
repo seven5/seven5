@@ -99,7 +99,6 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 		return nil
 	}
 	method := strings.ToUpper(r.Method)
-
 	//compute the parameter bundle
 	bundle, err := self.IO.BundleHook(w, r, self.SessionMgr)
 	if err != nil {
@@ -125,6 +124,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			return nil
 		}
 	}
+	
 	switch method {
 	case "GET":
 		//TWO FLAVORS OF GET: INDEXER OR FINDER?
