@@ -53,7 +53,7 @@ func TestGoogleLogin(t *testing.T) {
 	code := "barfly"
 	one := "/1.html"
 	sid := "id of session, sid vicious?"
-	
+
 	//authconn is a wrapper around the google auth connector with all mock methods, except AuthURL
 	//pm is a mock for testing that we get a call to LoginLandingPage
 	pm := NewMockPageMapper(ctrl)
@@ -84,9 +84,9 @@ func TestGoogleLogin(t *testing.T) {
 	authconn.EXPECT().ErrorValueName().Return("error").AnyTimes()
 	authconn.EXPECT().CodeValueName().Return("code").AnyTimes()
 	authconn.EXPECT().ClientTokenValueName().Return("notused").AnyTimes()
-	
+
 	//phase1 is not used by google because of oauth2
-	authconn.EXPECT().Phase1(gomock.Any(),gomock.Any()).Return(nil,nil).AnyTimes()
+	authconn.EXPECT().Phase1(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	//this is actually under test, the google.AuthURL method
 	authconn.EXPECT().UserInteractionURL(gomock.Any(), st, returl).Return(google.UserInteractionURL(nil, st, returl))
@@ -168,7 +168,7 @@ func TestGoogleLogin(t *testing.T) {
 	//make sure cookie manager sent us something
 	resp := createReqAndDo(t, client, returnURL.String(), nil)
 	found := false
-	if resp==nil {
+	if resp == nil {
 		t.Fatalf("Unable to find a response to %s\n", returnURL)
 	}
 	for k, v := range resp.Header {
@@ -372,5 +372,57 @@ func TestLogout(t *testing.T) {
 			}
 		}
 	}
+}
+
+/*-------------------------------------------------------------------------------*/
+func TestLoginArgs(t *testing.T) {
+	port := 8204
+
+	st := "yakshaver:hardcore"
+
+	//this is the case being tested... the client wants us to use special check state
+	v := url.Values{
+		"state": []string{st},
+	}
+	loginURL, err := url.Parse(fmt.Sprintf("http://localhost:%d%s?%s", port, "/auth/google/login", v.Encode()))
+	if err!=nil {
+		t.Fatalf("badly formed URL in TestLoginArgs")
+	}
+	//create real serve mux
+	serveMux := NewServeMux()
+
+	//mock controller
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	
+	//mock out the google cruft
+	authconn := NewMockOauthConnector(ctrl)
+	authconn.EXPECT().Name().Return("google").AnyTimes()
+	authconn.EXPECT().StateValueName().Return("state").AnyTimes()
+	//the **st** below is the entire purpose of this test
+	authconn.EXPECT().Phase1(st, gomock.Any()).Return(nil, nil).AnyTimes()
+	authconn.EXPECT().UserInteractionURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("https://accounts.google.com/o/oauth2/auth").AnyTimes()
+	
+	//add dispatcher to serve mux at /auth, the other values are ignored
+	disp := NewAuthDispatcherRaw("/auth", NewSimplePageMapper("notused","notused2","notused3"), 
+		NewSimpleCookieMapper("myapp"), NewSimpleSessionManager())
+	disp.AddConnector(authconn, serveMux)
+
+  go func() {
+		http.ListenAndServe(fmt.Sprintf(":%d", port), serveMux)
+	}()
+
+	client := new(http.Client)
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		checkRedirValues(t, "error from goog", via, map[string][]string{
+			"path":       []string{req.URL.Path, GOOGLE_AUTH_URL_PATH},
+			"host":       []string{req.URL.Host, GOOGLE_AUTH_URL_HOST[len("https://"):]},
+			"scheme":     []string{req.URL.Scheme, "https"},
+			"state":      []string{req.URL.Query().Get("state"), ""},
+		})
+		return stopProcessing
+	}
+	createReqAndDo(t, client, loginURL.String(), nil)
 
 }

@@ -39,9 +39,9 @@ func TestDartFields(T *testing.T) {
 	if !f.Struct[2].HasId() {
 		T.Errorf("Nested should be a resource, it has Id field!")
 	}
-	verifyHasString(T, "double", f.Struct[0].Dart())
-	verifyHasString(T, "List<int>", f.Struct[1].Dart())
-	verifyHasString(T, "Nested", f.Struct[2].Dart())
+	verifyHasString(T, "double", f.Struct[0].DartName())
+	verifyHasString(T, "List<int>", f.Struct[1].DartName())
+	verifyHasString(T, "Nested", f.Struct[2].DartName())
 
 }
 
@@ -70,6 +70,6 @@ func TestDartFullResource(T *testing.T) {
 	verifyHasString(T, "String Foo;", decl)
 	verifyHasString(T, "someWire();", decl)
 	verifyHasString(T, "someWire.fromJson(Map json)", decl)
-	verifyHasString(T, "void Find(", decl)
+	verifyHasString(T, "Future<someWire> find(", decl)
 	verifyHasString(T, "static String resourceURL = \"/rest/somewire/\"", decl)
 }
