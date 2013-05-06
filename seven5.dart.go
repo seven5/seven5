@@ -1,11 +1,22 @@
 package seven5
-
-const seven5_dart = `
+const seven5_dart=`
 library seven5support;
 
-import 'dart:json' as JSON;
+//import 'dart:json';
+import "dart:json" as JSON;
 import 'dart:html';
+class HttpLevelException implements Exception {
+	HttpRequest request;
+	HttpLevelException.fromBadRequest(HttpRequest r): request=r {
+		
+	}
+}
 
+///
+///
+/// XXXX SOON TO BE DEAD CODE
+///
+///
 class Seven5Support {
 	static const int NOT_FETCHED = -1092; //signal value for object is not loaded from server
 	
@@ -14,8 +25,8 @@ class Seven5Support {
 		if (qp==null) {
 			return url;
 		}
-		bool first=true;
 		StringBuffer buff = new StringBuffer();
+		bool first=true;
 		qp.forEach((String k,String v) {
 			if (!first) {
 				buff.add("&");
@@ -44,7 +55,7 @@ class Seven5Support {
 		
 		Seven5Support.addHeaders(headers,req);
 		
-		req.onLoadEnd.listen((HttpRequestProgressEvent progressEvent) {
+		req.on.load.add((HttpRequestProgressEvent progressEvent) {
 			if (req.status/100==2) {
 				List raw = JSON.parse(req.responseText);
 				List result = createList();
@@ -72,7 +83,7 @@ class Seven5Support {
 		
 		Seven5Support.addHeaders(headers,req);
 		
-		req.onLoadEnd.listen((HttpRequestProgressEvent progressEvent) {
+		req.on.load.add((HttpRequestProgressEvent progressEvent) {
 			if (req.status/100==2) {
 				obj.copyFromJson(JSON.parse(req.responseText));
 				successFunc(obj, req);
