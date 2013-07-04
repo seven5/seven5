@@ -19,6 +19,7 @@ _cgo_defun.c
 _cgo_gotypes.go
 _cgo_export.*
 
+go/bin/*
 
 #mac specific
 .DS_Store
