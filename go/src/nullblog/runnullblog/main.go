@@ -2,20 +2,20 @@ package main
 
 import (
         "fmt"
-        "myproj" //your library
+        "nullblog" //your library
         "net/http"
-        "github.com/seven5/seven5" //ungithubme:seven5:
+        "github.com/seven5/seven5" 
 )
 
 const (
-        NAME = "myproj"
+        NAME = "nullblog"
         REST = "/rest/"
 )
 
 func main() {
         //we use the environment variables and the heroku name for our app deployment URL.
         //Environment var PORT controls the port number we run on, both for production and test.
-        //Set GITVET_TEST non empty for use on localhost.
+        //Set NULLBLOG_TEST non empty for use on localhost.
         heroku := seven5.NewHerokuDeploy(NAME)
         mux := seven5.DefaultProjectBindings(NAME, heroku.Environment(), heroku)
 
@@ -26,8 +26,9 @@ func main() {
         // the default location is /rest for the resources inside bd
         mux.Dispatch(REST, bd)
         //implementation resources
-        sub:=&myproj.GreetingResource{}
-        bd.ResourceSeparate("Greeting", &myproj.GreetingResource{}, sub, nil, 
+        articleRez:=&nullblog.ArticleResource{}
+        bd.ResourceSeparate("article", &nullblog.ArticleResource{}, articleRez, nil, 
                 nil, nil, nil)
 
         http.ListenAndServe(fmt.Sprintf(":%d", heroku.Port()), mux)
+}
