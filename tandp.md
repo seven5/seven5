@@ -1,20 +1,9 @@
 --- 
-layout: page
-title: Fast, Fun and Modern Web Development 
-tagline: The Theory And Practice Of Seven5
+layout: book
+chapter: Background
 ---
 
-# Fast, Fun and Modern Web Development
-### or "The Theory And Practice Of Seven5"
-
-### Ian Smith, Feb 2013
-
-
-
-You can [click here](#step_1_define_the_wire_type) if you want to skip to the code and ignore the rationale.
-
 ## A few short history lessons 
-
 
 In April 2010, Rob Pike gave the first public talk about Go to a class at Stanford.  In that talk, he, quite diplomatically, asserts that that many people had come to a wrong-headed conclusion about the relationship of dynamism to programming being fast and fun.  He claimed that it was, reading between the politely-phrased lines, the poor design of statically-typed languages that led to this conclusion; he grouped C++ and Java into the camp of "efficient and statically-typed" languages that ruined the fun in programming.  In that talk, he made the case that Go can be as "light on the page" and fun as languages like Ruby or Python and yet be statically-typed and efficient.  Seven5 uses Go for all server-side code.   
 

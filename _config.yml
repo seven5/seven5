@@ -1,7 +1,7 @@
 pygments:    true
 auto:        true
 server:      true
-markdown:    maruku
+markdown:    redcarpet
 port:        4000
 lsi:         true
 baseurl:     /seven5
