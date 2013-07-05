@@ -41,3 +41,11 @@ func (IGNORED *ArticleResource) Find(Id seven5.Id, bundle seven5.PBundle) (inter
 	}
 	return someArticle[i],nil
 }
+
+func (IGNORED *ArticleResource)  Allow(IGNORED2 seven5.Id, IGNORED3 string, IGNORED4 seven5.PBundle) bool {
+	return true
+}
+
+func (IGNORED *ArticleResource)  AllowRead(IGNORED2 seven5.PBundle) bool {
+	return true
+}

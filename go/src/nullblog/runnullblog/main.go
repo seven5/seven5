@@ -27,7 +27,7 @@ func main() {
         mux.Dispatch(REST, bd)
         //implementation resources
         articleRez:=&nullblog.ArticleResource{}
-        bd.ResourceSeparate("article", &nullblog.ArticleResource{}, articleRez, nil, 
+        bd.ResourceSeparate("article", &nullblog.ArticleWire{}, articleRez, articleRez, 
                 nil, nil, nil)
 
         http.ListenAndServe(fmt.Sprintf(":%d", heroku.Port()), mux)
