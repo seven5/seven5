@@ -25,10 +25,16 @@ func main() {
 
         // the default location is /rest for the resources inside bd
         mux.Dispatch(REST, bd)
-        //implementation resources
+
+        //implementation of the resources in this application
         articleRez:=&nullblog.ArticleResource{}
         bd.ResourceSeparate("article", &nullblog.ArticleWire{}, articleRez, articleRez, 
                 nil, nil, nil)
 
+				//generate the static dart content in to a file in the filesystem. it produces dart code for resources
+				//connected to bd, as done above.
+				seven5.FileContent(NAME, heroku.Environment(), bd, REST)
+				
+				//start the server. this never returns.
         http.ListenAndServe(fmt.Sprintf(":%d", heroku.Port()), mux)
 }

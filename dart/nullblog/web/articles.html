@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>nullblog articles</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Le styles -->
+    <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap.css" rel="stylesheet">
+
+ </head>
+
+  <body>
+    <template if="pageReady">
+    <div class="container">
+      <div class="row" style="padding-top:100px">
+          <template if="impl.articles.length==0">
+              <!--code goes here for displaying the no articles message-->
+          </template>
+        <div class="offset3 span4" style="text-align:center;">
+          <!--code goes here to display an article-->
+         </div>  <!-- content part -->
+        <div class="span5"></div> <!-- fill out the row -->
+      </div> <!---row-->
+    </div> <!-- /container -->
+    </template>
+    <script type="application/dart" src="articlespage.dart"></script>
+    <script src="packages/browser/dart.js"></script>  
+
+  </body>
+</html>
