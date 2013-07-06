@@ -173,10 +173,12 @@ func dartPrettyPrint(raw string) []byte {
 
 
 //GeneratedDartContent adds an http handler for a particular path.  The restPrefix must be the same one
-//used by the TypeHolder (probably a dispatcher) to map its rest resources.
-//func GeneratedDartContent(mux *ServeMux, holder TypeHolder, urlPath string, restPrefix string) {
-//	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder, restPrefix))
-//}
+//used by the TypeHolder (probably a dispatcher) to map its rest resources.  This can be used if you
+//want to make a _live_ URL to the generated code.  This is usually unnecessary and is typically
+//handled by the FileContent method to generate a static dart file once per server invocation.
+func generatedDartContent(mux *ServeMux, holder TypeHolder, urlPath string, restPrefix string) {
+	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder, restPrefix))
+}
 
 
 const LIBRARY_INFO = `

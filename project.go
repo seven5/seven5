@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
-
 const (
-	WAITING_ON_NON_WS	= iota
+	WAITING_ON_NON_WS = iota
 	WAITING_ON_EOL
 )
 
@@ -29,13 +29,12 @@ func generateBinPrinter(content []byte, contentType string) func(http.ResponseWr
 	}
 }
 
-
 //DefaultProjects adds the resources that we expect to be present for a typical
 //seven5 project.  The ProjectFinder is used to find things inside the project, notably the
 //static web content. Content added here is all fixed by the build of seven5 and the 
 //underlying filesystem.
 func DefaultProjectBindings(projectName string, pf ProjectFinder, dep DeploymentEnvironment) *ServeMux {
-	mux:=NewServeMux()
+	mux := NewServeMux()
 	WebContent(mux, projectName, "/", pf, dep.IsTest())
 	SetIcon(mux, gopher_ico)
 	return mux
@@ -45,6 +44,25 @@ func DefaultProjectBindings(projectName string, pf ProjectFinder, dep Deployment
 //The binaryIcon should be an array of bytes (usually created via 'seven5tool embedfile')
 func SetIcon(mux *ServeMux, binaryIcon []byte) {
 	mux.HandleFunc("/favicon.ico", generateBinPrinter(binaryIcon, "image/x-icon"))
+}
+
+//FileContent cause the generation of files that need refreshing on each restart.  Typically, this
+//is code derived from the go structs that the application exposes. 
+func FileContent(projectName string, pf ProjectFinder, holder TypeHolder, restPrefix string) {
+	sourceDir := filepath.Join("web", "packages", projectName, "src")
+	p, err := pf.ProjectFind(sourceDir, projectName, DART_FLAVOR)
+	if err != nil {
+		panic(fmt.Sprintf("can't find the place to put generated dart source! expected %s but got an error: %s",
+			sourceDir, err))
+	}
+	outputPath := filepath.Join(p, fmt.Sprintf("%s.dart", projectName))
+	file, err := os.Create(outputPath)
+	if err != nil {
+		panic(fmt.Sprintf("can't open dart source output path %s, got an error: %s", outputPath, err))
+	}
+	code := wrappedCodeGen(holder, restPrefix)
+	file.Write(code.Bytes())
+	file.Close()
 }
 
 //WebContent adds an http handler for the 'web' subdir of a dart app.  The project
@@ -61,7 +79,7 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFind
 		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
 	if prefix == "" || prefix == "/" {
-			mux.Handle("/",DartWebComponents(http.FileServer(http.Dir(truePath)),truePath,"/", isTestMode))
+		mux.Handle("/", DartWebComponents(http.FileServer(http.Dir(truePath)), truePath, "/", isTestMode))
 	} else {
 		mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
 	}
