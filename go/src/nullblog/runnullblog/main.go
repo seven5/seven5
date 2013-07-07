@@ -30,5 +30,6 @@ func main() {
         bd.ResourceSeparate("article", &nullblog.ArticleWire{}, articleRez, articleRez, 
                 nil, nil, nil)
 
+				seven5.FileContent(NAME, heroku.Environment(), bd, REST)
         http.ListenAndServe(fmt.Sprintf(":%d", heroku.Port()), mux)
 }
