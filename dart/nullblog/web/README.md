@@ -1,6 +1,6 @@
-### Example Project For Seven5, "myproj"
+### Example Project For Seven5, "nullblog"
 
-#### This Directory, "myproj/dart/myproj/web"
+#### This Directory, "nullblog/dart/nullblog/web"
 
 The details of how to layout a Dart project are in pub's [Package Layout](http://pub.dartlang.org/doc/package-layout.html) document.
 
@@ -13,8 +13,7 @@ the _server_ side so a CSS file usually can be found in "/assets/css/foo.css" vi
 from this source directory under "assets/css/foo.css".
 
 Generally, the files served from this directory by a Seven5 server application are "fixed" and thus the 
-client-side code can use a 304 return code to speed up page loading.  The exception is the "app"
-directory...
+client-side code can use a 304 return code to speed up page loading.  
 
 #### The App Directory and Dart Web Components
 

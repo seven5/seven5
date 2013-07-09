@@ -1,6 +1,6 @@
-### Example Project For Seven5, "myproj"
+### Example Project For Seven5, "nullblog"
 
-#### This Directory, "myproj/dart/myproj"
+#### This Directory, "nullblog/dart/nullblog"
 
 From here "down", Seven5 follows the standard Dart project layout for use with
 [Pub](http://pub.dartlang.org). See details on the project layout at 

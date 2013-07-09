@@ -1,6 +1,6 @@
 ### Example Project For Seven5, "myproj"
 
-#### This Directory, "myproj/dart/myproj/web/assets"
+#### This Directory, "nullblog/dart/nullblog/web/assets"
 
 The details of how to layout a Dart project are typically only related to the _parent_ directories 
 of this one.  These details are in pub's 
