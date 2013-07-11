@@ -1,6 +1,6 @@
-### Example Project For Seven5, "myproj"
+### Example Project For Book, "nullblog"
 
-#### This Directory, "myproj/dart/myproj/web"
+#### This Directory, "nullblog/dart/nullblog/web"
 
 The details of how to layout a Dart project are in pub's [Package Layout](http://pub.dartlang.org/doc/package-layout.html) document.
 
