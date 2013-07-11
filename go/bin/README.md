@@ -1,13 +1,13 @@
-### Example Project For Seven5, "myproj"
+### Example Project For Seven5 book
 
-#### This directory, myproj/go/bin
+#### This directory, nullblog/go/bin
 
-This directory is where your go binaries are installed, such as `runmyproj`
+This directory is where your go binaries are installed, such as `runnullblog`
 
 #### PATH
 
 You should add this directory to your path if you want to make it easy to run the binaries that are
-part of "myproj".  Here is the command to do that, assuming you have correctly set `GOPATH` as
+part of "nullblog".  Here is the command to do that, assuming you have correctly set `GOPATH` as
 explained in the parent directory:
 
 ```
@@ -22,5 +22,5 @@ project layout to do their work independent of where they are invoked from.
 
 #### Web mapping
 
-The root of a web application, such as one run with "runmyproj", is mapped 
-from "/" to be "myproj/dart/myproj/web".
+The root of a web application, such as one run with "runnullblog", is mapped 
+from "/" to be "nullblog/dart/nullblog/web".

@@ -1,13 +1,13 @@
-### Example Project For Seven5, "myproj"
+### Example Project For Seven5 Book
 
-#### This directory, myproj/src/myproj
+#### This directory, nullblog/src/nullblog
 
-This directory is where the source code for the server side of "myproj" should live. Note that this
+This directory is where the source code for the server side of "nullblog" should live. Note that this
 could should be a _library_ not an executable.  The result of building this code can be seen in
 "../../pkg".  You can build the source code like this:
 
 ```
-go install myproj
+go install nullblog
 ```
 
 
@@ -16,6 +16,6 @@ setting your `GOPATH`.
 
 Note that the build command can be run from _any_ directory once your `GOPATH` is set properly.
 
-The executable or entry-point of the project is in the child directory of this one, "runmyproj".
+The executable or entry-point of the project is in the child directory of this one, "runnullblog".
 
 

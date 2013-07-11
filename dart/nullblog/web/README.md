@@ -1,4 +1,4 @@
-### Example Project For Seven5, "nullblog"
+### Example Project For Book, "nullblog"
 
 #### This Directory, "nullblog/dart/nullblog/web"
 
@@ -13,7 +13,8 @@ the _server_ side so a CSS file usually can be found in "/assets/css/foo.css" vi
 from this source directory under "assets/css/foo.css".
 
 Generally, the files served from this directory by a Seven5 server application are "fixed" and thus the 
-client-side code can use a 304 return code to speed up page loading.  
+client-side code can use a 304 return code to speed up page loading.  The exception is the "app"
+directory...
 
 #### The App Directory and Dart Web Components
 

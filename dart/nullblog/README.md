@@ -1,4 +1,4 @@
-### Example Project For Seven5, "nullblog"
+### Example Project For Seven5 book
 
 #### This Directory, "nullblog/dart/nullblog"
 
