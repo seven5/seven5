@@ -33,7 +33,7 @@ func TestFind(T *testing.T) {
 		T.Fatalf("unexpected content in Find %+v", article)
 	}
 
-	result, err = underTest.Find(2890, nil)
+	result, err = underTest.Find(29892, nil)
 	if result != nil {
 		T.Fatalf("expected error but got result in Find %+v", result)
 	}
