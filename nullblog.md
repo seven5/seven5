@@ -3,38 +3,20 @@ layout: book
 chapter: The Null Blog
 ---
 
->>>> Let's not be clever and build a blog engine
+### Let's not be clever and build a blog engine
 
 It is _de rigeur_ to build a blogging engine if you are explaining your new, fancy web toolkit.  The author has not deviated from this well-trodden path because a blogging engine is complicated enough to present many of the problems of modern web applications, but not so tailored to a particular domain that specialized knowledge is required to understand correct operation.  This book is neither leading nor getting the hell out of the way.  The author has named this blog engine _nullblog_ because the idea is so unoriginal.
 
-### Theory: Designing for REST and Seven5
-
-REST is far from complete in terms of coverage of all the ideas one needs to build a working web application. That said, it is also not too bad, so this book will just bend and twist when necessary to make REST work.  To design a new application based on REST principles, one should start with the _nouns_ that are key to the system and make sure that these nouns make sense with each of the following verb phrases.  It's ok if "makes sense" means "that is not possible" but it _is_ clear why "not possible" is a sensible answer.  A REST interface to our solar system may not allow the creation of new planets.
-
-* _Show all_ (GET) - Get a list of all the instances of the noun
-* _Create for effect_ (POST) - Make a new instance of the noun based on the properties provided
-* _Get the properties_ (GET) - Get the properties of an existing noun, by Id
-* _Delete for effect_ (DELETE) - Destroy an existing noun, by Id
-* _Update all the properties_  (PUT) Change the properties of the existing noun, by Id, supplying a complete set of new properties
-* _Update a single property_ (PATCH) Change a single property of the existing noun, by Id, supplying a single new property value and leaving the others unchanged
-
-When implementing REST over HTTP it is customary to use the HTTP "verbs" that are shown in parenthesis as a shorthand for these operations.  All the verbs typically return the complete set of properties for the object being created or operated on, except the show all verb.  When referring to an object in the URL space, it is customary to name the object by an id after the noun  _in the singular and all lower case_.  Thus
-
-```
-GET /car/234
-```
-
-Indicates an HTTP request ("GET"), usually but not always from a browser, seeking to get properties of the car (noun object) with Id 234.  In the interest of simplicity, we will follow these conventions throughout this book, although we prefix all references to the REST namespace with `/rest` to prevent confusion with applications that also need a non-REST portion.
-
-It should be noted above that "GET" does double duty depending on if it is called as `/rest/car/` (show all) or `/rest/car/123`.  "PATCH" is not yet supported by all browsers, so may be simulated with some client-side code and the use of "PUT".
+### Goal: Retreive, Build, and Run
+At the end of this chapter, you should be able to get the sample code for any chapter of this book, build the source code contained in it, and run the back end of a server based on _Seven5_.  You should also be familiar with the most critical environment variables needed to configure a _Seven5_ application.
 
 ### Practice: Getting the server source
 
-We will detail the project layout for a _Seven5_ project in the next chapter, but for now simply fetch the initial sample code like this:
+We will detail the project layout for a _Seven5_ project in the next chapter, but for now simply fetch the initial sample code, contained in branch "book\_nullblog" like this:
 
 ```
 $ cd /tmp
-$ git checkout -b book_nullblog git@github.com:seven5/seven5.git book1
+$ git clone -b book_nullblog git@github.com:seven5/seven5.git book
 ```
 
 >>>> Throughout this book will assume you are working through these in examples in the directory `/tmp` and will omit further references to it in command-lines such as the first one above.  If you are not working in `/tmp` you will need adjust some commands that use absolute paths to match your local system.
@@ -93,7 +75,7 @@ Because the `runnullblog` binary is the server portion of our application, it do
 
 ### Practice: Servers only respond to API calls
 
-We won't have any type of web client for the _nullblog_ until two chapters from now, but if you leave the command above running and use another shell, you can prove it is running with a unix command:
+We won't have any type of web client for the _nullblog_ until a few chapters from now, but if you leave the command above running and use another shell, you can prove it is running with a unix command:
 
 ```
 $ curl -o- localhost:4004/rest/article
