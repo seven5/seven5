@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="/assets/css/article_div.css">
+</head>
+
+<body>
+
+    <element name="article_div" extends="div">
+      <template if="author!=null">
+        <div>      Author: {{ author}} </div>
+        <div>     Content: {{ content }} </div>
+        <div>          Id: {{ id }} </div>
+      </template>
+      <script type="application/dart" src="package:nullblog/src/article_div.dart">
+      </script>
+    </element>
+
+</body>
+</html>

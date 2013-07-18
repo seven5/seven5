@@ -1,0 +1,19 @@
+name: nullblog
+version: 0.1.0
+description: >
+  This is a simple blog application. 
+author: Ian Smith <iansmith@acm.org>
+homepage: http://seven5.github.com/seven5/toc.html
+dependencies:
+  #browser bootstrap
+  browser: any
+  #dice is probably something you want to "lock" to a version as you do development
+  #https://github.com/ltackmann/dice for the source
+  dice: any
+  
+  #polymer and friends  
+  mdv: any
+  observe: any
+  polymer: any
+  shadow_dom: any
+  web_ui: any
