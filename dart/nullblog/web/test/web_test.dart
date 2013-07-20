@@ -2,6 +2,9 @@ import 'dart:html';
 import 'dart:async';
 import 'dart:core';
 
+import 'package:observe/observe.dart';
+import 'package:mdv/mdv.dart' as mdv;
+
 import 'package:unittest/mock.dart';
 import 'package:unittest/unittest.dart';
 import 'package:unittest/html_config.dart';
@@ -9,7 +12,6 @@ import 'package:dice/dice.dart';
 
 import 'package:nullblog/src/webmocks.dart';  //for tests to avoid the browser
 import 'package:nullblog/src/workarounds.dart'; //workaround for bad mock framework
-
 import 'package:nullblog/src/article_div.dart';
 import 'package:nullblog/src/nullblog.dart';
 
@@ -44,6 +46,11 @@ main() {
   useHtmlConfiguration();
   
   Injector injector = new Injector(new TestModule());
+	article fake;
+	
+	const String name = "John Public";
+	const String cont = "lolcatz";
+	const int someId = 918;
 
   group('sanity check', () {
 		test('prove that the setup works', () {
@@ -63,11 +70,30 @@ main() {
 	});//group
 
   group('articles.html', () {
+		setUp(() {
+			mdv.initialize();
+			print("init");
+			
+			fake = new article();
+			fake.Id = someId;
+			fake.Author = name;
+			fake.Content = cont;
+		});
     //now get the object under test... note we do this once per test
     //so the instances don't interact with each other (by sharing a
     //the same instance of window for example).
-    test('display single article', () {
-	    Article_div underTest = injector.getInstance(Article_div);;
+    test('display two articles in two divs', () {
+	    Article_div underTest = injector.getInstance(Article_div);
+			
+			underTest.created();
+			underTest.obj = fake;
+			underTest.notifyChange(new PropertyChangeRecord(const Symbol('obj'))); //because underTest.obj = fake;
+
+			return new Future(() {
+				expect(underTest.author, name);
+				expect(underTest.content, cont);
+				expect(underTest.id, someId);
+			});
     });//test
 	});//group
 } //main

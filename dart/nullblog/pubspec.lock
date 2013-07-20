@@ -4,19 +4,19 @@ packages:
   analyzer_experimental:
     description: analyzer_experimental
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   args:
     description: args
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   browser:
     description: browser
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   csslib:
     description: csslib
     source: hosted
-    version: "0.4.7+7"
+    version: "0.4.7+10"
   dice:
     description: dice
     source: hosted
@@ -28,19 +28,23 @@ packages:
   logging:
     description: logging
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   mdv:
     description: mdv
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   meta:
     description: meta
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   observe:
     description: observe
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
+  path:
+    description: path
+    source: hosted
+    version: "0.6.5"
   pathos:
     description: pathos
     source: hosted
@@ -52,7 +56,7 @@ packages:
   serialization:
     description: serialization
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   shadow_dom:
     description: shadow_dom
     source: hosted
@@ -60,11 +64,11 @@ packages:
   source_maps:
     description: source_maps
     source: hosted
-    version: "0.6.3+3"
+    version: "0.6.5"
   unittest:
     description: unittest
     source: hosted
-    version: "0.6.3+1"
+    version: "0.6.5"
   web_ui:
     description: web_ui
     source: hosted

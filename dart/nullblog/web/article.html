@@ -5,13 +5,20 @@
     <meta charset="utf-8">
     <title>View Blog</title>
     <link rel="stylesheet" href="/assets/css/article.css">
-    <link rel="import" href="article_div.html">
+    <link rel="import" href="article_page.html">
   </head>
   <body>
     <h1>Null Blog</h1>
 
-    <article_div></article_div>
-    <!--because of dependency injection, we create objects dynamically -->
+    <!--because of dependency injection, we create objects dynamically 
+    <element name="article_page">
+        <script type='application/dart' src="package:nullblog/src/article_page.dart">
+        </script>
+    </element> -->
+<!--unnecessary?-->    
+    <article_page></article_page>
+    
+      
     <script type="application/dart" src="articleapp.dart"></script>
     <script src="packages/browser/dart.js"></script>
   </body>
