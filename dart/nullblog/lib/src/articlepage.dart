@@ -6,19 +6,20 @@ import 'package:nullblog/src/workarounds.dart';
 import 'package:dice/dice.dart';
 
 //Page level control for the list of articles in the blog
-class Article_page extends CustomElement with ObservableMixin {
+class ArticlePage extends PolymerElement with ObservableMixin {
  	@Inject
 	articleResource rez;
 	
-	@observable
-	List<Article_div> allArticles;
-	
+	final ObservableList<article> allArticles = new ObservableList<article>();
+  
 	//work to do based on the network
 	void created() {
 		super.created();
-		
-		rez.index().then((List<Article_div> a) {
-			allArticles=a;
+
+		rez.index().then((List<article> a) {
+			allArticles.clear();
+			allArticles.addAll(a);
+			//(const Symbol('allArticles'), null, a);
 		})
 		.catchError( (error) {
 			print("error was $error");

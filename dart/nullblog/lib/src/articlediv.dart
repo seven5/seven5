@@ -6,7 +6,7 @@ import 'package:nullblog/src/nullblog.dart';
 
 
 //This is the true implementation of the code that does the work for displaying an article
-class Article_div extends CustomElement with ObservableMixin {
+class ArticleDiv extends PolymerElement with ObservableMixin {
   
 	//pulled from the server
   @observable article obj;

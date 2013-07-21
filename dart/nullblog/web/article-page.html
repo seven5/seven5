@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="/assets/css/article-page.css">
+  <link rel="import" href="article-div.html">
+</head>
+
+<body>
+    <element name="article-page" extends="div" apply-author-styles>
+      <template>
+          <template repeat="{{allArticles}}">
+              <article-div obj="{{}}"></article-div>
+          </template>
+          <template bind if="{{this.allArticles.empty()}}">
+              <h3>yo</h3>
+          </template>
+      </template>
+      <script type="application/dart" src="package:nullblog/src/articlepage.dart">
+      </script>
+    </element>
+
+</body>
+</html>

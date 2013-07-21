@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="stylesheet" href="/assets/css/article_div.css">
+  <link rel="stylesheet" href="/assets/css/article-div.css">
 </head>
 
 <body>
 
-    <element name="article_div" extends="div">
+    <element name="article-div" extends="div" apply-author-styles attributes="obj">
       <template if="author!=null">
         <div>      Author: {{ author}} </div>
         <div>     Content: {{ content }} </div>
         <div>          Id: {{ id }} </div>
       </template>
-      <script type="application/dart" src="package:nullblog/src/article_div.dart">
+      <script type="application/dart" src="package:nullblog/src/articlediv.dart">
       </script>
     </element>
 
