@@ -377,7 +377,7 @@ func GenerateDartForWireTypes(t TypeHolder, pre string, name string, pf ProjectF
 		panic(fmt.Sprintf("No package directory for dart packages (%s): did you forget to run pub install?", dir))
 	}
 	fmt.Printf("seven5: generating dart code to %s\n", dir)
-	buffer := wrappedCodeGen(t, pre)
+	buffer := wrappedCodeGen(t, pre, name)
 	c, err := createPath(dir, "generated", fmt.Sprintf("%s.dart",name))
 	if err != nil {
 		return err

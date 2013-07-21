@@ -60,7 +60,7 @@ func FileContent(projectName string, pf ProjectFinder, holder TypeHolder, restPr
 	if err != nil {
 		panic(fmt.Sprintf("can't open dart source output path %s, got an error: %s", outputPath, err))
 	}
-	code := wrappedCodeGen(holder, restPrefix)
+	code := wrappedCodeGen(holder, restPrefix, projectName)
 	file.Write(code.Bytes())
 	file.Close()
 }
@@ -78,9 +78,5 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFind
 	if err != nil {
 		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
-	if prefix == "" || prefix == "/" {
-		mux.Handle("/", DartWebComponents(http.FileServer(http.Dir(truePath)), truePath, "/", isTestMode))
-	} else {
 		mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
-	}
 }

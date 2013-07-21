@@ -79,7 +79,7 @@ class {{.Name}}Resource {
 		Completer<{{.Name}}> completer = new Completer<{{.Name}}>();
 		HttpRequest.request(resourceURL+"$id")
 			.then((HttpRequest req) {
-				AccessCode result = new {{.Name}}.fromJson(JSON.parse(req.responseText));
+				{{.Name}} result = new {{.Name}}.fromJson(JSON.parse(req.responseText));
 				completer.complete(result);
 			})
 			.catchError((Object error) {
@@ -92,6 +92,28 @@ class {{.Name}}Resource {
 			});
 		return completer.future;		
 	}	
+Future<{{.Name}}> index([Map headers, Map requestParameters]) {
+    	Completer<List<{{.Name}}>> completer = new Completer<List<{{.Name}}>>();
+  		HttpRequest.request(resourceURL)
+  			.then((HttpRequest req) {
+  				var content = JSON.parse(req.responseText);
+  				List<{{.Name}}> result = new List<{{.Name}}>();
+  				for (var a in content) {
+  					result.add(new {{.Name}}.fromJson(a));
+  				}
+  				completer.complete(result);
+  			})
+  			.catchError((Object error) {
+  				if (error is HttpRequestProgressEvent) {
+  				  HttpRequestProgressEvent ex = error as HttpRequestProgressEvent;
+  					completer.completeError(new HttpLevelException.fromBadRequest(ex.target));
+  				} else {
+  					completer.completeError(error);
+  				}
+  			});
+  		return completer.future;		
+  	}
+	  
 }
 
 {{define "SUPPORT_STRUCT_TMPL"}}

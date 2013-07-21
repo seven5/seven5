@@ -176,14 +176,14 @@ func dartPrettyPrint(raw string) []byte {
 //used by the TypeHolder (probably a dispatcher) to map its rest resources.  This can be used if you
 //want to make a _live_ URL to the generated code.  This is usually unnecessary and is typically
 //handled by the FileContent method to generate a static dart file once per server invocation.
-func generatedDartContent(mux *ServeMux, holder TypeHolder, urlPath string, restPrefix string) {
-	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder, restPrefix))
+func generatedDartContent(mux *ServeMux, holder TypeHolder, urlPath string, restPrefix string, projectName string) {
+	mux.HandleFunc(fmt.Sprintf("%sdart", urlPath), generateDartFunc(holder, restPrefix, projectName ))
 }
 
 
 const LIBRARY_INFO = `
 library generated;
-import 'package:seven5/support.dart';
+import 'package:%s/seven5/support.dart';
 import 'dart:json' as JSON;
 import 'dart:html';
 import 'dart:async';
@@ -193,9 +193,9 @@ import 'dart:async';
 //generateDartFunc returns a function that outputs text string for all the wire types associated
 //with all the resources known to the type holder.  Note that the number of classes output may be
 //different than the number of resources because the wire types may nest structures inside.
-func generateDartFunc(holder TypeHolder, prefix string) func(http.ResponseWriter,*http.Request){
+func generateDartFunc(holder TypeHolder, prefix string, projectName string) func(http.ResponseWriter,*http.Request){
 	return func(w http.ResponseWriter, r *http.Request) {
-		text:=wrappedCodeGen(holder, prefix)
+		text:=wrappedCodeGen(holder, prefix, projectName)
 		if _,err:=w.Write(text.Bytes()); err!=nil {
 			fmt.Fprintf(os.Stderr, "Unable to write result of code generation to the client: %s\n", err)
 		}
@@ -203,11 +203,11 @@ func generateDartFunc(holder TypeHolder, prefix string) func(http.ResponseWriter
 } 
 
 //wrappedCodeGenFunc is the top level of the code generation.
-func wrappedCodeGen(holder TypeHolder,prefix string) bytes.Buffer{
+func wrappedCodeGen(holder TypeHolder,prefix string, projectName string) bytes.Buffer{
 	var text bytes.Buffer
 	resourceStructs := []*FieldDescription{}
 	supportStructs := []*FieldDescription{}
-	text.WriteString(LIBRARY_INFO)
+	text.WriteString(fmt.Sprintf(LIBRARY_INFO, projectName))
 	fmt.Printf("seven5: generating source code for ")
 	
 	for _, d := range holder.All() {
