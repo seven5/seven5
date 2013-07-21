@@ -12,8 +12,9 @@ import 'package:dice/dice.dart';
 
 import 'package:nullblog/src/webmocks.dart';  //for tests to avoid the browser
 import 'package:nullblog/src/workarounds.dart'; //workaround for bad mock framework
-import 'package:nullblog/src/article_div.dart';
+import 'package:nullblog/src/articlediv.dart';
 import 'package:nullblog/src/nullblog.dart';
+import 'package:nullblog/src/uisemantics.dart';
 
 class TestModule extends Module {
   configure() {
@@ -22,11 +23,13 @@ class TestModule extends Module {
     //bind our mock network
     bind(articleResource).toType(new MockArticleResource());
     //bind our mock network
-    bind(Article_div).toType(new Article_div());
+    bind(ArticleDiv).toType(new ArticleDiv());
+		bind(UISemantics).toType(new MockUISemantics());  
   }
 }
 
 class MockArticleResource extends Mock implements articleResource {}
+class MockUISemantics extends Mock implements UISemantics {}
 
 void setupTwoArticles(MockArticleResource mar) {
 	List<article> alist = new List<Article>();
@@ -72,8 +75,7 @@ main() {
   group('articles.html', () {
 		setUp(() {
 			mdv.initialize();
-			print("init");
-			
+
 			fake = new article();
 			fake.Id = someId;
 			fake.Author = name;
@@ -82,8 +84,8 @@ main() {
     //now get the object under test... note we do this once per test
     //so the instances don't interact with each other (by sharing a
     //the same instance of window for example).
-    test('display two articles in two divs', () {
-	    Article_div underTest = injector.getInstance(Article_div);
+    test('test changes to model propagate to displayed values in ArticleDiv', () {
+	    ArticleDiv underTest = injector.getInstance(ArticleDiv);
 			
 			underTest.created();
 			underTest.obj = fake;
@@ -95,5 +97,19 @@ main() {
 				expect(underTest.id, someId);
 			});
     });//test
+    test('test that if network fails we display an error', () {
+	    ArticlePage underTest = injector.getInstance(ArticlePage);
+	
+			//create a failing network
+			underTest.rez.when(callsTo('Index')).thenReturn(new Future.error('you lose'));
+
+			//now try to run the code from article page to see what it does
+			underTest.create();
+			
+			//with a bad network, verify we showed the alert UI
+			underTest.sem.getLogs(callsTo('showNoNetworkAlert')).verify(happenedOnce);
+			
+	
+		}); //test
 	});//group
 } //main

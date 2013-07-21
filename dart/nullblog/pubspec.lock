@@ -9,6 +9,14 @@ packages:
     description: args
     source: hosted
     version: "0.6.5"
+  bot:
+    description: bot
+    source: hosted
+    version: "0.22.2"
+  bot_web:
+    description: bot_web
+    source: hosted
+    version: "0.20.3"
   browser:
     description: browser
     source: hosted
@@ -73,3 +81,7 @@ packages:
     description: web_ui
     source: hosted
     version: "0.4.14"
+  widget:
+    description: widget
+    source: hosted
+    version: "0.2.6+1"

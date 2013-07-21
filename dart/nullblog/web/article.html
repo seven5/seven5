@@ -6,6 +6,7 @@
     <title>View Blog</title>
     <link rel="stylesheet" href="/assets/css/article.css">
     <link rel="import" href="article-page.html">
+    <link rel="import" href="package:widget/components/alert.html">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Bootstrap -->
     
@@ -13,7 +14,10 @@
   </head>
     <body>
         <div id="wrap">
-        
+        <x-alert class="alertbox hidden">
+            <button type="button" class="close" data-dismiss="alert">×</button>
+            <h3 class="text-warning">Good Grief, Yoda! Unable to reach the runnullblog server, we are.</h3>
+        </x-alert>
         <div class="container-fluid">
             <div class="row-fluid">
               <div class="span3">

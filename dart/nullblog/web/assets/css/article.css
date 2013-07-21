@@ -29,7 +29,28 @@ body {
 	text-align:right;
 }
 
+.hidden {
+	display: none;
+}
+
+.alertbox {
+	background-color: #EEEEEE;
+	text-align: center;
+	padding-top: 20px;
+	padding-bottom: 40px;
+	border: solid 1px black;
+	margin-top: 0px;
+	margin-bottom: 20px;
+}
+
+button.close {
+	margin-top: -20px;
+}
 
 div.article-div-main {
 	padding-top:20px;
+}
+
+#blogtitle {
+	padding-top: 20px;
 }

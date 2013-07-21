@@ -17,3 +17,7 @@ dependencies:
   polymer: any
   shadow_dom: any
   web_ui: any
+  
+  #for bootstrap widgets
+  widget: any
+  
