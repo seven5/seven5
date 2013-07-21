@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="stylesheet" href="/assets/css/article-page.css">
   <link rel="import" href="article-div.html">
 </head>
 
 <body>
-    <element name="article-page" extends="div" apply-author-styles>
+    <element name="article-page" extends="div">
       <template>
           <template repeat="{{allArticles}}">
               <article-div obj="{{}}"></article-div>
           </template>
           <template bind if="{{this.allArticles.empty()}}">
-              <h3>yo</h3>
+              <h3>We don't have any content! Yah, content-free.</h3>
           </template>
       </template>
       <script type="application/dart" src="package:nullblog/src/articlepage.dart">

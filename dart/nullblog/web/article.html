@@ -6,10 +6,37 @@
     <title>View Blog</title>
     <link rel="stylesheet" href="/assets/css/article.css">
     <link rel="import" href="article-page.html">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    
+    <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.2/journal/bootstrap.min.css" rel="stylesheet">
   </head>
-  <body>
-    <h1>Null Blog</h1>
+    <body>
+        <div id="wrap">
+        
+        <div class="container-fluid">
+            <div class="row-fluid">
+              <div class="span3">
+                <!--this column not used yet-->
+              </div>
+              <div class="span9">
+                <h2 id="blogtitle">My Null Blog</h2>
+                <!--we put the ArticlePage here, it contains ArticleDivs-->
+              </div>
+            </div>
+            
+        </div>
+        
+        <div id="push"></div>
+    </div> <!--wrap-->
+
+    <div id="footer">
+        <div class="container">
+            <p class="muted credit">Powered by <a href="http://seven5.github.io/seven5">
+                <em>Seven5</em></a>.  Fight the power.</p>
+        </div>
+    </div>
     <script type="application/dart" src="articleapp.dart"></script>
     <script src="packages/browser/dart.js"></script>
-  </body>
+    </body>
 </html>

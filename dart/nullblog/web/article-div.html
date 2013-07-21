@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="stylesheet" href="/assets/css/article-div.css">
 </head>
 
 <body>
 
-    <element name="article-div" extends="div" apply-author-styles attributes="obj">
-      <template if="author!=null">
-        <div>      Author: {{ author}} </div>
-        <div>     Content: {{ content }} </div>
-        <div>          Id: {{ id }} </div>
+    <element name="article-div" extends="div" attributes="obj" apply-author-styles>
+      <template>
+          <div class="article-div-main">  <!--see article.css-->
+            <hr/>
+            <p class="lead">{{content}}</p>
+            <h4>Written By {{ author }} -- (Id: {{id}})</h4>
+        </div>
       </template>
       <script type="application/dart" src="package:nullblog/src/articlediv.dart">
       </script>

@@ -34,11 +34,13 @@ ArticlePage getInjectedPage() {
 void main() {
 	mdv.initialize();
 	Timer.run( () {
-		var custom = getInjectedPage();
+		ArticlePage custom = getInjectedPage();
 		custom.host = new Element.html('<div is="article-page">');
 		custom.initShadow();
 		custom.created();
-		document.body.append(custom.host);
+		Element title = document.query("#blogtitle");
+		title.parent.append(custom.host);
+		//document.body.append(custom.host); this would put at the end of the body
 		custom.inserted();
 	});
 }
