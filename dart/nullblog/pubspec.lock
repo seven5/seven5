@@ -29,6 +29,10 @@ packages:
     description: dice
     source: hosted
     version: "1.2.0"
+  fancy_syntax:
+    description: fancy_syntax
+    source: hosted
+    version: "0.0.3"
   html5lib:
     description: html5lib
     source: hosted
@@ -71,6 +75,10 @@ packages:
     version: "0.6.3+2"
   source_maps:
     description: source_maps
+    source: hosted
+    version: "0.6.5"
+  stack_trace:
+    description: stack_trace
     source: hosted
     version: "0.6.5"
   unittest:

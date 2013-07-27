@@ -21,3 +21,8 @@ dependencies:
   #for bootstrap widgets
   widget: any
   
+  #fancy syntax in mdv bindings
+  fancy_syntax: any
+  
+  #nice stack traces at will
+  stack_trace: any

@@ -10,8 +10,8 @@
           <template repeat="{{allArticles}}">
               <article-div obj="{{}}"></article-div>
           </template>
-          <template bind if="{{this.allArticles.empty()}}">
-              <h3>We don't have any content! Yah, content-free.</h3>
+          <template bind if="{{ allArticles.isEmpty }}">
+              <h3 class="emptynotice">We don't have any content! Woot, content-free.</h3>
           </template>
       </template>
       <script type="application/dart" src="package:nullblog/src/articlepage.dart">

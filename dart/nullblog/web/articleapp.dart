@@ -35,6 +35,7 @@ ArticlePage getInjectedPage() {
 //get the object needed to control this page
 void main() {
 	mdv.initialize();
+  
 	Timer.run( () {
 		ArticlePage custom = getInjectedPage();
 		custom.host = new Element.html('<div is="article-page">');
@@ -47,3 +48,19 @@ void main() {
 	});
 }
 
+
+//get the object needed to control this page
+void main() {
+	mdv.initialize();
+  
+	Timer.run( () {
+		ArticlePage custom = getInjectedPage();
+		custom.host = new Element.html('<div is="article-page">');
+		custom.initShadow();
+		custom.created();
+		Element title = document.query("#blogtitle");
+		title.parent.append(custom.host);
+		//document.body.append(custom.host); this would put at the end of the body
+		custom.inserted();
+	});
+}
