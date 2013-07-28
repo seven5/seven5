@@ -12,8 +12,7 @@ import 'package:dice/dice.dart';
 
 import 'package:nullblog/src/webmocks.dart';  //for tests to avoid the browser
 import 'package:nullblog/src/workarounds.dart'; //workaround for bad mock framework
-//import 'package:nullblog/src/articlediv.dart';
-import '../out/_from_packages/nullblog/src/articlediv.dart';
+import 'package:nullblog/src/articlediv.dart';
 
 import 'package:nullblog/src/articlepage.dart'; //compiled version
 import 'package:nullblog/src/nullblog.dart';
@@ -44,6 +43,13 @@ void setupTwoArticles(MockArticleResource mar) {
 	a103.Id = 103;
 	alist.add(a103);
 	mar.when(callsTo('index')).thenReturn(alist);
+}
+
+void setTestTemplate(templateBody, templateInvocation){
+	Element testArea = document.query("#test-area");
+	query('body').children.add(templateBody);
+	testArea.children.clear();
+	testArea.children.add(templateInvocation);
 }
 
 //
@@ -84,48 +90,49 @@ main() {
 			fake.Id = someId;
 			fake.Author = name;
 			fake.Content = cont;
+			
 		});
     //now get the object under test... note we do this once per test
     //so the instances don't interact with each other (by sharing a
     //the same instance of window for example).
     test('test changes to model propagate to displayed values in ArticleDiv', () {
-	    ArticleDiv underTest = injector.getInstance(ArticleDiv);
-			
-			underTest.created();
-			underTest.obj = fake;
-			underTest.notifyChange(new PropertyChangeRecord(const Symbol('obj'))); //because underTest.obj = fake;
+			//prepare the area on page
+	    setTestTemplate(ArticleDiv.htmlContent, ArticleDiv.invocation);
+	
+			//get the object under test and bind it to the proper bit of html
+	    //ArticleDiv underTest = injector.getInstance(ArticleDiv);
+			query("#invoke-article-div").model = fake;
+			//underTest.obj = fake;
 
 			return new Future(() {
-				expect(underTest.author, name);
-				expect(underTest.content, cont);
-				expect(underTest.id, someId);
+				//check structure of template instantiation
+				expect(document.query('p.lead'), isNotNull);
+				expect(document.query('p.garbage'), isNull); //sanity
+				expect(document.query('h4.author'), isNotNull);
+				expect(document.query('div.article-div-main'), isNotNull);
+
+				//check content
+				expect(document.query('h4.author').text.contains(name), isTrue);
+				expect(document.query('p.lead').text.contains(cont), isTrue);
 			});
     });//test
     test('test that the server returns 0 articles, we do something sensible', () {
-	    ArticlePage underTest = injector.getInstance(ArticlePage);
-	
-			underTest.host = new Element.html('<div is="article-page">');
-			//underTest.initShadow();
 
+			//prepare the area on page
+	    setTestTemplate(ArticlePage.htmlContent, ArticlePage.invocation);
+	
+			//get the object under test and bind it to the proper bit of html
+			ArticlePage underTest = injector.getInstance(ArticlePage);
+			query("#invoke-article-page").model = underTest;
+	
 			//create network that returns empty article set
 			underTest.rez.when(callsTo('index')).thenReturn(new Future.value(new List<article>()));
 			
 			//now try to run the code from article page, test that the right thing happens in display
 			underTest.created();
-
-			//prepare the area on screen
-			Element testArea = document.query("#undertest");
-			testArea.children.clear();
-			expect(0,document.query("#undertest").children.length);
-			testArea.append(underTest.host);
-			
-			underTest.inserted();
 			
 			return new Future(() {
-				print('running future');
-				expect(1,document.query("#undertest").children.length);
-				Element e0=document.query("#undertest").children[0];
-				print('${e0.children}, ${e0.classes} ${e0.innerHtml}');
+				expect(document.query("h3.empty-notice"), isNotNull);
 			});
 	
 			

@@ -5,43 +5,72 @@
     <meta charset="utf-8">
     <title>View Blog</title>
     <link rel="stylesheet" href="/assets/css/article.css">
+    <link rel="import" href="article-div.html">
+    <!--
     <link rel="import" href="article-page.html">
     <link rel="import" href="package:widget/components/alert.html">
+    -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Bootstrap -->
     
     <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.2/journal/bootstrap.min.css" rel="stylesheet">
   </head>
     <body>
+        <!--                       -->
+        <!-- HTML CONTENT          -->
+        <!--                       -->
         <div id="wrap">
-        <x-alert class="alertbox hidden">
-            <button type="button" class="close" data-dismiss="alert">×</button>
-            <h3 class="text-warning">Good Grief, Yoda! Unable to reach the runnullblog server, we are.</h3>
-        </x-alert>
+            <!--                           -->
+            <!-- ALERTBOX IF NO CONNECTION -->
+            <!--                           -->
+            <div class="alertbox hidden">
+                <button type="button" class="close" data-dismiss="alert">×</button>
+                <h3 class="text-warning">Good Grief, Yoda! Unable to reach the runnullblog server, we are.</h3>
+            </div>
+            
+            
+        <!--                               -->
+        <!-- BOOTSTRAP TOP LEVEL CONTAINER -->
+        <!--                               -->
         <div class="container-fluid">
             <div class="row-fluid">
               <div class="span3">
                 <!--this column not used yet-->
               </div>
-              <div class="span9">
+              <div class="span9 content-column">
                 <h2 id="blogtitle">My Null Blog</h2>
-                <article-page></article-page> 
-                <!--we put the ArticlePage here, it contains ArticleDivs-->
-              </div>
-            </div>
-            
-        </div>
+                <!--                                                -->
+                <!-- ARTICLES END UP HERE via ArticlePage           -->
+                <!--                                                -->
+              </div> <!--span 9-->
+            </div> <!--row-fluid-->
+        </div> <!--container-fluid -->
         
         <div id="push"></div>
     </div> <!--wrap-->
 
+    <!--                                    -->
+    <!-- BOOTSTRAP FOOTER SNAPPED TO BOTTOM -->
+    <!--                                    -->
     <div id="footer">
         <div class="container">
-            <p class="muted credit">Powered by <a href="http://seven5.github.io/seven5">
+            <p class="muted credit">
+                Powered by <a href="http://seven5.github.io/seven5">
                 <em>Seven5</em></a>.  Fight the power.</p>
         </div>
     </div>
+    
+    
+    <!--              -->
+    <!-- DART CODE    -->
+    <!--              -->
     <script type="application/dart" src="articleapp.dart"></script>
+
+
+    <!--                     -->
+    <!-- KICK THE BROWSER    -->
+    <!--                     -->
+    <!-- for this next line to work, your pubspec.yaml file must have a dependency on 'browser' -->
     <script src="packages/browser/dart.js"></script>
     </body>
 </html>

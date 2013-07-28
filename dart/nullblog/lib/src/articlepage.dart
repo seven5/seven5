@@ -1,4 +1,5 @@
 import 'dart:core';
+import 'dart:html';
 import 'package:polymer/polymer.dart';
 import 'package:observe/observe.dart';
 import 'package:nullblog/src/nullblog.dart';
@@ -17,29 +18,29 @@ class ArticlePage extends PolymerElement with ObservableMixin {
 	@Inject
 	UISemantics sem; 
 	
-	bool get isEmpty {
-		print("called isEmpty? ${allArticles.isEmpty}");
-		return allArticles.isEmpty;
-	}
+	
+	static final String rawHtml = '''
+	<template id='article-page' syntax="fancy">
+      <template repeat="{{ allArticles }}">
+          <template ref="article-div" bind></template>
+      </template>
+      <template bind if="{{ allArticles.isEmpty }}">
+          <h3 class="empty-notice">"Content, we have not", says Yoda.</h3>
+      </template>
+  </template>''';
+  
+	static final Element htmlContent = new Element.html(rawHtml);
+	
+	static final Element invocation = new Element.html("<template id='invoke-article-page' ref='article-page' syntax='fancy' bind>");
 	
 	//work to do based on the network
 	void created() {
 		super.created();
-
-    new ListPathObserver(allArticles, 'isEmpty').changes.listen((changeUpdate) {
-			print("list path observer: here");
-			//this extra notification is because isEmpty is a property that is derived from allArticles
-			//notifyChange(new PropertyChangeRecord(const Symbol('isEmpty'))); 
-		});
 		
-		//print("created: ${allArticles.isEmpty}");
-		if (rez==null){
-			return;
-		};
+		//pull the articles from the network
 		rez.index().then((List<article> a) {
 			allArticles.clear();
 			allArticles.addAll(a);
-			print("added ${a.length}");
 			//if you add throw Exception("foo"); here you can trigger the error message for no network below
 		})
 		.catchError( (error) {

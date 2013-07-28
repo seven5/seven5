@@ -1,13 +1,14 @@
 import 'dart:html';
-import 'dart:async';
-import 'package:web_ui/web_ui.dart';
 import 'package:dice/dice.dart';
 import 'package:nullblog/src/articlepage.dart';
 import 'package:nullblog/src/uisemantics.dart';
-import 'package:nullblog/src/articlediv.dart';
 import 'package:nullblog/src/nullblog.dart';  //generated
-import 'package:nullblog/src/workarounds.dart';  //because we can't mock fields yet
 import 'package:mdv/mdv.dart' as mdv;
+import 'package:fancy_syntax/syntax.dart';
+//import 'package:nullblog/src/workarounds.dart';  //because we can't mock fields yet
+import 'package:nullblog/src/articlediv.dart';
+import 'dart:async';
+//import 'package:web_ui/web_ui.dart';
 
 //setup dependencies for this page
 class ArticleModule extends Module {
@@ -21,7 +22,7 @@ class ArticleModule extends Module {
     //we bind Document to the "real" DOM document because we are really
     //running in the browser... the use of MyWindow is temporary to work
     //around a problem with mocks
-    bind(Window).toInstance(new MyWindow(window));
+    //bind(Window).toInstance(new MyWindow(window));
 
   }
 }
@@ -31,23 +32,21 @@ ArticlePage getInjectedPage() {
 	return injector.getInstance(ArticlePage);
 }
 
-
-
-
 //get the object needed to control this page
 void main() {
 	mdv.initialize();
-  /*
-	runAsync( () {
-		Element host = new Element.html('<div is="article-page">');
-		host.model = getInjectedPage();
-		ArticlePage custom = getInjectedPage()
-		..host = host
-		..created();
-		
-		Element title = document.query("#blogtitle");
-		title.parent.children.add(host);
-
-		custom.inserted();
-	});*/
+	TemplateElement.syntax['fancy'] = new FancySyntax();
+  
+	ArticlePage p = getInjectedPage();
+	p.created();
+	
+	//put our templates in the page
+	query("body").children.add(ArticleDiv.htmlContent);
+	query('body').children.add(ArticlePage.htmlContent);
+	
+	//instantiate the article page template in the right place
+	query('.content-column').children.add(ArticlePage.invocation);
+	
+	//snap the model into place
+	query("#invoke-article-page").model = p;
 }

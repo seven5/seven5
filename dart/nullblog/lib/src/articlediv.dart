@@ -9,20 +9,20 @@ import 'package:nullblog/src/nullblog.dart';
 class ArticleDiv extends PolymerElement with ObservableMixin {
   
 	//pulled from the server
-  @observable article obj;
-
-	//these are pushed to the UI
-  @observable String author;
-	@observable String content;
-	@observable int id;
+  //@observable article obj;
 	
-  void created() {
-		super.created();
-    // When 'obj' changes recompute our properties appropriately.
-    bindProperty(this, const Symbol('obj'), () {
-			author = obj.Author;
-			id = obj.Id;
-      content = obj.Content;
-    });
-  }
+	static final String rawHtml = '''
+  <template id="article-div">
+      <div class="article-div-main">  <!--see article.css-->
+        <hr/>
+        <p class="lead">{{ Content }}</p>
+        <h4 class="author">Written By {{ Author }} -- (Id: {{ Id }})</h4>
+      </div>
+  </template>        
+	''';
+	
+	static final Element htmlContent = new Element.html(rawHtml);
+	
+	static final Element invocation = new Element.html("<template id='invoke-article-div' ref='article-div' syntax='fancy' bind>");
+	
 }
