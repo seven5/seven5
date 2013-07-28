@@ -33,10 +33,13 @@ class ArticlePage extends PolymerElement with ObservableMixin {
 		});
 		
 		//print("created: ${allArticles.isEmpty}");
-		
+		if (rez==null){
+			return;
+		};
 		rez.index().then((List<article> a) {
 			allArticles.clear();
 			allArticles.addAll(a);
+			print("added ${a.length}");
 			//if you add throw Exception("foo"); here you can trigger the error message for no network below
 		})
 		.catchError( (error) {

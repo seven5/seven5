@@ -32,35 +32,22 @@ ArticlePage getInjectedPage() {
 }
 
 
-//get the object needed to control this page
-void main() {
-	mdv.initialize();
-  
-	Timer.run( () {
-		ArticlePage custom = getInjectedPage();
-		custom.host = new Element.html('<div is="article-page">');
-		custom.initShadow();
-		custom.created();
-		Element title = document.query("#blogtitle");
-		title.parent.append(custom.host);
-		//document.body.append(custom.host); this would put at the end of the body
-		custom.inserted();
-	});
-}
 
 
 //get the object needed to control this page
 void main() {
 	mdv.initialize();
-  
-	Timer.run( () {
-		ArticlePage custom = getInjectedPage();
-		custom.host = new Element.html('<div is="article-page">');
-		custom.initShadow();
-		custom.created();
+  /*
+	runAsync( () {
+		Element host = new Element.html('<div is="article-page">');
+		host.model = getInjectedPage();
+		ArticlePage custom = getInjectedPage()
+		..host = host
+		..created();
+		
 		Element title = document.query("#blogtitle");
-		title.parent.append(custom.host);
-		//document.body.append(custom.host); this would put at the end of the body
+		title.parent.children.add(host);
+
 		custom.inserted();
-	});
+	});*/
 }

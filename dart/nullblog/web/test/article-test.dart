@@ -12,7 +12,9 @@ import 'package:dice/dice.dart';
 
 import 'package:nullblog/src/webmocks.dart';  //for tests to avoid the browser
 import 'package:nullblog/src/workarounds.dart'; //workaround for bad mock framework
-import 'package:nullblog/src/articlediv.dart';
+//import 'package:nullblog/src/articlediv.dart';
+import '../out/_from_packages/nullblog/src/articlediv.dart';
+
 import 'package:nullblog/src/articlepage.dart'; //compiled version
 import 'package:nullblog/src/nullblog.dart';
 import 'package:nullblog/src/uisemantics.dart';
@@ -103,7 +105,7 @@ main() {
 	    ArticlePage underTest = injector.getInstance(ArticlePage);
 	
 			underTest.host = new Element.html('<div is="article-page">');
-			underTest.initShadow();
+			//underTest.initShadow();
 
 			//create network that returns empty article set
 			underTest.rez.when(callsTo('index')).thenReturn(new Future.value(new List<article>()));
@@ -123,7 +125,7 @@ main() {
 				print('running future');
 				expect(1,document.query("#undertest").children.length);
 				Element e0=document.query("#undertest").children[0];
-				print('${e0.attributes.toString()}');
+				print('${e0.children}, ${e0.classes} ${e0.innerHtml}');
 			});
 	
 			

@@ -4,23 +4,23 @@ packages:
   analyzer_experimental:
     description: analyzer_experimental
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   args:
     description: args
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   bot:
     description: bot
     source: hosted
-    version: "0.22.2"
+    version: "0.23.0"
   bot_web:
     description: bot_web
     source: hosted
-    version: "0.20.3"
+    version: "0.20.4"
   browser:
     description: browser
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   csslib:
     description: csslib
     source: hosted
@@ -32,7 +32,7 @@ packages:
   fancy_syntax:
     description: fancy_syntax
     source: hosted
-    version: "0.0.3"
+    version: "0.0.5"
   html5lib:
     description: html5lib
     source: hosted
@@ -40,23 +40,23 @@ packages:
   logging:
     description: logging
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   mdv:
     description: mdv
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   meta:
     description: meta
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   observe:
     description: observe
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   path:
     description: path
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   pathos:
     description: pathos
     source: hosted
@@ -64,31 +64,31 @@ packages:
   polymer:
     description: polymer
     source: hosted
-    version: "0.5.0+1"
+    version: "0.5.1"
   serialization:
     description: serialization
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   shadow_dom:
     description: shadow_dom
     source: hosted
-    version: "0.6.3+2"
+    version: "0.6.9+2"
   source_maps:
     description: source_maps
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   stack_trace:
     description: stack_trace
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   unittest:
     description: unittest
     source: hosted
-    version: "0.6.5"
+    version: "0.6.9+2"
   web_ui:
     description: web_ui
     source: hosted
-    version: "0.4.14"
+    version: "0.4.15"
   widget:
     description: widget
     source: hosted
