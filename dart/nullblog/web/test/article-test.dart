@@ -9,54 +9,46 @@ import 'package:unittest/mock.dart';
 import 'package:unittest/unittest.dart';
 import 'package:unittest/html_config.dart';
 import 'package:dice/dice.dart';
+import 'package:fancy_syntax/syntax.dart';
 
-import 'package:nullblog/src/webmocks.dart';  //for tests to avoid the browser
-import 'package:nullblog/src/workarounds.dart'; //workaround for bad mock framework
 import 'package:nullblog/src/articlediv.dart';
-
-import 'package:nullblog/src/articlepage.dart'; //compiled version
+import 'package:nullblog/src/articlepage.dart'; 
 import 'package:nullblog/src/nullblog.dart';
 import 'package:nullblog/src/uisemantics.dart';
+import 'package:nullblog/src/half_html_config.dart';
+
+class MockArticleResource extends Mock implements articleResource {}
+class MockUISemantics extends Mock implements UISemantics {}
 
 class TestModule extends Module {
   configure() {
-    //mock out the web for this test
-    //bind(Window).toType(new MockWindow());
-    //bind our mock network
     bind(articleResource).toType(new MockArticleResource());
     //bind our mock network
+
     bind(ArticleDiv).toType(new ArticleDiv());
     bind(ArticlePage).toType(new ArticlePage());
 		bind(UISemantics).toType(new MockUISemantics());  
   }
 }
 
-class MockArticleResource extends Mock implements articleResource {}
-class MockUISemantics extends Mock implements UISemantics {}
-
-void setupTwoArticles(MockArticleResource mar) {
-	List<article> alist = new List<Article>();
-	article a104 = new article();
-	a104.Id = 104;
-	alist.add(a104);
-	article a103 = new article();
-	a103.Id = 103;
-	alist.add(a103);
-	mar.when(callsTo('index')).thenReturn(alist);
+void clearTestArea() {
+	Element testArea = query('div#test-area');
+	for (Element e in testArea.children) {
+			testArea.children.remove(e);
+	}
+}
+void addTemplateDefinition(String htmlCode) {
+	query('body').children.add(htmlCode);
+}
+void addTemplateInvocation(String htmlCode) {
+	query('div#test-area').children.add(htmlCode);
 }
 
-void setTestTemplate(templateBody, templateInvocation){
-	Element testArea = document.query("#test-area");
-	query('body').children.add(templateBody);
-	testArea.children.clear();
-	testArea.children.add(templateInvocation);
-}
 
 //
 // ENTRY POINT FOR TEST PAGE
 //
 main() {
-  useHtmlConfiguration();
   
   Injector injector = new Injector(new TestModule());
 	article fake;
@@ -65,42 +57,30 @@ main() {
 	const String cont = "lolcatz";
 	const int someId = 918;
 
-  group('sanity check', () {
-		test('prove that the setup works', () {
-	  	articleResource underTest = injector.getInstance(articleResource);
-			//prepare mocks
-			setupTwoArticles(underTest);
-				
-			//run test... this is "real" call to get the list of articles
-			List<article> result = underTest.index();
-				
-			//verify things did what you thought
-			underTest.getLogs(callsTo('index')).verify(happenedOnce);
-			expect(2, result.length);
-			expect(104, result[0].Id);
-			expect(103, result[1].Id);
-		});//test
-	});//group
-
+  useHalfHtmlConfiguration();
+	//put in the two templates we use in this group
+	addTemplateDefinition(ArticleDiv.htmlContent);
+	addTemplateDefinition(ArticlePage.htmlContent);			
+	
   group('articles.html', () {
 		setUp(() {
 			mdv.initialize();
-
+			TemplateElement.syntax['fancy'] = new FancySyntax();
+			//this the data that we are simulating coming over the network
 			fake = new article();
 			fake.Id = someId;
 			fake.Author = name;
 			fake.Content = cont;
-			
+			clearTestArea();
 		});
     //now get the object under test... note we do this once per test
     //so the instances don't interact with each other (by sharing a
     //the same instance of window for example).
     test('test changes to model propagate to displayed values in ArticleDiv', () {
 			//prepare the area on page
-	    setTestTemplate(ArticleDiv.htmlContent, ArticleDiv.invocation);
-	
+			addTemplateInvocation(ArticleDiv.invocation);
+			
 			//get the object under test and bind it to the proper bit of html
-	    //ArticleDiv underTest = injector.getInstance(ArticleDiv);
 			query("#invoke-article-div").model = fake;
 			//underTest.obj = fake;
 
@@ -119,7 +99,8 @@ main() {
     test('test that the server returns 0 articles, we do something sensible', () {
 
 			//prepare the area on page
-	    setTestTemplate(ArticlePage.htmlContent, ArticlePage.invocation);
+	    //setTestTemplate(ArticlePage.htmlContent, ArticlePage.invocation);
+			addTemplateInvocation(ArticlePage.invocation);
 	
 			//get the object under test and bind it to the proper bit of html
 			ArticlePage underTest = injector.getInstance(ArticlePage);
@@ -130,13 +111,51 @@ main() {
 			
 			//now try to run the code from article page, test that the right thing happens in display
 			underTest.created();
-			
+			//underTest.notifyPropertyChange(const Symbol("isEmpty"), false, true);
 			return new Future(() {
-				expect(document.query("h3.empty-notice"), isNotNull);
+				expect(document.query("h3"), isNotNull);
+				underTest.rez.getLogs(callsTo('index')).verify(happenedOnce);
 			});
-	
 			
 		}); //test
+		test('test that the server returns 20 articles, make 20 items on the display', () {
+			//query('body').children.add(ArticleDiv.htmlContent);
+
+			//prepare the area on page
+	    //setTestTemplate(ArticlePage.htmlContent, ArticlePage.invocation);
+			addTemplateInvocation(ArticlePage.invocation);
+	
+			//get the object under test and bind it to the proper bit of html
+			ArticlePage underTest = injector.getInstance(ArticlePage);
+			query("#invoke-article-page").model = underTest;
+	
+			//create network that returns 20 articles, all the same content
+			int N = 20;
+			List<article> articles = new List<articles>();
+			int i = 0;
+			while (i<N){
+				article a = new article()..
+					Id=777..
+					Content="yakking"..
+					Author="John Smith";
+					
+				articles.add(a);
+				i++;
+			}
+			underTest.rez.when(callsTo('index')).thenReturn(new Future.value(articles));
+			
+			//now try to run the code from article page, test that the right thing happens in display
+			underTest.created();
+
+			//deliverChangeRecords();
+			
+			return new Future(() {
+				expect(document.queryAll("h4").length, equals(N));
+				underTest.rez.getLogs(callsTo('index')).verify(happenedOnce);
+			});
+			
+		}); //test
+    
     test('test that if network fails we display an error', () {
 	    ArticlePage underTest = injector.getInstance(ArticlePage);
 	

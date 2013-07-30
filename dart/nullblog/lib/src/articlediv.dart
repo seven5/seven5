@@ -5,14 +5,12 @@ import 'package:observe/observe.dart';
 import 'package:nullblog/src/nullblog.dart';
 
 
-//This is the true implementation of the code that does the work for displaying an article
+//This is the implementation of the code that does the display for 
+//displaying an article.  
 class ArticleDiv extends PolymerElement with ObservableMixin {
-  
-	//pulled from the server
-  //@observable article obj;
-	
+
 	static final String rawHtml = '''
-  <template id="article-div">
+  <template id="article-div" syntax="fancy">
       <div class="article-div-main">  <!--see article.css-->
         <hr/>
         <p class="lead">{{ Content }}</p>

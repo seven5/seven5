@@ -5,10 +5,8 @@ import 'package:nullblog/src/uisemantics.dart';
 import 'package:nullblog/src/nullblog.dart';  //generated
 import 'package:mdv/mdv.dart' as mdv;
 import 'package:fancy_syntax/syntax.dart';
-//import 'package:nullblog/src/workarounds.dart';  //because we can't mock fields yet
 import 'package:nullblog/src/articlediv.dart';
 import 'dart:async';
-//import 'package:web_ui/web_ui.dart';
 
 //setup dependencies for this page
 class ArticleModule extends Module {
@@ -18,12 +16,6 @@ class ArticleModule extends Module {
     bind(articleResource).toType(articleResource); 
 		bind(ArticlePage).toType(ArticlePage);  
 		bind(UISemantics).toType(UISemantics);  
-    
-    //we bind Document to the "real" DOM document because we are really
-    //running in the browser... the use of MyWindow is temporary to work
-    //around a problem with mocks
-    //bind(Window).toInstance(new MyWindow(window));
-
   }
 }
 

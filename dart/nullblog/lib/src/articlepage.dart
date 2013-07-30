@@ -3,10 +3,8 @@ import 'dart:html';
 import 'package:polymer/polymer.dart';
 import 'package:observe/observe.dart';
 import 'package:nullblog/src/nullblog.dart';
-import 'package:nullblog/src/workarounds.dart';
 import 'package:nullblog/src/uisemantics.dart';
 import 'package:dice/dice.dart';
-import 'package:stack_trace/stack_trace.dart';
 
 //Page level control for the list of articles in the blog
 class ArticlePage extends PolymerElement with ObservableMixin {
@@ -24,7 +22,7 @@ class ArticlePage extends PolymerElement with ObservableMixin {
       <template repeat="{{ allArticles }}">
           <template ref="article-div" bind></template>
       </template>
-      <template bind if="{{ allArticles.isEmpty }}">
+			<template bind if="{{ allArticles.length == 0 }}">
           <h3 class="empty-notice">"Content, we have not", says Yoda.</h3>
       </template>
   </template>''';
