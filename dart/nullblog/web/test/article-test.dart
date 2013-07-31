@@ -99,7 +99,6 @@ main() {
     test('test that the server returns 0 articles, we do something sensible', () {
 
 			//prepare the area on page
-	    //setTestTemplate(ArticlePage.htmlContent, ArticlePage.invocation);
 			addTemplateInvocation(ArticlePage.invocation);
 	
 			//get the object under test and bind it to the proper bit of html
@@ -111,7 +110,6 @@ main() {
 			
 			//now try to run the code from article page, test that the right thing happens in display
 			underTest.created();
-			//underTest.notifyPropertyChange(const Symbol("isEmpty"), false, true);
 			return new Future(() {
 				expect(document.query("h3"), isNotNull);
 				underTest.rez.getLogs(callsTo('index')).verify(happenedOnce);
