@@ -12,22 +12,23 @@ At the end of this chapter, you should be able to get the sample code for any ch
 
 ### Practice: Getting the server source
 
-We will detail the project layout for a _Seven5_ project in the next chapter, but for now simply fetch the initial sample code, contained in branch "book\_nullblog" like this:
+We will detail the project layout for a _Seven5_ project in the next chapter, but for now simply fetch the initial sample code, contained in branch "code-book-1" like this:
 
 ```
 $ cd /tmp
-$ git clone -b book_nullblog git@github.com:seven5/seven5.git book
+$ git clone -b code-book-1 git@github.com:seven5/seven5.git book
 ```
 
 >>>> Throughout this book will assume you are working through these in examples in the directory `/tmp` and will omit further references to it in command-lines such as the first one above.  If you are not working in `/tmp` you will need adjust some commands that use absolute paths to match your local system.
 
 ### Theory: Configuration with environment variables
 
-_Seven5_ makes heavy use of environment variables for configuration.  This is for three reasons:
+_Seven5_ makes heavy use of environment variables for configuration.  This is for four reasons:
 
-1. Using the Seven5 conventions, environment variables allow for multiple projects to developed simultaneously and to allow for easily simulation of different deployment environments and situations
-2. Environment variables content are not checked into version control, avoiding a common source of errors
-3. This book's deployment platform, heroku, understands environment variables as a way of configuring applications allowing the book to show the complete development process
+1. Using the Seven5 conventions, environment variables allow for multiple projects to developed simultaneously 
+2. To allow for easily simulation of different deployment environments and situations
+3. Environment variables content are not checked into version control, avoiding a common source of errors (checking in passwords)
+4. This book's deployment platform, heroku, understands environment variables as a way of configuring applications allowing the book to show the complete development process
 
 ### Theory: GOPATH is the one and only one
 
@@ -35,7 +36,7 @@ In the next section, we'll set the `GOPATH` environment variable.  When working 
 
 `GOPATH` should have exactly one directory in it, the go source code directory of the project being developed.  All other files inside a _Seven5_ project can have their absolute path calculated from the `GOPATH` variable, since the project layout is standardized. Experienced Go developers may complain that a `GOPATH` variable may contain many directories, and thus that this restriction is too harsh.  Experienced Go developers *may* be able to develop with multiple directories in their `GOPATH` if the _Seven5_ project is first.   This type of configuration is beyond the scope of this book but not beyond experienced Go developers.
 
-The rationale behind the decision to derive all paths from `GOPATH` is that the "go" command requires `GOPATH` to be set in a particular way so the principle of [Don't Repeat Yourself](http://en.wikipedia.org/wiki/Don't_repeat_yourself) dictates that we do not have another environment variable repeating this value.  If there were a way to avoid repeating this value somewhat in the `PATH`, it would be used, but this is not possible in most operating systems today.
+The rationale behind the decision to derive all paths from `GOPATH` is that the "go" command requires `GOPATH` to be set in a particular way, so the principle of [Don't Repeat Yourself](http://en.wikipedia.org/wiki/Don't_repeat_yourself) dictates that we do not have another environment variable repeating this value.  If there were a way to avoid repeating this value somewhat in the `PATH`, it would be used, but this is not possible in most operating systems today.
 
 ### Practice: Building and running the source code 
 
@@ -99,7 +100,7 @@ You can also point your web browser at the same URLs to see the responses, as sh
 
 <img src="https://www.evernote.com/shard/s238/sh/b80cac50-91d4-48cb-b98e-806a9678d972/e2ba585664c1a3483bd3fe73176212c3/deep/0/Screenshot%207/4/13%204:33%20PM.png"/>
 
->>>> You should notice that the response format from this simple _Seven5_ service is JSON not HTML.  
+>>>> You should notice that the response format from this simple _Seven5_ service is *JSON* not HTML.  
 
 *Congratulations* you have a working server now and can proceed with building a better blog engine!
 

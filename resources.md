@@ -4,7 +4,7 @@ chapter: Understanding Resources
 ---
 
 ### Goal: WireTypes and Resources
-At the end of this chapter, you should understand the `ArticleWire` and `ArticleResource` types that in the source code for this chapter.  You should also understand the role of a _wire type_ and _resource implementation_ in a _Seven5_ application based on REST.   For this chapter, you can continue to use the code you checked out two chapters ago, based on the branch "book\_nullblog". 
+At the end of this chapter, you should understand the `ArticleWire` and `ArticleResource` types that in the source code for this chapter.  You should also understand the role of a _wire type_ and _resource implementation_ in a _Seven5_ application based on REST.   For this chapter, you can continue to use the code you checked out two chapters ago, based on the branch "code-book-1". 
 
 ### Theory: Sloganeering
 You have, by now, noticed the slogan, "Restful without remorse or pity" on various _Seven5_ web pages.  This is intended to convey that _Seven5_ supports only REST-based back ends for any web applications.  This is true, but perhaps a bit misleading, as nothing prevents you from using Go's existing web server development tools to develop the non-REST portions of the application.
@@ -72,7 +72,7 @@ type ArticleResource struct {
 
 It is frowned upon by both the REST originator ([Roy Fielding](http://en.wikipedia.org/wiki/REST)) and this author to hold state in a resource. The expectation for a type like `ArticleResource` is that it contains _exclusively_ methods, and that a method handles the implementation of a particular verb.  The input to a method is typically either an Id, specifying which article is to be affected, or an instance of `ArticleWire` indicating the content of an article object to be updated.
 
->>>> When one is concerned about scalability, having resources be stateless will be a significant boon.  Typically, adding more "web tier" nodes can be done quite easily when this statelessness constraint is observed.
+>>>> When one is concerned about scalability, having resources be stateless is  a significant boon.  Typically, adding more "web tier" nodes can be done quite easily when this statelessness constraint is observed.
 
 The code for this chapter has only two of the REST methods implemented.  Both of these implementations return simple, fixed responses to `GET /rest/article`, `GET /rest/article/0` and `GET /rest/article/1`. 
 

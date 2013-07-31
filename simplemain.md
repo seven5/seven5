@@ -4,10 +4,10 @@ chapter: Understanding main
 ---
 
 ### Goal: Project Layout
-After reading this chapter, you should have a basic familiarity with the main() function of a _Seven5_ application and an understanding of the options available to a developer based on the functions used in main(). For this chapter, you can continue to use the code you checked out in the first chapter, based on the branch "book\_nullblog". 
+After reading this chapter, you should have a basic familiarity with the `main()` function used in a _Seven5_ server-side application and some understanding of the options available to a developer based on the functions used in `main()`. For this chapter, you can continue to use the code you checked out in the first chapter, based on the branch "code-book-1". 
 
 ### Theory: Is less more in main()?
-The author has considered trying to shorten main() functions for simple _Seven5_ applications like _nullblog_.  The idea would be to have a layer over the code explored in this lesson that allows a developer to ignore many of these choices. Up to the time of this writing, this has been eschewed in favor of a pedogical approach which can be explained as "copy this code and glance at it to see if you need to throw any of these switches."  It is far from clear that the approach taken to date is superior.
+The author has considered trying to shorten `main()` functions for simple _Seven5_ applications like _nullblog_.  The idea would be to have a layer over the code explored in this lesson that allows a developer to ignore many of these choices. To this point, this "shorter main approach"" has been eschewed in favor of a pedagogical approach which can be explained as "copy this code and glance at it to see if you need to throw any of these switches."  It is far from clear that the approach taken to date is superior.
 
 ### Practice: main()
 In the file `/tmp/book/go/src/nullblog/runnullblog/main.go` you can find the source code to the command `runnullblog` which includes the entry point of the program. At this entry point, several objects are created and configured that connect the application to the infrastructure of _Seven5_.  The `main()` function and a couple of constants, comments removed for space, is
@@ -44,7 +44,7 @@ _Seven5_ follows numerous conventions when it exposes its public API.  The most 
 
 ### Practice: Deployment Objects
 
-Above, the variable `heroku` is assigned an instance of type `seven5.HerokuDeployment *`.  How to _deploy_ an application to [Heroku](http://www.heroku.com) will be explored in a later chapter but already we have seen how to run an application locally.  Because these two tasks are intricately linked, we have already been using the `seven5.HerokuDeployment` object.  It is worth noting that the `PORT` environment variable, used in a previous chapter to control the port that our simple _nullblog_ server runs on, is identical to the way Heroku behaves in a production setting.
+Above, the variable `heroku` is assigned an instance of type `seven5.HerokuDeployment *`.  How to _deploy_ an application to [Heroku](http://www.heroku.com) will be explored in a later chapter; already we have seen how to run an application locally.  Because these two tasks are intricately linked, we have already been using the `seven5.HerokuDeployment` object.  It is worth noting that the `PORT` environment variable, used in a previous chapter to control the port that our simple _nullblog_ server runs on, is identical to the way Heroku behaves in a production setting.
 
 >>>> For those interested in supporting other deployment or test scenarios, the type `seven5.RemoteDeployment` is worth investigating in the source code.  This is almost certainly insufficient at the current time to support varying deployment targets, but is intended to be the place that common functionality for these tasks live.
 
@@ -92,7 +92,7 @@ The first line simply creates an instance of our resource type and assigns a poi
 * The function `ResourceSeparate` means that we want to bind each of the REST interface methods in the previous chapter, such as `seven5.RestFind` or `seven5.RestPost`, separately.  This allows us to pass `nil` for REST verbs that we do not wish to implement.  The final three `nil` parameters indicate that we do not wish to implement `seven5.RestPost`, `seven5.RestPut`, and `seven5.RestDelete`, in that order.
 * The string "article" tells the BaseDispatcher `bd` the name of this rest noun.  It also allocates the "/rest/article" part of the URL space for our implementation.
 * The code `&nullblog.ArticleWire{}` creates an _examplar_ of our wire type and associates it with our implementation methods that immediately follow.  (This is necessary because Go's reflection system is not sufficiently powerful to take the name of a type as a string and convert that to an instance of that type.  Thus, we must provide this exemplar via code.)
-* The two mentions of `articleRez` indicate that this object is providing the implementation of `seven5.RestIndex` and `seven5.RestFind` associated with the exemplar's wire type. Note that one could provide these with two instances rather than the same instance as is done here, but there is no need to do so as `articleRez` is stateless and only its code is used.
+* The two mentions of `articleRez` indicate that this object is providing the implementation of `seven5.RestIndex` and `seven5.RestFind` associated with the exemplar's wire type. Note that one could provide these implementations with two instances rather than the same instance as is done here, but there is no need to do so as `articleRez` is stateless and only its code is used.
 
 ### Theory: interface{} or ArticleWire*
 
@@ -108,7 +108,7 @@ type ArticleIndex interface {
 }
 ```
 
-This option was originally planned, but was eventually discarded for two reasons.  First, there is correctness. It is easy to generate good, fatal errors when the wrong type is returned by a resource to _Seven5_, and resources can do a type conversion to the "correct" wire type with one line of code.  Again, this conversion will abort if the code were not correct.  Second, there are cases where a single resource type may implement two different "logical" REST resources.  Thus, such an implementation in the proposed code generator case, ends up needing the generating a "suffix" to every method, such as `IndexArticleV1` and `IndexArticleV2` to prevent a collision and allow both to be implemented in the same type.  This seems unnecessarily cumbersome and wordy. 
+This option was originally planned, but was eventually discarded for two reasons.  First, there is correctness. It is easy to generate good, fatal errors when the wrong type is returned by a resource to _Seven5_, and resources can do a type conversion to the "correct" wire type with one line of code.  Again, this conversion will abort if the code were not correct.  Second, there are cases where a single resource type may implement two different "logical" REST resources.  Thus, such an implementation in the proposed code generator case, ends up needing the generating a "suffix" to every method, such as `IndexArticleV1` and `IndexArticleV2` to prevent a collision and allow both to be implemented in the same type.  This seems unnecessarily cumbersome and wordy.  The jury remains in deliberation on the type-safety issue here. 
 
 ### Practice: Starting the server
 

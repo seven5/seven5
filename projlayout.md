@@ -4,7 +4,7 @@ chapter: Project layout
 ---
 
 ### Goal: Project Layout
-After reading this chapter, you should have a familiarity with the standard _Seven5_ project layout and some understanding of the rationale for this layout. For this chapter, you can continue to use the code you checked out in the previous chapter, based on the branch "book\_nullblog". 
+After reading this chapter, you should have a familiarity with the standard _Seven5_ project layout and some understanding of the rationale for this layout. For this chapter, you can continue to use the code you checked out in the previous chapter, based on the branch "code-book-1". 
 
 ### Theory: Convention over configuration
 
@@ -14,7 +14,7 @@ Seven5 projects share the layout explained in this chapter for two primary reaso
 
 2. A single project layout structure means two _Seven5_ developers can more easily work together because each is sure where particular parts of the system "should" go.  This is also true for browsing an application's source code, written by somebody else, to determine "how did he do that"?
 
-_Seven5_ has a more complex project layout than one might expect. This is caused largely by the fact that two programming languages are being used, and each one has standard way of laying out source packages.  It is particularly important that we follow the conventions established by the Go and Dart languages because these conventions allow a large application to be broken into packages, both on the front- and back-end.  Packages in Go can be built and managed (including packages brought in from the internet) using the `go` tool.  Packages in Dart can be managed with the `pub` tool (again included downloaded packages).
+_Seven5_ has a more complex project layout than one might expect or prefer. This is caused largely by the fact that two programming languages are being used, and each one has standard way of laying out source packages.  It is particularly important that we follow the conventions established by the Go and Dart languages because these conventions allow a large application to be broken into packages, both on the front- and back-end.  Packages in Go can be built and managed (including packages brought in from the internet) using the `go` tool.  Packages in Dart can be managed with the `pub` tool (again included downloaded packages).
 
 The ability to break a large application into "modules" that can be developed largely independently has proven to be an excellent feature of python's Django web toolkit, so it was summarily stolen by the author.
 
@@ -54,7 +54,7 @@ For a project named "foo":
 //                     ...more go-based commands...
 ```
 
-* The `.godir` and `Procfile` are only needed by folks deploying to heroku.  These must be used in conjunction with the _Seven5_ [buildpack](https://github.com/seven5/heroku-buildpack-go) and will be discussed in an upcoming chapter.
+* The `.godir` and `Procfile` are only needed if you are deploying to heroku.  These must be used in conjunction with the _Seven5_ [buildpack](https://github.com/seven5/heroku-buildpack-go) and will be discussed in an upcoming chapter.
 
 * The `db` directory is for configuration related to the database.
 
@@ -72,4 +72,4 @@ For a project named "foo":
 
 ### Practice: README.md in the source
 
-The source code associated with this chapter, based on the branch "book_nullblog", has a `README.md` file in each directory.  This provides a detailed explanation of what code or other files belongs in a particular directory.  New _Seven5_ developers may find it useful to explore around in the source cod and read the contents of each `README.md`.
+The source code associated with this chapter, based on the branch "code-book-1", has a `README.md` file in each directory.  This provides a detailed explanation of what code or other files belongs in a particular directory.  New _Seven5_ developers may find it useful to explore around in the source cod and read the contents of each `README.md`.
