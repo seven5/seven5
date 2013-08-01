@@ -9,7 +9,7 @@ chapter: Table Of Contents
 + [Tooling](tooling.html)
 + [Setup](setup.html)
 
-#### Section 1
+#### Section 1: A breadth-first tour
 
 1. [Our project: The Null Blog](nullblog.html)
 2. [Project Layout](projlayout.html)
