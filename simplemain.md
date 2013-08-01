@@ -94,7 +94,7 @@ The first line simply creates an instance of our resource type and assigns a poi
 * The code `&nullblog.ArticleWire{}` creates an _examplar_ of our wire type and associates it with our implementation methods that immediately follow.  (This is necessary because Go's reflection system is not sufficiently powerful to take the name of a type as a string and convert that to an instance of that type.  Thus, we must provide this exemplar via code.)
 * The two mentions of `articleRez` indicate that this object is providing the implementation of `seven5.RestIndex` and `seven5.RestFind` associated with the exemplar's wire type. Note that one could provide these implementations with two instances rather than the same instance as is done here, but there is no need to do so as `articleRez` is stateless and only its code is used.
 
-### Theory: interface{} or ArticleWire*
+### Theory: interface{} or *ArticleWire
 
 The careful reader will note that if you make gross mistake in the type signature of your REST implementation methods such `seven5.RestFind` it will be detected at compile-time. The type signatures are checked when compiled at the point of the call to `ResourceSeparate()` above.  However, the wire type could be in error and this will not be detected until run-time, when an abort will be forced.
  
@@ -104,7 +104,7 @@ The author has gone back and forth on whether this use of `interface{}` is count
 
 ```
 type ArticleIndex interface {
-        Index(PBundle) (ArticleWire*[], error)
+        Index(PBundle) ([]*ArticleWire, error)
 }
 ```
 

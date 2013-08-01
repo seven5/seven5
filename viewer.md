@@ -43,7 +43,7 @@ Dartium has been chosen for this exposition precisely because it supports Dart n
 
 A key element of the _Seven5_ approach to [Don't Repeat Yourself](http://en.wikipedia.org/wiki/Don't_repeat_yourself) is to generate code to keep the server and client "in sync".  The creation of the `ArticleWire` type previously, as well as the discussion of nouns and verbs [in the chapter on resources](http://localhost:4000/seven5/resources.html), may make more sense if one considers that `/tmp/nullblog/dart/nullblog/lib/src/nullblog.dart` is machine-generated.  The code in this file is _derived_ from the Go type `ArticleWire` (don't edit the Dart file! edit the Go file!) and provides access to the fields defined `ArticleWire` and the methods of `ArticleResource` (see [chapter 3](resources.html)).  
 
-This file defines a Dart class called `article` which holds the same data as the Go type `articleWire` and the Dart class `articleResource` that provides access to Go's `ArticleResource`. Note the lower-case `A` starting both names.  
+This file defines a Dart class called `article` which holds the same data as the Go type `ArticleWire` and the Dart class `articleResource` that provides access to Go's `ArticleResource`. Note the lower-case `A` starting both names in Dart.  
 
 ```
     Future<article> articleResource.find(1);
@@ -51,7 +51,7 @@ This file defines a Dart class called `article` which holds the same data as the
 
 The dart code above returns, roughly, an object of type `article` via the find() method on the Go type `ArticleResource`, passing in the identifier value of 1.  Behind the scenes, this actually makes a network call to the server, "GET /rest/article/1".  Since that code takes some non-zero amount of time and can fail, we return a [Dart Future](http://www.dartlang.org/articles/futures-and-error-handling/).  The intent is to allow the Dart developer to work at the level of "article" and remain mostly unaware of the networking required. 
 
-The lower case version of the name, and the omission of the "Wire" portion of the name from the Go code, was intentional and may be mistake.  It was chosen this way to specifically "look funny" since Dart's convention is to capitalize class names.  The intent was to be extremely clear about the fact tha 
+The lower case version of the name, and the omission of the "Wire" portion of the name from the Go code, was intentional and may be a mistake.  It was chosen this way to specifically "look funny" since Dart's convention is to capitalize class names.  The intent was to be extremely clear about the fact that this was machine-generated code and quite "different" than other Dart classes.  The prefix "G_" was also considered for this purpose, but the lower case letter was eventually decided to be sufficiently jarring.
 
 ### Practice: Code generation at startup (nullblog.dart)
 
