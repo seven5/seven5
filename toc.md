@@ -27,9 +27,12 @@ chapter: Table Of Contents
 11. Improving Article Display
 12. Creating New Articles, Input
 13. Wire type options, nesting structures
-14. Allow methods
+14. Allow methods, Authorization
 15. URL aliasing
 16. Sessions, Cookies
-17. Users, Authentication, Authorization
-18. OAuth
+17. Users
+18. OAuth for Authentication
+19. Asynchronous, Centralized Logging
+20. Continuous Deployment with drone.io
+
 
