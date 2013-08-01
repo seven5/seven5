@@ -3,8 +3,6 @@ layout: book
 chapter: Table Of Contents
 ---
 
-## Table Of Contents
-
 + [Background](tandp.html)
 + [Tooling](tooling.html)
 + [Setup](setup.html)
