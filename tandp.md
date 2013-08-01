@@ -50,15 +50,15 @@ At a high level, Rails was codifying the hard-won experience of its primary deve
 
 ## Modern web applications
 
-Seven5 makes the following key claims about the state of web development today.  If the reader strongly disagrees with any of these claims, the author advises that you stop reading this document.
+Seven5 makes the following key claims about the state of web development today.  If the reader strongly disagrees with any of these claims, the author advises that you stop reading this book.
 
 1. Applications must have a web API, a.k.a. "everything is a web service"
 2. Users expect highly interactive web applications with the interaction implemented on client-side (no page reloads)
 3. Users' computers are largely idle and will become more so in the future
 
-The first two of these are large-scale trends in web application development and hardly need much elaboration here.  If you want proof, examine nearly any web-based application introduced in 2011 or 2012.  Try clicking on the inevitable API button and looking at the source of the web pages to see if it includes a reference to jquery.
+The first two of these are large-scale trends in web application development and hardly need much elaboration here.  If you want proof, examine nearly any web-based application introduced in 2012 or 2013.  Try clicking on the inevitable API button and looking at the source of the web pages to see if it includes a reference to jquery.
 
-The latter of these is more conjecture than the first two, although it is derived from Moore's Law which has been reasonably reliable for some time.  In the large, accepting this claim argues that the burden of computation, whenever feasible, should shift to the client side of the web application as there are significant and under-utilized  compute cycles available there.  In more concrete terms, a Seven5 application will never both rendering a graph on the server, the server will simply send a list of points to the client side for rendering.  (Given assumption 2, it suggests also that the user will expect the ability to zoom in and out on different parts of the graph.)
+The latter of these is more conjecture than the first two, although it is derived from Moore's Law which has been reasonably reliable for some time.  In the large, accepting this claim argues that the burden of computation, whenever feasible, should shift to the client side of the web application as there are significant and under-utilized  compute cycles available there.  In more concrete terms, a Seven5 application will never bother rendering a graph on the server, the server will simply send a list of points to the client side for rendering.  (Given assumption 2, it suggests also that the user will expect the ability to zoom in and out on different parts of the graph.)
 
 ### Consequences
 
@@ -68,49 +68,9 @@ Taking all three of these assumptions together, what are the consequences?
 
 >>>> Seven5 makes server-side web development overwhelmingly about implementing a REST API (#1).
 
-The first of these is the most surprising to most developers.  There is no templating language for Seven5, despite the fact that there is one (two?) in Rails, one in Django, and legions in the various Java toolkits.  Naturally, the EJB standard has an entire substandard (JSTL), plus multiple implementation choices and variants, regarding server-side templating.  Hopefully, this makes more clear importance of the author's comment above about the "wait and see" attitude towards the web-ui project within Dart, there must be _some_ way to generate HTML content in a web application.
+The first of these is the most surprising to most developers.  There is no templating language for Seven5, despite the fact that there is one (two? several?) in Rails, one in Django, and legions in the various Java toolkits.  Naturally, the EJB standard has an entire substandard (JSTL), plus multiple implementation choices and variants, regarding server-side templating.  Creating HTML output in _Seven5_ is moved to the server and done almost entirely programmatically in Dart code. There must be _some_ way to generate HTML content in a web application.
 
-The second consequence is largely to simplify the problem.  Seven5 simply defines the web browser "app" as a client of the server-side API to insure that the first challenge is met.  Most Seven5-based applications will not have any code in their server other than the implementation of the various REST resources needed to power the client.  However, this approach does lead to a "programmable API" without any changes to the server, should new clients or functionality be desired.   Another simplification is that "only implement REST services" simplifies a number of the type-system issues around how Seven5 applications are implemented and tested and these will be discussed later.
+The second consequence is largely to simplify the problem.  Seven5 simply defines the web browser "app" as a client of the server-side API to insure that the first challenge is met.  Most Seven5-based applications will not have any code in their server other than the implementation of the various REST resources needed to power the client.  However, this approach does lead to a "programmable API" without any changes to the server, should new clients or functionality be desired.   Another simplification is that "only implement REST services" simplifies a number of the type-system issues around how Seven5 applications are implemented and tested. These will be elaborated upon later.
 
-The choice of REST here was not particularly a vote of support for REST as much as an attempt to use a simple, well-understood wire protocol rather than trying to invent a new one.  Seven5, internally, has hooks for implementations that want to use a different strategy for their resources, such as XML-RPC, base64 encoded Gobs, or the horror that is SOAP.
+The choice of REST here was not particularly a vote of support for REST as much as an attempt to use a simple, well-understood wire protocol rather than trying to invent a new one.  Seven5, internally, has hooks for implementations that want to use a different strategy for their resources, such as XML-RPC, base64 encoded Gobs, or the horror that is SOAP.  A somewhat unexpected benefit of choosing REST with a JSON encoding as the "easy to use default" in _Seven5_ is that this configuration is so common, so boring, and so "standard" that it is easy for developers to believe that _Seven5_ sufficiently tests these areas and they do not need to do so.  This has the consequence of decoupling those that use the _Seven5_ library from the network, allowing easier testing of their code.  Without the believability of the testing of the library itself, developers would likely feel inclined to "test with the wire" at least some of the time.
 
-## Step 1: Define the wire type
-
-The first step in building a Seven5 app is to define the wire type.  This is done in Go and the struct defined will be the type exchanged over the wire between the client- and server-side of the application.  If you prefer, this can also be titled "API design" since with REST resources, this is the only thing needed to have an API.
-
-{% highlight console %}
-
-type Greeting struct {
-    Id      seven5.Id
-	Phrase  seven5.String255
-	Gesture seven5.Boolean
-}
-{% endhighlight %}
-
->>> All the types used in a wire type declaration _must_ come from the package seven5.  These
-can be found in `seven5/types.go`.  This is enforced at encoding- and decoding-time, not at compile-time.
-
->>> Wire types must have a field called Id that is of type seven5.Id. This is 64 bit integer uniquely identifying the resource value in question.
-
->>> Wire types may have substructures.  Substructures must contain only types from the seven5 package, but do not need an Id field.
-
-You can [click here](#step_2_define_a_resource) if you want to skip to the next section's code and ignore the rationale.
-
-The first of the restrictions on wire types appears at first to be the most draconian.  This restriction is justified for two reasons.  First, the intent of the wire type is to define the REST resource's public api and the types in the seven5 set of types are designed to show intention not just representation.  REST has no self-description mechanism so, the wire types are basically "all you got."
-
-Second, the wire type must be unambiguously convertible to and from json which is a substantially less powerful type system than either Dart or Go.  Thus, adding the intention in Go helps Seven5 correctly generate Dart types like a timestamp (just used for ordering) vs. a date-time (shown to user, must be GMT) even though both may be the same value in json.
-
-The reason for the Id requirement is that Seven5 wants each value returned, deleted, or created to correl
-
-
-### NOTE SELF : Main, choosing options, naming
-
-### NOTE SELF: Project Layout
-
-### NOTE SELF: Internal errors
-
-### NOTE SELF: Lots of public methods and fields
-
-### NOTE SELF: Dispatchers touch the wire, resources don't
-
-### NOTE SELF: PBundles shouldn't use headers
