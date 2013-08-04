@@ -64,11 +64,69 @@ underTest.rez.when(callsTo('index')).thenReturn(new Future.value(new List<articl
 
 This line is using a [mock object](http://en.wikipedia.org/wiki/Mock_object) for the implementation of the network resource, `rez`.  The mocking framework is supplied by Dart itself, and we use Dice to inject this mock into the `ArticlePage`.  The code path inside `ArticlePage` is identical for test and production, only the implementation of `articleResource` is different, and the called code should not be concerned about that.
 
-Theory: Idiomatic structure
+### Theory: Recipe for a test
 
-At a higher level, the strategy above is a common idiom in testing websites powered by Seven5 because typically a web page maintains one or more connections to the server to perform its function.  If you follow the recipe shown here, it should always be possible to simulate _any_ result from the server(s).  Because the server is being simulated via the injection of "phony" resources, it is also not necessary to have a server "up" to run these tests.
+The general structure of a UI test in _Seven5_ is this:
 
-Theory: 
- 
+```
+    1. install invocation of templates in the test area
+    
+    2. get the object under test from the dependency injector
+    
+    3. add "expected" calls to mock objects to return the values for the test
+    
+    4. run the code under test
+    
+    5. return a Future
+    
+    6. inside the future, check that the UI is in the desired state
+    
+    7. inside the futer, check that any mock objects have been called the expected number of times, with expected parameters, etc.
+```
 
+Step 5 returns the Future that is executed (at some later point) to run the final two tests.  This type of "return some code to check in a minute" is directly supported by the unit test framework of Dart.  The reason that this _must_ be inside a Future is because the code under test in step four is likely to make "changes" to the UI that will be "happen" asynchronously.  By returning a Future the test insures that the checks occur after the update to the UI has completed.  
+
+It should be note that this recipe does not show the templates actually being installed in the page.  It is typically more convenient to do this in a `setUp()` method that can be shared among all tests.
+
+### Theory: Idiomatic structure
+
+The previous section outlines the tactics for a single test.  At a higher level,  the strategy in the test code discussed above is a common one for testing websites powered by Seven5. Typically a web page maintains one or more connections to the server to perform its function.  If you follow the recipe shown with the example code and theoretical structure shown just previously, it should always be possible to simulate _any_ result from the server(s).  Because the server is being simulated via the injection of "phony" resources, it is also not necessary to have a server "up" to run these tests.
+
+### Practice: Testing failures with Futures
+
+Because we have a dependency injector that allows us to simulate the network's behavior, we can create tests that show that the UI works properly in the face of failures.  Here is a simple test of this simple blog viewer when the network fails:
+
+```
+test('test that if network fails we display an error', () {
+    ArticlePage underTest = injector.getInstance(ArticlePage);
+
+		//create a failing network
+		underTest.rez.when(callsTo('index')).thenReturn(new Future.error('you lose'));
+
+		//now try to run the code from article page to see what it does
+		underTest.created();
+		
+		//with a bad network, verify we showed the alert UI
+		return new Future(() {
+			underTest.sem.getLogs(callsTo('showNoNetworkAlert')).verify(happenedOnce);
+		});
+	
+	}); //test
+```
+
+Again, the critical line involves telling the mock framework to return a particular value when the method `index` is called:
+
+```
+underTest.rez.when(callsTo('index')).thenReturn(new Future.error('you lose'));
+```
+
+This test demonstrates how to use the ```Future.error``` constructor to return a Future that is always going to indicate an error.
+
+### Practice: Test output
+
+Below is a screen snap of test output:
+
+![Screen Shot Of Test Output](https://www.evernote.com/shard/s238/sh/cc75c502-f2cd-475b-9d7d-868f16a33684/334226b7a4e787864348d3cdd633fa61/deep/0/web_test.png)
+
+This output has been kept intentionally terse so large numbers of tests can be run with minimal "noise".  The links shown in the snap, with the name of each test, can be clicked on to run a single test.  When viewing a single test in this way, the "test area" that contains the rendered result of the test _is_ shown as this can be helpful in debugging.  
 
