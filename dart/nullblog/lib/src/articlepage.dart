@@ -1,7 +1,7 @@
 import 'dart:core';
 import 'dart:html';
 import 'package:polymer/polymer.dart';
-import 'package:observe/observe.dart';
+//import 'package:observe/observe.dart';
 import 'package:nullblog/src/nullblog.dart';
 import 'package:nullblog/src/uisemantics.dart';
 import 'package:dice/dice.dart';
@@ -33,10 +33,11 @@ class ArticlePage extends PolymerElement with ObservableMixin {
 	
 	//work to do based on the network
 	void created() {
-		super.created();
+		//super.created();
 		
 		//pull the articles from the network
 		rez.index().then((List<article> a) {
+
 			allArticles.clear();
 			allArticles.addAll(a);
 			//if you add throw Exception("foo"); here you can trigger the error message for no network below

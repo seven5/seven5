@@ -147,6 +147,7 @@ class HtmlConfiguration extends Configuration {
         var parts = param.split('=');
         if (parts.length == 2 && parts[0] == 'testFilter') {
           filterTests('^${parts[1]}');
+					query("#test-area").attributes['style']='';
         }
       }
     }

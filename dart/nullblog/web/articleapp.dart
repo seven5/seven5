@@ -27,10 +27,10 @@ ArticlePage getInjectedPage() {
 //get the object needed to control this page
 void main() {
 	mdv.initialize();
-	TemplateElement.syntax['fancy'] = new FancySyntax();
   
 	ArticlePage p = getInjectedPage();
 	p.created();
+
 	
 	//put our templates in the page
 	query("body").children.add(ArticleDiv.htmlContent);
@@ -41,4 +41,5 @@ void main() {
 	
 	//snap the model into place
 	query("#invoke-article-page").model = p;
+	query("#invoke-article-page").bindingDelegate = new FancySyntax();
 }

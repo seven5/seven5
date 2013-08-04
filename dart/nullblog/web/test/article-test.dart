@@ -65,23 +65,27 @@ main() {
   group('articles.html', () {
 		setUp(() {
 			mdv.initialize();
-			TemplateElement.syntax['fancy'] = new FancySyntax();
-			//this the data that we are simulating coming over the network
-			fake = new article();
-			fake.Id = someId;
-			fake.Author = name;
-			fake.Content = cont;
+
+			//remove any stuff left from previous test
 			clearTestArea();
 		});
     //now get the object under test... note we do this once per test
     //so the instances don't interact with each other (by sharing a
     //the same instance of window for example).
     test('test changes to model propagate to displayed values in ArticleDiv', () {
+			//this the data that we are simulating coming over the network
+			fake = new article();
+			fake.Id = someId;
+			fake.Author = name;
+			fake.Content = cont;
+			
 			//prepare the area on page
 			addTemplateInvocation(ArticleDiv.invocation);
 			
-			//get the object under test and bind it to the proper bit of html
+			//get the object under test and bind it to the proper bit of model
 			query("#invoke-article-div").model = fake;
+			query("#invoke-article-div").bindingDelegate = new FancySyntax();
+			
 			//underTest.obj = fake;
 
 			return new Future(() {
@@ -104,6 +108,7 @@ main() {
 			//get the object under test and bind it to the proper bit of html
 			ArticlePage underTest = injector.getInstance(ArticlePage);
 			query("#invoke-article-page").model = underTest;
+			query("#invoke-article-page").bindingDelegate = new FancySyntax();
 	
 			//create network that returns empty article set
 			underTest.rez.when(callsTo('index')).thenReturn(new Future.value(new List<article>()));
@@ -117,15 +122,14 @@ main() {
 			
 		}); //test
 		test('test that the server returns 20 articles, make 20 items on the display', () {
-			//query('body').children.add(ArticleDiv.htmlContent);
 
 			//prepare the area on page
-	    //setTestTemplate(ArticlePage.htmlContent, ArticlePage.invocation);
 			addTemplateInvocation(ArticlePage.invocation);
 	
 			//get the object under test and bind it to the proper bit of html
 			ArticlePage underTest = injector.getInstance(ArticlePage);
 			query("#invoke-article-page").model = underTest;
+			query("#invoke-article-page").bindingDelegate = new FancySyntax();
 	
 			//create network that returns 20 articles, all the same content
 			int N = 20;
@@ -144,10 +148,9 @@ main() {
 			
 			//now try to run the code from article page, test that the right thing happens in display
 			underTest.created();
-
-			//deliverChangeRecords();
 			
 			return new Future(() {
+				print("${document.query('h4')}");
 				expect(document.queryAll("h4").length, equals(N));
 				underTest.rez.getLogs(callsTo('index')).verify(happenedOnce);
 			});

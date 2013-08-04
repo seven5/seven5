@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:html';
 import 'package:polymer/polymer.dart';
-import 'package:observe/observe.dart';
+//import 'package:observe/observe.dart';
 import 'package:nullblog/src/nullblog.dart';
 
 
