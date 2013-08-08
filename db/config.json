@@ -1,0 +1,14 @@
+{
+  "development": {
+    "driver": "postgres",
+    "source": "dbname=${NULLBLOG_DBNAME} user=${NULLBLOG_USER} sslmode=disable"
+  },
+  "production": {
+    "driver": "postgres",
+    "source": "dbname=${NULLBLOG_DBNAME} user=${NULLBLOG_USER} password=${NULLBLOG_PASS} sslmode=verify-full"
+  },
+  "test": {
+    "driver": "postgres",
+    "source": "dbname=${NULLBLOG_DBNAME} user=${NULLBLOG_USER} dbname=nullblog sslmode=disable"
+  }
+}

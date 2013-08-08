@@ -24,7 +24,7 @@ packages:
   csslib:
     description: csslib
     source: hosted
-    version: "0.4.7+10"
+    version: "0.4.7+11"
   custom_element:
     description: custom_element
     source: hosted
@@ -104,7 +104,7 @@ packages:
   web_ui:
     description: web_ui
     source: hosted
-    version: "0.4.16"
+    version: "0.4.17+1"
   widget:
     description: widget
     source: hosted
