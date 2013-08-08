@@ -17,7 +17,7 @@ chapter: Table Of Contents
 6. [Simple Article Viewer](viewer.html)
 7. [How The Article Viewer Works](viewer_detail.html)
 8. [Testing The Article Viewer](client_test.html)
-9. Storing Articles In A Database
+9. [Storing Articles In A Database](db_hood.html)
 10. Deploying To Heroku
 
 #### Section 2
