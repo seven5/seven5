@@ -91,6 +91,7 @@ func (self *RawDispatcher) Rez(wireExample interface{}, r RestAll) {
 //functionality.
 func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *http.Request) *ServeMux {
 
+
 	//find the resource and, if present, the id
 	matched, id, d := self.resolve(r.URL.Path)
 	if matched == "" {

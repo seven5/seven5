@@ -13,6 +13,7 @@ type Error struct {
 	Msg string
 }
 
+//error() makes this an implementation of the type error
 func (self *Error) Error() string {
 	return fmt.Sprintf("HTTP Level Error (%d): %s",self.StatusCode, self.Msg)
 }

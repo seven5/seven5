@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-//Dispatcher is the low-level interface to requests and responses.  Most user level should not
+//Dispatcher is the low-level interface to requests and responses.  Most user level code should not
 //need to implement Dispatchers but rather should choose one or more dispatchers to "install"
 //in their application. A dispatcher may return an instance of ServeMux (possibly the same
 //one passed to it as the first parameter) if it wants the processing of the request to continue
