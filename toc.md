@@ -18,19 +18,19 @@ chapter: Table Of Contents
 7. [How The Article Viewer Works](viewer_detail.html)
 8. [Testing The Article Viewer](client_test.html)
 9. [Storing Articles In A Database](db_hood.html)
-10. Deploying To Heroku
+10. Improving Article Display
+11. Creating New Articles, Input
+12. Sessions, Cookies
+13. Users
+14. Allow methods, Authorization
+15. Asynchronous, Centralized Logging
+16. Deploying To Heroku
+17. Continuous Deployment with drone.io
 
 #### Section 2
 
-11. Improving Article Display
-12. Creating New Articles, Input
 13. Wire type options, nesting structures
-14. Allow methods, Authorization
 15. URL aliasing
-16. Sessions, Cookies
-17. Users
 18. OAuth for Authentication
-19. Asynchronous, Centralized Logging
-20. Continuous Deployment with drone.io
 
 
