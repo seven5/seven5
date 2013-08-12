@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"github.com/iansmith/hood"
 )
 
 const (
@@ -80,3 +81,42 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFind
 	}
 		mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
 }
+
+//Project is an amalgamation of differnt types that many applications can use
+//to represent all the state needed to create and launch an application.  It
+//does not understand how to have multiple named "apps" inside a single project
+//and all of its pieces can be created separately if desired.
+type Project struct {
+	Name string
+	RESTMountPoint string
+	Hood *hood.Hood
+	*EnvironmentVars
+	*HerokuDeploy
+	*ServeMux
+	*BaseDispatcher	
+}
+
+//NewProject creates a new Project amalgamation with a large number of defaults
+//baked in.  Note that after this been created the serve mux and base dispatcher
+//are already configured so you must reset them if you want to change their config.
+func NewProject(name string) *Project{
+	result := &Project{}
+	result.Name = name
+	result.RESTMountPoint = "/rest/"
+	result.EnvironmentVars= NewEnvironmentVars(name)
+	result.HerokuDeploy= &HerokuDeploy{name: name, env: result.EnvironmentVars}
+	
+	result.BaseDispatcher = NewBaseDispatcher(name, nil)
+	result.ServeMux = DefaultProjectBindings(name, self.EnvironmentVars, self.HerokuDeploy)
+  result.ServeMux.Dispatch(result.RESTMountPoint, bd)
+
+	return result
+}
+
+//GenerateCode is a shorthand to tell the project to generate all the Dart code needed
+//for the set of resources currently configured into the base dispatcher.
+func (self *Project) GenerateCode() {
+	FileContent(self.Name, self.EnvironmentVars, self.BaseDisptacher, self.RESTMountPoint)
+}
+
+
