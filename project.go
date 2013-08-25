@@ -2,7 +2,7 @@ package seven5
 
 import (
 	"fmt"
-	"github.com/coocood/qbs"
+	"github.com/iansmith/qbs"
 	"net/http"
 	"os"
 	"path/filepath"

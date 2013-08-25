@@ -1,14 +1,10 @@
 package seven5
 
 import (
-	"flag"
 	"fmt"
-	"github.com/coocood/qbs"
+	"github.com/iansmith/qbs"
+	"net/http"
 	"os"
-)
-
-const (
-	UNLIMITED_MIGRATIONS = 10000
 )
 
 type QbsStore struct {
@@ -76,34 +72,6 @@ func (self *QbsStore) DataSourceFromEnvironment(env *EnvironmentVars) *qbs.DataS
 	return dsn
 }
 
-//ParseMigrationFlag is a convenience to help those writing migrations.  It
-//adds some default flags to the flag set to allow the user to specify a
-//migration and then parses the program's arguments and
-func ParseMigrationFlags(fset *flag.FlagSet, env *EnvironmentVars) (*QbsStore, int) {
-
-	migration := -1
-
-	store := NewQbsStore(env)
-
-	fset.IntVar(&migration, "m", UNLIMITED_MIGRATIONS, "migration number to change to")
-
-	if err := fset.Parse(os.Args[1:]); err != nil {
-		errmsg := fmt.Sprintf("failed to parse arguments: %s", err)
-		panic(errmsg)
-	}
-
-	if migration < 0 {
-		panic("you must supply a migration number with a value of at least 0 with -m flag")
-	}
-
-	return store, migration
-}
-
-//QbsDefaultOrmTransactionPolicy is a simple implementation of transaction
-//policy that is sufficient for most applications.
-type QbsDefaultOrmTransactionPolicy struct {
-}
-
 //NewQbsDefaultOrmTransactionPolicy returns a new default implementation of policy
 //that will Rollback transactions if there is a 400 or 500 returned by the client. It will also
 //rollback if a non-http error is returned, or if the called code panics.  After rolling
@@ -133,6 +101,13 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 					return nil, rerr
 				}
 			}
+		default:
+			fmt.Fprintf(os.Stderr, "got an error type that wasnt HTTP specific, rolling back and returning 500 to client (%v)\n", err)
+			rerr := tx.Rollback()
+			if rerr != nil {
+				return nil, rerr
+			}
+			return nil, HTTPError(http.StatusInternalServerError, fmt.Sprintf("%v", err))
 		}
 	} else {
 		if cerr := tx.Commit(); cerr != nil {
@@ -143,9 +118,25 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 }
 
 //HandlePanic rolls back the transiction provided and then panics again.
-func (self *QbsDefaultOrmTransactionPolicy) HandlePanic(tx *qbs.Qbs, err interface{}) {
+func (self *QbsDefaultOrmTransactionPolicy) HandlePanic(tx *qbs.Qbs, err interface{}) (interface{}, error) {
+	fmt.Fprintf(os.Stderr, "got panic, rolling back and returning 500 to client (%v)\n", err)
 	if rerr := tx.Rollback(); rerr != nil {
 		panic(rerr)
 	}
-	panic(err)
+	return nil, HTTPError(http.StatusInternalServerError, fmt.Sprintf("panic: %v", err))
+}
+
+//QbsDefaultOrmTransactionPolicy is a simple implementation of transaction
+//policy that is sufficient for most applications.
+type QbsDefaultOrmTransactionPolicy struct {
+}
+
+func WithEmptyQbsStore(store *QbsStore, migrations interface{}, fn func()) {
+	migrator := NewQbsMigrator(NewEnvironmentVars(APP_NAME), false, false)
+	defer func() {
+		migrator.Store.Q.Close()
+	}()
+	migrator.ToZero(migrations)
+	migrator.ToMax(migrations)
+	fn()
 }

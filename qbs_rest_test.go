@@ -1,8 +1,9 @@
 package seven5
 
 import (
+	"errors"
 	"fmt"
-	"github.com/coocood/qbs"
+	"github.com/iansmith/qbs"
 	_ "github.com/lib/pq"
 	"net/http"
 	"os"
@@ -10,19 +11,29 @@ import (
 	"testing"
 )
 
+const (
+	none        = 0
+	force_error = 1
+	force_panic = 2
+)
+
 /*---- type of actual DB action ----*/
 type House struct {
+	Id      int64
 	Address string
 	Zip     int /*0->99999, inclusive*/
 }
 
 /*---- wire type for the tests ----*/
 type HouseWire struct {
-	Id Id
+	Id      Id
+	Addr    string
+	ZipCode int
 }
 
 type testObj struct {
 	testCallCount int
+	failPost      int
 }
 
 /*these funcs are use to test that if you meet the QBSRest interfaces you
@@ -45,7 +56,32 @@ func (self *testObj) Put(id Id, value interface{}, pb PBundle, q *qbs.Qbs) (inte
 }
 func (self *testObj) Post(value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
-	return &HouseWire{}, nil
+	in := value.(*HouseWire)
+	house := &House{Address: in.Addr, Zip: in.ZipCode}
+	if _, err := q.Save(house); err != nil {
+		return nil, err
+	}
+
+	//simulate an error AFTER the save!
+	switch self.failPost {
+	case force_panic:
+		panic("testing panic handling")
+	case force_error:
+		return nil, errors.New("testing error handling")
+	}
+
+	return &HouseWire{Id: Id(house.Id), Addr: house.Address, ZipCode: house.Zip}, nil
+}
+
+type someMigrations struct {
+}
+
+func (self *someMigrations) Migrate_0001(m Migrator) error {
+	return m.CreateTableIfNotExists(&House{})
+}
+
+func (self *someMigrations) Migrate_0001_Rollback(m Migrator) error {
+	return m.DropTableIfExists(&House{})
 }
 
 /*-------------------------------------------------------------------------*/
@@ -55,7 +91,51 @@ const (
 	APP_NAME = "testapp"
 )
 
+func checkNumberHouses(T *testing.T, store *QbsStore, expected int) {
+	houses := []*House{}
+	err := store.Q.FindAll(&houses)
+	if err != nil {
+		T.Fatalf("Error during find: %s", err)
+	}
+	if len(houses) != expected {
+		T.Errorf("Wrong number of houses! expected %d but got %d", expected, len(houses))
+	}
+}
+
 func TestTxn(T *testing.T) {
+
+	obj := &testObj{}
+	store := setupTestStore(APP_NAME)
+	wrapped := QbsWrapAll(obj, store)
+
+	WithEmptyQbsStore(store, &someMigrations{}, func() {
+		obj.failPost = none
+		checkNumberHouses(T, store, 0)
+		_, err := wrapped.Post(&HouseWire{Id: 0, Addr: "123 evergreen terrace", ZipCode: 98607}, nil)
+		if err != nil {
+			T.Fatalf("unexpect rest post failure %s", err)
+		}
+		checkNumberHouses(T, store, 1)
+	})
+	for _, choice := range []int{force_panic, force_error} {
+		WithEmptyQbsStore(store, &someMigrations{}, func() {
+			obj.failPost = choice
+			checkNumberHouses(T, store, 0)
+			_, err := wrapped.Post(&HouseWire{Id: 0, Addr: "123 evergreen terrace", ZipCode: 98607}, nil)
+			if err == nil {
+				T.Fatalf("expected an error but didn't get one!")
+			}
+			e, ok := err.(*Error)
+			if !ok {
+				T.Fatalf("unexpected error type %T", err)
+			}
+			if e.StatusCode != http.StatusInternalServerError {
+				T.Error("Wrong error code, expected %d but got %d", 500, e.StatusCode)
+			}
+			checkNumberHouses(T, store, 0)
+		})
+
+	}
 }
 
 func setupDispatcher() (*RawDispatcher, *ServeMux) {
