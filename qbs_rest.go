@@ -112,6 +112,11 @@ func (self *qbsWrapped) Post(value interface{}, pb PBundle) (interface{}, error)
 
 }
 
+//Given a QbsRestAll return a RestAl
+func QbsWrapAll(a QbsRestAll, s *QbsStore) RestAll {
+	return &qbsWrapped{store: s, index: a, find: a, del: a, put: a, post: a}
+}
+
 //Given a QBSRestIndex return a RestIndex
 func QbsWrapIndex(indexer QbsRestIndex, s *QbsStore) RestIndex {
 	return &qbsWrapped{index: indexer, store: s}
