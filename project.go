@@ -2,10 +2,10 @@ package seven5
 
 import (
 	"fmt"
+	"github.com/coocood/qbs"
 	"net/http"
 	"os"
 	"path/filepath"
-	"github.com/iansmith/hood"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 	WAITING_ON_EOL
 )
 
-//generateStringPrinter creates a function suitable for use with a ServeMux's handle func.  
+//generateStringPrinter creates a function suitable for use with a ServeMux's handle func.
 func generateStringPrinter(content string, contentType string) func(http.ResponseWriter, *http.Request) {
 	return generateBinPrinter([]byte(content), contentType)
 }
@@ -32,7 +32,7 @@ func generateBinPrinter(content []byte, contentType string) func(http.ResponseWr
 
 //DefaultProjects adds the resources that we expect to be present for a typical
 //seven5 project.  The ProjectFinder is used to find things inside the project, notably the
-//static web content. Content added here is all fixed by the build of seven5 and the 
+//static web content. Content added here is all fixed by the build of seven5 and the
 //underlying filesystem.
 func DefaultProjectBindings(projectName string, pf ProjectFinder, dep DeploymentEnvironment) *ServeMux {
 	mux := NewServeMux()
@@ -48,7 +48,7 @@ func SetIcon(mux *ServeMux, binaryIcon []byte) {
 }
 
 //FileContent cause the generation of files that need refreshing on each restart.  Typically, this
-//is code derived from the go structs that the application exposes. 
+//is code derived from the go structs that the application exposes.
 func FileContent(projectName string, pf ProjectFinder, holder TypeHolder, restPrefix string) {
 	sourceDir := filepath.Join("web", "packages", projectName, "src")
 	p, err := pf.ProjectFind(sourceDir, projectName, DART_FLAVOR)
@@ -79,7 +79,7 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFind
 	if err != nil {
 		panic(fmt.Sprintf("unable to open file resources at %s\n\tderived from your GOPATH\n", truePath))
 	}
-		mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
+	mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(truePath))))
 }
 
 //Project is an amalgamation of differnt types that many applications can use
@@ -87,28 +87,28 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFind
 //does not understand how to have multiple named "apps" inside a single project
 //and all of its pieces can be created separately if desired.
 type Project struct {
-	Name string
+	Name           string
 	RESTMountPoint string
-	Hood *hood.Hood
+	q              *qbs.Qbs
 	*EnvironmentVars
 	*HerokuDeploy
 	*ServeMux
-	*BaseDispatcher	
+	*BaseDispatcher
 }
 
 //NewProject creates a new Project amalgamation with a large number of defaults
 //baked in.  Note that after this been created the serve mux and base dispatcher
 //are already configured so you must reset them if you want to change their config.
-func NewProject(name string) *Project{
+func NewProject(name string) *Project {
 	result := &Project{}
 	result.Name = name
 	result.RESTMountPoint = "/rest/"
-	result.EnvironmentVars= NewEnvironmentVars(name)
-	result.HerokuDeploy= &HerokuDeploy{name: name, env: result.EnvironmentVars}
-	
+	result.EnvironmentVars = NewEnvironmentVars(name)
+	result.HerokuDeploy = &HerokuDeploy{name: name, env: result.EnvironmentVars}
+
 	result.BaseDispatcher = NewBaseDispatcher(name, nil)
-	result.ServeMux = DefaultProjectBindings(name, self.EnvironmentVars, self.HerokuDeploy)
-  result.ServeMux.Dispatch(result.RESTMountPoint, bd)
+	result.ServeMux = DefaultProjectBindings(name, result.EnvironmentVars, result.HerokuDeploy)
+	result.ServeMux.Dispatch(result.RESTMountPoint, result.BaseDispatcher)
 
 	return result
 }
@@ -116,7 +116,5 @@ func NewProject(name string) *Project{
 //GenerateCode is a shorthand to tell the project to generate all the Dart code needed
 //for the set of resources currently configured into the base dispatcher.
 func (self *Project) GenerateCode() {
-	FileContent(self.Name, self.EnvironmentVars, self.BaseDisptacher, self.RESTMountPoint)
+	FileContent(self.Name, self.EnvironmentVars, self.BaseDispatcher, self.RESTMountPoint)
 }
-
-
