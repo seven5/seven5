@@ -6,27 +6,27 @@ import (
 
 //QbsRestIndex is the QBS version of RestIndex
 type QbsRestIndex interface {
-	Index(PBundle, *qbs.Qbs) (interface{}, error)
+	IndexQbs(PBundle, *qbs.Qbs) (interface{}, error)
 }
 
 //QbsRestFind is the QBS version of RestFind
 type QbsRestFind interface {
-	Find(Id, PBundle, *qbs.Qbs) (interface{}, error)
+	FindQbs(Id, PBundle, *qbs.Qbs) (interface{}, error)
 }
 
 //QbsRestDelete is the QBS version of RestDelete
 type QbsRestDelete interface {
-	Delete(Id, PBundle, *qbs.Qbs) (interface{}, error)
+	DeleteQbs(Id, PBundle, *qbs.Qbs) (interface{}, error)
 }
 
 //QbsRestPut is the QBS version RestPut
 type QbsRestPut interface {
-	Put(Id, interface{}, PBundle, *qbs.Qbs) (interface{}, error)
+	PutQbs(Id, interface{}, PBundle, *qbs.Qbs) (interface{}, error)
 }
 
 //QbsRestPost is the QBS version RestPost
 type QbsRestPost interface {
-	Post(interface{}, PBundle, *qbs.Qbs) (interface{}, error)
+	PostQbs(interface{}, PBundle, *qbs.Qbs) (interface{}, error)
 }
 
 //QbsRestAll is the same as RestAll but with the additional qbs.Qbs parameter
@@ -65,37 +65,36 @@ func (self *qbsWrapped) applyPolicy(pb PBundle, fn func(*qbs.Qbs) (interface{}, 
 //Index meets the interface RestIndex but calls the wrapped QBSRestIndex
 func (self *qbsWrapped) Index(pb PBundle) (interface{}, error) {
 	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
-		return self.index.Index(pb, tx)
+		return self.index.IndexQbs(pb, tx)
 	})
 }
 
 //Find meets the interface RestFind but calls the wrapped QBSRestFind
 func (self *qbsWrapped) Find(id Id, pb PBundle) (interface{}, error) {
 	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
-		return self.find.Find(id, pb, tx)
+		return self.find.FindQbs(id, pb, tx)
 	})
 }
 
 //Delete meets the interface RestDelete but calls the wrapped QBSRestDelete
 func (self *qbsWrapped) Delete(id Id, pb PBundle) (interface{}, error) {
 	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
-		return self.del.Delete(id, pb, tx)
+		return self.del.DeleteQbs(id, pb, tx)
 	})
 }
 
 //Put meets the interface RestPut but calls the wrapped QBSRestPut
 func (self *qbsWrapped) Put(id Id, value interface{}, pb PBundle) (interface{}, error) {
 	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
-		return self.put.Put(id, value, pb, tx)
+		return self.put.PutQbs(id, value, pb, tx)
 	})
 }
 
 //Post meets the interface RestPost but calls the wrapped QBSRestPost
 func (self *qbsWrapped) Post(value interface{}, pb PBundle) (interface{}, error) {
 	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
-		return self.post.Post(value, pb, tx)
+		return self.post.PostQbs(value, pb, tx)
 	})
-
 }
 
 //Given a QbsRestAll return a RestAl

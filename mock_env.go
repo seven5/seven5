@@ -4,8 +4,8 @@
 package seven5
 
 import (
-	gomock "code.google.com/p/gomock/gomock"
 	http "net/http"
+	gomock "code.google.com/p/gomock/gomock"
 )
 
 // Mock of DeploymentEnvironment interface
@@ -27,6 +27,16 @@ func NewMockDeploymentEnvironment(ctrl *gomock.Controller) *MockDeploymentEnviro
 
 func (_m *MockDeploymentEnvironment) EXPECT() *_MockDeploymentEnvironmentRecorder {
 	return _m.recorder
+}
+
+func (_m *MockDeploymentEnvironment) GetQbsStore() *QbsStore {
+	ret := _m.ctrl.Call(_m, "GetQbsStore")
+	ret0, _ := ret[0].(*QbsStore)
+	return ret0
+}
+
+func (_mr *_MockDeploymentEnvironmentRecorder) GetQbsStore() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQbsStore")
 }
 
 func (_m *MockDeploymentEnvironment) IsTest() bool {
@@ -57,6 +67,46 @@ func (_m *MockDeploymentEnvironment) RedirectHost(_param0 string) string {
 
 func (_mr *_MockDeploymentEnvironmentRecorder) RedirectHost(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RedirectHost", arg0)
+}
+
+func (_m *MockDeploymentEnvironment) GetAppValue(_param0 string) string {
+	ret := _m.ctrl.Call(_m, "GetAppValue", _param0)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockDeploymentEnvironmentRecorder) GetAppValue(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAppValue", arg0)
+}
+
+func (_m *MockDeploymentEnvironment) ClientId(_param0 string) string {
+	ret := _m.ctrl.Call(_m, "ClientId", _param0)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockDeploymentEnvironmentRecorder) ClientId(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ClientId", arg0)
+}
+
+func (_m *MockDeploymentEnvironment) MustAppValue(_param0 string) string {
+	ret := _m.ctrl.Call(_m, "MustAppValue", _param0)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockDeploymentEnvironmentRecorder) MustAppValue(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MustAppValue", arg0)
+}
+
+func (_m *MockDeploymentEnvironment) GetValueOrPanic(n string) string {
+	ret := _m.ctrl.Call(_m, "GetValueOrPanic", n)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockDeploymentEnvironmentRecorder) GetValueOrPanic(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetValueOrPanic", arg0)
 }
 
 // Mock of PublicSettings interface

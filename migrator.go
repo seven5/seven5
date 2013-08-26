@@ -166,7 +166,9 @@ func (self *QbsMigrator) DetermineCurrentMigrationNumber() (int, error) {
 	qbs.OrderByDesc("created")
 	if err := qbs.Find(&r); err != nil {
 		if err == sql.ErrNoRows {
-			fmt.Printf("No previous migration records found.\n")
+			if self.Verbose {
+				fmt.Printf("No previous migration records found.\n")
+			}
 			return 0, nil
 		}
 		return -881, err
@@ -283,8 +285,8 @@ func (self *QbsMigrator) DropTableIfExists(struct_ptr interface{}) error {
 }
 
 //NewQbsMigrator returns a new migrator implementation based on Qbs for the ORM.
-func NewQbsMigrator(env *EnvironmentVars, verbose bool, log bool) *QbsMigrator {
-	result := &QbsMigrator{BaseMigrator: &BaseMigrator{}, Store: NewQbsStore(env)}
+func NewQbsMigrator(s *QbsStore, verbose bool, log bool) *QbsMigrator {
+	result := &QbsMigrator{BaseMigrator: &BaseMigrator{}, Store: s}
 	result.Store.Q.Log = log
 	result.Verbose = verbose
 	return result

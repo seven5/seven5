@@ -2,7 +2,6 @@ package seven5
 
 import (
 	"fmt"
-	"github.com/iansmith/qbs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +10,11 @@ import (
 const (
 	WAITING_ON_NON_WS = iota
 	WAITING_ON_EOL
+
+	GO_SOURCE_FLAVOR = iota
+	DART_FLAVOR
+	ASSET_FLAVOR
+	TOP_LEVEL_FLAVOR
 )
 
 //generateStringPrinter creates a function suitable for use with a ServeMux's handle func.
@@ -89,9 +93,7 @@ func WebContent(mux *ServeMux, projectName string, prefix string, pf ProjectFind
 type Project struct {
 	Name           string
 	RESTMountPoint string
-	q              *qbs.Qbs
-	*EnvironmentVars
-	*HerokuDeploy
+	*LocalhostEnvironment
 	*ServeMux
 	*BaseDispatcher
 }
@@ -103,11 +105,9 @@ func NewProject(name string) *Project {
 	result := &Project{}
 	result.Name = name
 	result.RESTMountPoint = "/rest/"
-	result.EnvironmentVars = NewEnvironmentVars(name)
-	result.HerokuDeploy = &HerokuDeploy{name: name, env: result.EnvironmentVars}
-
+	result.LocalhostEnvironment = NewLocalhostEnvironment(name, false /*not test*/)
 	result.BaseDispatcher = NewBaseDispatcher(name, nil)
-	result.ServeMux = DefaultProjectBindings(name, result.EnvironmentVars, result.HerokuDeploy)
+	result.ServeMux = DefaultProjectBindings(name, result.LocalhostEnvironment, result.LocalhostEnvironment)
 	result.ServeMux.Dispatch(result.RESTMountPoint, result.BaseDispatcher)
 
 	return result
@@ -116,5 +116,5 @@ func NewProject(name string) *Project {
 //GenerateCode is a shorthand to tell the project to generate all the Dart code needed
 //for the set of resources currently configured into the base dispatcher.
 func (self *Project) GenerateCode() {
-	FileContent(self.Name, self.EnvironmentVars, self.BaseDispatcher, self.RESTMountPoint)
+	FileContent(self.Name, self.LocalhostEnvironment, self.BaseDispatcher, self.RESTMountPoint)
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -13,21 +14,21 @@ import (
 //not change your code.
 type FileFlavor int
 
-const (
-	GO_SOURCE_FLAVOR = iota
-	DART_FLAVOR
-	ASSET_FLAVOR
-	TOP_LEVEL_FLAVOR
-)
-
 //DeploymentEnvironment encodes information that cannot be obtained from the source code but can only
 //be determined from "outside" the application.
 type DeploymentEnvironment interface {
+	//GetQbsStore returns the correct flavor of QbsStore for the deployment
+	//environment, taking into account possible test settings.
+	GetQbsStore() *QbsStore
 	IsTest() bool
 	Port() int
 	//RedirectHost is needed in cases where you are using oauth because this must sent to the
 	//"other side" of the handshake without any extra knowlege.
 	RedirectHost(string) string
+	GetAppValue(string) string
+	ClientId(string) string
+	MustAppValue(string) string
+	GetValueOrPanic(n string) string
 }
 
 //PublicSettings is an interface representing information that you want the client to have
@@ -84,7 +85,7 @@ func (self *EnvironmentVars) MustAppValue(key string) string {
 }
 
 //ClientId returns the value of the client id that
-//has been given out the by the service associated with service.  The environment variable
+//has been given out the by the service associated with name.  The environment variable
 //is APPNAME_SERVICENAME_CLIENT_ID and is read only once.
 func (self *EnvironmentVars) ClientId(name string) string {
 	return self.GetValueOrPanic(fmt.Sprintf("%s_%s_CLIENT_ID", self.name, strings.ToUpper(name)))
@@ -130,4 +131,39 @@ func (self *EnvironmentVars) GetValueOrPanic(n string) string {
 		panic(fmt.Sprintf("expected to find environment variable %s but did not!", n))
 	}
 	return value
+}
+
+type LocalhostEnvironment struct {
+	*EnvironmentVars
+	test bool
+}
+
+func NewLocalhostEnvironment(appname string, test bool) *LocalhostEnvironment {
+
+	result := &LocalhostEnvironment{EnvironmentVars: NewEnvironmentVars(appname), test: test}
+	return result
+}
+
+func (self *LocalhostEnvironment) GetQbsStore() *QbsStore {
+	if self.IsTest() {
+		return NewQbsStore("test"+self.MustAppValue("dbname"), self.GetAppValue("testdriver"), self)
+	}
+	return NewQbsStore(self.MustAppValue("dbname"), self.GetAppValue("driver"), self)
+}
+
+func (self *LocalhostEnvironment) IsTest() bool {
+	return self.test
+}
+
+func (self *LocalhostEnvironment) Port() int {
+	portString := self.GetValueOrPanic("PORT")
+	i, err := strconv.ParseInt(portString, 10, 64)
+	if err != nil {
+		panic(fmt.Sprintf("PORT environment variable is not parseable: %s", err))
+	}
+	return int(i)
+}
+
+func (self *LocalhostEnvironment) RedirectHost(string) string {
+	return fmt.Sprintf(REDIRECT_HOST_TEST, self.Port())
 }

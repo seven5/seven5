@@ -17,9 +17,9 @@ type QbsStore struct {
 //connection to the database via the Qbs ORM.  This function will panic if
 //the database cannot be correctly connected; this is usually what you want
 //because you can't do much if you can't get to the database.
-func NewQbsStore(env *EnvironmentVars) *QbsStore {
+func NewQbsStore(dbname string, driver string, env DeploymentEnvironment) *QbsStore {
 	result := &QbsStore{}
-	result.Dsn = result.DataSourceFromEnvironment(env)
+	result.Dsn = result.DataSourceFromEnvironment(dbname, driver, env)
 	result.Policy = NewQbsDefaultOrmTransactionPolicy()
 	qbs.RegisterWithDataSourceName(result.Dsn)
 	q, err := qbs.GetQbs()
@@ -33,15 +33,16 @@ func NewQbsStore(env *EnvironmentVars) *QbsStore {
 //DataSourceFromEnvironment creates a correctly formed DataSourceName for use by
 //Qbs from the EnvironmentVars supplied.  This function will panic if there is
 //no way to retreive the dbname to connect to.
-func (self *QbsStore) DataSourceFromEnvironment(env *EnvironmentVars) *qbs.DataSourceName {
+func (self *QbsStore) DataSourceFromEnvironment(dbname string, driver string, env DeploymentEnvironment) *qbs.DataSourceName {
 	var dsn *qbs.DataSourceName
+	var dbuser, dbpass, dbhost, dbport string
 
-	driver := env.GetAppValue("driver")
-	dbname := env.MustAppValue("dbname")
-	dbuser := env.GetAppValue("dbuser")
-	dbpass := env.GetAppValue("dbpass")
-	dbhost := env.GetAppValue("dbhost")
-	dbport := env.GetAppValue("dbport")
+	if env != nil {
+		dbuser = env.GetAppValue("dbuser")
+		dbpass = env.GetAppValue("dbpass")
+		dbhost = env.GetAppValue("dbhost")
+		dbport = env.GetAppValue("dbport")
+	}
 
 	if driver == "postgres" || driver == "" {
 		dsn = qbs.DefaultPostgresDataSourceName(dbname)
@@ -132,7 +133,7 @@ type QbsDefaultOrmTransactionPolicy struct {
 }
 
 func WithEmptyQbsStore(store *QbsStore, migrations interface{}, fn func()) {
-	migrator := NewQbsMigrator(NewEnvironmentVars(APP_NAME), false, false)
+	migrator := NewQbsMigrator(store, false, false)
 	defer func() {
 		migrator.Store.Q.Close()
 	}()

@@ -6,8 +6,6 @@ import (
 	"github.com/iansmith/qbs"
 	_ "github.com/lib/pq"
 	"net/http"
-	"os"
-	"strings"
 	"testing"
 )
 
@@ -27,8 +25,8 @@ type House struct {
 /*---- wire type for the tests ----*/
 type HouseWire struct {
 	Id      Id
-	Addr    string
-	ZipCode int
+	Addr    String255
+	ZipCode Integer
 }
 
 type testObj struct {
@@ -38,26 +36,26 @@ type testObj struct {
 
 /*these funcs are use to test that if you meet the QBSRest interfaces you
 can be wrapped by the qbs code in Seven5 */
-func (self *testObj) Index(pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) IndexQbs(pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
-func (self *testObj) Find(id Id, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) FindQbs(id Id, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
-func (self *testObj) Delete(id Id, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) DeleteQbs(id Id, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
-func (self *testObj) Put(id Id, value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) PutQbs(id Id, value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
-func (self *testObj) Post(value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	in := value.(*HouseWire)
-	house := &House{Address: in.Addr, Zip: in.ZipCode}
+	house := &House{Address: string(in.Addr), Zip: int(in.ZipCode)}
 	if _, err := q.Save(house); err != nil {
 		return nil, err
 	}
@@ -70,7 +68,7 @@ func (self *testObj) Post(value interface{}, pb PBundle, q *qbs.Qbs) (interface{
 		return nil, errors.New("testing error handling")
 	}
 
-	return &HouseWire{Id: Id(house.Id), Addr: house.Address, ZipCode: house.Zip}, nil
+	return &HouseWire{Id: Id(house.Id), Addr: String255(house.Address), ZipCode: Integer(house.Zip)}, nil
 }
 
 type someMigrations struct {
@@ -105,7 +103,7 @@ func checkNumberHouses(T *testing.T, store *QbsStore, expected int) {
 func TestTxn(T *testing.T) {
 
 	obj := &testObj{}
-	store := setupTestStore(APP_NAME)
+	store := setupTestStore()
 	wrapped := QbsWrapAll(obj, store)
 
 	WithEmptyQbsStore(store, &someMigrations{}, func() {
@@ -149,10 +147,8 @@ func setupDispatcher() (*RawDispatcher, *ServeMux) {
 	return raw, serveMux
 }
 
-func setupTestStore(name string) *QbsStore {
-	os.Setenv(strings.ToUpper(name)+"_DBNAME", "seven5test") //so you don't need it to run tests
-	env := NewEnvironmentVars(name)
-	return NewQbsStore(env)
+func setupTestStore() *QbsStore {
+	return NewQbsStore("seven5test", "", nil)
 }
 
 func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *testObj) {
@@ -186,7 +182,7 @@ func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *t
 
 func TestWrappingAll(T *testing.T) {
 	raw, mux := setupDispatcher()
-	store := setupTestStore(APP_NAME)
+	store := setupTestStore()
 
 	obj := &testObj{}
 	raw.Resource("house", &HouseWire{}, QbsWrapAll(obj, store))
@@ -196,7 +192,7 @@ func TestWrappingAll(T *testing.T) {
 
 func TestWrappingSeparate(T *testing.T) {
 	raw, mux := setupDispatcher()
-	store := setupTestStore(APP_NAME)
+	store := setupTestStore()
 
 	obj := &testObj{}
 
