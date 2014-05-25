@@ -5,7 +5,7 @@ import (
 	// Uses of jquery are marked in the code as they are suspect.
 	"github.com/gopherjs/jquery"
 	//"honnef.co/go/js/console"
-	c "github.com/seven5/seven5/concorde"
+	s5 "github.com/seven5/seven5/client"
 	"strings"
 )
 
@@ -14,27 +14,27 @@ var (
 	//single element. Maybe should be all upper case?  Note that
 	//it is preferred to access constrainable parts of the dom
 	//that is fixed (in the page) through these objects.
-	sectionMain    = c.NewHtmlId("section", "main")
-	footer         = c.NewHtmlId("footer", "footer")
-	primaryInput   = c.NewHtmlId("input", "new-todo")
-	listContainer  = c.NewHtmlId("ul", "todo-list")
-	pluralSpan     = c.NewHtmlId("span", "plural")
-	todoCount      = c.NewHtmlId("span", "todo-count")
-	clearCompleted = c.NewHtmlId("button", "clear-completed")
-	numCompleted   = c.NewHtmlId("span", "num-completed")
-	toggleAll      = c.NewHtmlId("input", "toggle-all")
+	sectionMain    = s5.NewHtmlId("section", "main")
+	footer         = s5.NewHtmlId("footer", "footer")
+	primaryInput   = s5.NewHtmlId("input", "new-todo")
+	listContainer  = s5.NewHtmlId("ul", "todo-list")
+	pluralSpan     = s5.NewHtmlId("span", "plural")
+	todoCount      = s5.NewHtmlId("span", "todo-count")
+	clearCompleted = s5.NewHtmlId("button", "clear-completed")
+	numCompleted   = s5.NewHtmlId("span", "num-completed")
+	toggleAll      = s5.NewHtmlId("input", "toggle-all")
 
 	//css classes used in the view
-	view      = c.NewCssClass("view")
-	toggle    = c.NewCssClass("toggle")
-	destroy   = c.NewCssClass("destroy")
-	edit      = c.NewCssClass("edit")
-	completed = c.NewCssClass("completed")
+	view      = s5.NewCssClass("view")
+	toggle    = s5.NewCssClass("toggle")
+	destroy   = s5.NewCssClass("destroy")
+	edit      = s5.NewCssClass("edit")
+	completed = s5.NewCssClass("completed")
 
 	//note: this is the same "name" as the field in the todo model but because
 	//note: of types you can't bodge it up.  Having the same "name" with
 	//note: different, but coordinated, types FTW!
-	editing = c.NewCssClass("editing")
+	editing = s5.NewCssClass("editing")
 )
 
 const (
@@ -46,10 +46,10 @@ const (
 ////////////////////////////////////////////////////////////////////////
 
 type todo struct {
-	modName c.ModelName
-	name    c.StringAttribute
-	done    c.BooleanAttribute
-	editing c.BooleanAttribute
+	modName s5.ModelName
+	name    s5.StringAttribute
+	done    s5.BooleanAttribute
+	editing s5.BooleanAttribute
 }
 
 //Id is used to decide which todo item is which.
@@ -59,7 +59,7 @@ func (self *todo) Id() string {
 
 //Equal is used to compare two todo items.  They are the same if they
 //have the same Id.
-func (self *todo) Equal(e c.Equaler) bool {
+func (self *todo) Equal(e s5.Equaler) bool {
 	if e == nil {
 		return false
 	}
@@ -72,11 +72,11 @@ func (self *todo) Equal(e c.Equaler) bool {
 //on them.  The value provided is used to initialize the displayed text.
 func newTodo(raw string) *todo {
 	result := &todo{
-		name:    c.NewStringSimple(raw),
-		done:    c.NewBooleanSimple(false),
-		editing: c.NewBooleanSimple(false),
+		name:    s5.NewStringSimple(raw),
+		done:    s5.NewBooleanSimple(false),
+		editing: s5.NewBooleanSimple(false),
 	}
-	result.modName = c.NewModelName(result)
+	result.modName = s5.NewModelName(result)
 	return result
 }
 
@@ -90,21 +90,21 @@ func newTodo(raw string) *todo {
 //note: things that are state "above the level" of a single todo item.
 type todoApp struct {
 	//list of the todo elements, initially empty
-	todos *c.Collection
+	todos *s5.Collection
 
 	//number of items in the list that are not currently done.
-	numNotDone c.IntegerAttribute
+	numNotDone s5.IntegerAttribute
 	//string that is either "" or "s" to make the plural of the number
 	//of items on the display work out right.
-	plural c.StringAttribute
+	plural s5.StringAttribute
 	//boolean that is true if there are some items in the list that
 	//are done
-	someDone c.BooleanAttribute
+	someDone s5.BooleanAttribute
 	//number of elements that are done
-	numDone c.IntegerAttribute
+	numDone s5.IntegerAttribute
 
 	//true if this object is currently being edited
-	editing c.BooleanAttribute
+	editing s5.BooleanAttribute
 }
 
 //Start is called by concorde once the DOM is fully loaded.  Most of the
@@ -114,7 +114,7 @@ func (self *todoApp) Start() {
 	//Setup an event handler for the primary input field. The called func
 	//creates model instance and puts in the list of todos.
 	// JQUERY: Any use of jquery is suspect as it allows many non type-safe operations.
-	primaryInput.Event(c.CHANGE, func(j jquery.JQuery, event jquery.Event) {
+	primaryInput.Event(s5.CHANGE, func(j jquery.JQuery, event jquery.Event) {
 		if !self.createTodo(j.Val()) {
 			event.PreventDefault()
 		}
@@ -127,11 +127,11 @@ func (self *todoApp) Start() {
 	//that object is directly in the HTML file.
 	// JQUERY: Any use of jquery is suspect as it allows many non type-safe operations.
 	todoCountSelect := todoCount.Select().Children("strong")
-	c.Equality(c.NewTextAttr(todoCountSelect), self.numNotDone)
+	s5.Equality(c.NewTextAttr(todoCountSelect), self.numNotDone)
 
 	//We need to attach the self.plural string to the proper place
 	//in the dom.
-	c.Equality(pluralSpan.TextAttribute(), self.plural)
+	s5.Equality(pluralSpan.TextAttribute(), self.plural)
 
 	//These two calls attach the inverse of the empty attribute derived
 	//from the model collection the display property (turning them on
@@ -139,20 +139,20 @@ func (self *todoApp) Start() {
 	//"Equality()" because we want to invert the value. The BooleanInverter
 	//is a built in constraint function.
 	sectionMain.DisplayAttribute().Attach(
-		c.NewBooleanInverter(self.todos.EmptyAttribute()))
+		s5.NewBooleanInverter(self.todos.EmptyAttribute()))
 	footer.DisplayAttribute().Attach(
-		c.NewBooleanInverter(self.todos.EmptyAttribute()))
+		s5.NewBooleanInverter(self.todos.EmptyAttribute()))
 
 	//This connects the display property of the clearCompleted to the boolean
 	//that is true if some of the elements are done.  This effectively
 	//turns on the button when there are some elements in the list and
 	//some of those elements are done.
-	c.Equality(clearCompleted.DisplayAttribute(), self.someDone)
+	s5.Equality(clearCompleted.DisplayAttribute(), self.someDone)
 
 	//This connects the display in the button to the number of done
 	//elements.  Note that this wont be visible if there are no
 	//done elements.
-	c.Equality(numCompleted.TextAttribute(), self.numDone)
+	s5.Equality(numCompleted.TextAttribute(), self.numDone)
 
 	//This is the event handler for click on the clearCompleted
 	//dom element. We just walk the list of objects building a kill list,
@@ -163,7 +163,7 @@ func (self *todoApp) Start() {
 		if len(all) == 0 {
 			return
 		}
-		dead := make([]c.Model, len(all))
+		dead := make([]s5.Model, len(all))
 		ct := 0
 		for _, model := range all {
 			if model.(*todo).done.Value() {
@@ -180,7 +180,7 @@ func (self *todoApp) Start() {
 	//marked done, unless they are all marked done in which they should all
 	//be umarked
 	//JQUERY: Neither of the jquery params are used.
-	toggleAll.Event(c.CLICK, func(jquery.JQuery, jquery.Event) {
+	toggleAll.Event(s5.CLICK, func(jquery.JQuery, jquery.Event) {
 		desired := true
 		//Compare the output of the constraints to see if all are done
 		if self.todos.LengthAttribute().Value() == self.numDone.Value() {
@@ -217,20 +217,20 @@ func newApp() *todoApp {
 	result := &todoApp{}
 	//init the list, setting our own object as the joiner (we meet
 	//the interface Joiner)
-	result.todos = c.NewList(result)
+	result.todos = s5.NewList(result)
 
 	//create initial values of attributes
-	result.numNotDone = c.NewIntegerSimple(0)
-	result.plural = c.NewStringSimple("")
-	result.someDone = c.NewBooleanSimple(false)
-	result.numDone = c.NewIntegerSimple(0)
+	result.numNotDone = s5.NewIntegerSimple(0)
+	result.plural = s5.NewStringSimple("")
+	result.someDone = s5.NewBooleanSimple(false)
+	result.numDone = s5.NewIntegerSimple(0)
 
 	//done create app object
 	return result
 }
 
 //helper function for getting the done attribute out of our model
-func (self *todoApp) pullDone(m c.Model) c.Attribute {
+func (self *todoApp) pullDone(m c.Model) s5.Attribute {
 	return m.(*todo).done
 }
 
@@ -252,12 +252,12 @@ func (self *todoApp) dependsOnAll() {
 		//from the done attributes in our list. It sums the number of
 		//elements that are not done. It holds state in the first return
 		//param, the second is the final result on the last iter.
-		func(prev interface{}, curr c.Equaler) (interface{}, c.Equaler) {
+		func(prev interface{}, curr s5.Equaler) (interface{}, s5.Equaler) {
 			p := prev.(int)
-			if !curr.(c.BoolEqualer).B {
+			if !curr.(s5.BoolEqualer).B {
 				p++
 			}
-			return p, c.IntEqualer{p}
+			return p, s5.IntEqualer{p}
 		},
 		c.IntEqualer{0}, //if we transition to an empty list, what result do we want?
 	)
@@ -271,18 +271,18 @@ func (self *todoApp) dependsOnAll() {
 		self.pullDone, //operating on the done attribute in the model
 
 		//"s" if there is exactly one element not done, otherwise ""
-		func(prev interface{}, curr c.Equaler) (interface{}, c.Equaler) {
+		func(prev interface{}, curr s5.Equaler) (interface{}, s5.Equaler) {
 			p := prev.(int)
-			if !curr.(c.BoolEqualer).B {
+			if !curr.(s5.BoolEqualer).B {
 				p++
 			}
 			s := "s"
 			if p == 1 {
 				s = ""
 			}
-			return p, c.StringEqualer{s}
+			return p, s5.StringEqualer{s}
 		},
-		c.StringEqualer{"s"}, // what to show if we transititon to empty list
+		s5.StringEqualer{"s"}, // what to show if we transititon to empty list
 	)
 
 	//
@@ -294,14 +294,14 @@ func (self *todoApp) dependsOnAll() {
 		self.pullDone, //done attribute in the model
 
 		//return true if there is at least one done item
-		func(prev interface{}, curr c.Equaler) (interface{}, c.Equaler) {
+		func(prev interface{}, curr s5.Equaler) (interface{}, s5.Equaler) {
 			p := prev.(int)
-			if curr.(c.BoolEqualer).B {
+			if curr.(s5.BoolEqualer).B {
 				p++
 			}
-			return p, c.BoolEqualer{p > 0}
+			return p, s5.BoolEqualer{p > 0}
 		},
-		c.BoolEqualer{false}, //what to do if we transition to empty list
+		s5.BoolEqualer{false}, //what to do if we transition to empty list
 	)
 
 	//
@@ -313,14 +313,14 @@ func (self *todoApp) dependsOnAll() {
 		self.pullDone, //we operate on the done field
 
 		//total up the number of items that are marked as done
-		func(prev interface{}, curr c.Equaler) (interface{}, c.Equaler) {
+		func(prev interface{}, curr s5.Equaler) (interface{}, s5.Equaler) {
 			p := prev.(int)
-			if curr.(c.BoolEqualer).B {
+			if curr.(s5.BoolEqualer).B {
 				p++
 			}
-			return p, c.IntEqualer{p}
+			return p, s5.IntEqualer{p}
 		},
-		c.IntEqualer{0}, //result if we transition to an empty list of todos
+		s5.IntEqualer{0}, //result if we transition to an empty list of todos
 	)
 }
 
@@ -344,50 +344,50 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 	//note: as a child of the one it is neted in.   This lack of type
 	//note: safety has been chosen for convenience of notation.
 	tree :=
-		c.LI(
+		s5.LI(
 			//LI: Pass in a model ID to generate unique id for this tag,
 			//LI: and make easy to remove the whole subtree by id.
-			c.ModelId(model),
+			s5.ModelId(model),
 			//LI: constraint that toggles the completed property
-			c.CssExistence(completed, model.done),
+			s5.CssExistence(completed, model.done),
 			//LI: constraint that toggles the editing property
-			c.CssExistence(editing, model.editing),
-			c.DIV(
+			s5.CssExistence(editing, model.editing),
+			s5.DIV(
 				//DIV: just one CSS class to make it look nice
-				c.Class(view),
-				c.INPUT(
+				s5.Class(view),
+				s5.INPUT(
 					//INPUT: has a CSS class "toggle" to make it look nice
-					c.Class(toggle),
+					s5.Class(toggle),
 					//INPUT: we force the "type" of this to be the constant "checkbox" (possibly overkill)
-					c.HtmlAttrEqual(c.TYPE, c.NewStringSimple("checkbox")),
+					s5.HtmlAttrEqual(s5.TYPE, c.NewStringSimple("checkbox")),
 					//INPUT: make the checked attr be equal to the model's done
-					c.PropEqual(c.CHECKED, model.done),
+					s5.PropEqual(s5.CHECKED, model.done),
 					//INPUT: when clicked, it toggles the value on the model
-					c.Event(c.CHANGE, func(ignored jquery.JQuery, e jquery.Event) {
+					s5.Event(s5.CHANGE, func(ignored jquery.JQuery, e jquery.Event) {
 						model.done.Set(!model.done.Value())
 					}),
 				),
-				c.LABEL(
+				s5.LABEL(
 					//LABEL: We use a constraint to bind the name attribute of the
 					//LABEL: model to the label's displayed text.
-					c.TextEqual(model.name),
+					s5.TextEqual(model.name),
 					//LABEL: Double clicking on the label causes edit mode
-					c.Event(c.DBLCLICK, func(ignored jquery.JQuery, ignored2 jquery.Event) {
+					s5.Event(s5.DBLCLICK, func(ignored jquery.JQuery, ignored2 jquery.Event) {
 						model.editing.Set(true)
 						//XXX UGH, don't have a handle to the input object
-						in := c.HtmlIdFromModel("INPUT", model).Select()
+						in := s5.HtmlIdFromModel("INPUT", model).Select()
 						in.SetVal(model.name.Value())
 						in.Focus()
 						in.Select()
 					}),
 				),
-				c.BUTTON(
+				s5.BUTTON(
 					//BUTTON: destroy class makes it look nice
-					c.Class(destroy),
+					s5.Class(destroy),
 					//BUTTON: click function that calls remove on the list
 					//BUTTON: element that was used to create this whole structure
 					//JQUERY: Neither of the jquery params are used.
-					c.Event(c.CLICK, func(jquery.JQuery, jquery.Event) {
+					s5.Event(s5.CLICK, func(jquery.JQuery, jquery.Event) {
 						//note: we are calling remove on the *collection* which
 						//note: will end up calling the Remove() method of our
 						//note: joiner.  If we don't tell the collection that the
@@ -399,20 +399,20 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 					}),
 				), //BUTTON
 			), //DIV
-			c.INPUT(
+			s5.INPUT(
 				//INPUT: Use a model to make this input easy to find
-				c.ModelId(model),
+				s5.ModelId(model),
 				//INPUT: edit CSS class to make it look nice
-				c.Class(edit),
+				s5.Class(edit),
 				//INPUT: wire the placeholder to be name of the model... (overkill?)
-				c.HtmlAttrEqual(c.PLACEHOLDER, model.name),
+				s5.HtmlAttrEqual(s5.PLACEHOLDER, model.name),
 				//INPUT:the spec calls for escape to cancel editing with no change
 				//INPUT:and for return to commit the changes EXCEPT if the
 				//INPUT:user edited out all the text, then we should delete the
 				//INPUT:whole thing
 				//JQUERY: This uses the jquery selector to get the value of the input.
 				//JQUERY: This uses the event object to get the keyboard code.
-				c.Event(c.KEYDOWN, func(j jquery.JQuery, e jquery.Event) {
+				s5.Event(c.KEYDOWN, func(j jquery.JQuery, e jquery.Event) {
 					//note: This type of "event handler" is the glue that
 					//note: connects a user action to something that manipulates
 					//note: the model.  Most event handlers do not need to
@@ -448,9 +448,9 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 //Remove is called when the oldObj is removed from the collection. It
 //just looks up the view (via the id of the model) and then removes it
 //from the display.
-func (self *todoApp) Remove(IGNORED int, oldObj c.Model) {
+func (self *todoApp) Remove(IGNORED int, oldObj s5.Model) {
 	model := oldObj.(*todo)
-	finder := c.HtmlIdFromModel("li", model)
+	finder := s5.HtmlIdFromModel("li", model)
 	finder.Select().Remove()
 }
 
@@ -458,5 +458,5 @@ func (self *todoApp) Remove(IGNORED int, oldObj c.Model) {
 //needs to manipulate the UI.  This is called _before_ the DOM is fully
 //loaded.
 func main() {
-	c.Main(newApp())
+	s5.Main(newApp())
 }

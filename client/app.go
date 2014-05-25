@@ -1,4 +1,4 @@
-package concorde
+package client
 
 import (
 	"github.com/gopherjs/gopherjs/js"

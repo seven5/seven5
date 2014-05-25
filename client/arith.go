@@ -1,4 +1,4 @@
-package concorde
+package client
 
 //ArithmeticConstraint allows simple arithmetic operations on integers.
 type ArithmeticConstraint interface {
