@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/iansmith/qbs"
+	"github.com/coocood/qbs"
 	"os"
 	"reflect"
 	"time"
@@ -280,7 +280,7 @@ func (self *QbsMigrator) DropTableIfExists(struct_ptr interface{}) error {
 		return err
 	}
 	defer m.Close()
-	m.DropTableIfExists(struct_ptr)
+	m.DropTable(struct_ptr)
 	return nil
 }
 
@@ -289,5 +289,8 @@ func NewQbsMigrator(s *QbsStore, verbose bool, log bool) *QbsMigrator {
 	result := &QbsMigrator{BaseMigrator: &BaseMigrator{}, Store: s}
 	result.Store.Q.Log = log
 	result.Verbose = verbose
+	//XXX Why do we have to do this?
+	//driverName, driverSourceName, databaseName string, dialect Dialec
+	qbs.Register("postgres", s.Dsn.String(), s.Dsn.DbName, s.Dsn.Dialect)
 	return result
 }

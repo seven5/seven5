@@ -2,7 +2,7 @@ package seven5
 
 import (
 	"fmt"
-	"github.com/iansmith/qbs"
+	"github.com/coocood/qbs"
 	"net/http"
 	"os"
 )
@@ -46,7 +46,6 @@ func (self *QbsStore) DataSourceFromEnvironment(dbname string, driver string, en
 
 	if driver == "postgres" || driver == "" {
 		dsn = qbs.DefaultPostgresDataSourceName(dbname)
-
 		//apply the db variables they have set
 		if dbuser != "" {
 			dsn.Username = dbuser

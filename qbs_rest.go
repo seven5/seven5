@@ -1,7 +1,7 @@
 package seven5
 
 import (
-	"github.com/iansmith/qbs"
+	"github.com/coocood/qbs"
 )
 
 //QbsRestIndex is the QBS version of RestIndex

@@ -52,7 +52,11 @@ func TestGoogleLogin(t *testing.T) {
 	loginurl := "/fart/google/login"
 	code := "barfly"
 	one := "/1.html"
-	sid := "id of session, sid vicious?"
+	//there is a lot of arguing about spaces in cookies so for this
+	//test I just removed the spaces so we dont create a dependency
+	//on semi-bogus behavior.
+	//https://code.google.com/p/go/issues/detail?id=7243
+	sid := "idofsessionissidvicious?"
 
 	//authconn is a wrapper around the google auth connector with all mock methods, except AuthURL
 	//pm is a mock for testing that we get a call to LoginLandingPage
@@ -385,7 +389,7 @@ func TestLoginArgs(t *testing.T) {
 		"state": []string{st},
 	}
 	loginURL, err := url.Parse(fmt.Sprintf("http://localhost:%d%s?%s", port, "/auth/google/login", v.Encode()))
-	if err!=nil {
+	if err != nil {
 		t.Fatalf("badly formed URL in TestLoginArgs")
 	}
 	//create real serve mux
@@ -395,7 +399,6 @@ func TestLoginArgs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	
 	//mock out the google cruft
 	authconn := NewMockOauthConnector(ctrl)
 	authconn.EXPECT().Name().Return("google").AnyTimes()
@@ -403,23 +406,23 @@ func TestLoginArgs(t *testing.T) {
 	//the **st** below is the entire purpose of this test
 	authconn.EXPECT().Phase1(st, gomock.Any()).Return(nil, nil).AnyTimes()
 	authconn.EXPECT().UserInteractionURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("https://accounts.google.com/o/oauth2/auth").AnyTimes()
-	
+
 	//add dispatcher to serve mux at /auth, the other values are ignored
-	disp := NewAuthDispatcherRaw("/auth", NewSimplePageMapper("notused","notused2","notused3"), 
+	disp := NewAuthDispatcherRaw("/auth", NewSimplePageMapper("notused", "notused2", "notused3"),
 		NewSimpleCookieMapper("myapp"), NewSimpleSessionManager())
 	disp.AddConnector(authconn, serveMux)
 
-  go func() {
+	go func() {
 		http.ListenAndServe(fmt.Sprintf(":%d", port), serveMux)
 	}()
 
 	client := new(http.Client)
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		checkRedirValues(t, "error from goog", via, map[string][]string{
-			"path":       []string{req.URL.Path, GOOGLE_AUTH_URL_PATH},
-			"host":       []string{req.URL.Host, GOOGLE_AUTH_URL_HOST[len("https://"):]},
-			"scheme":     []string{req.URL.Scheme, "https"},
-			"state":      []string{req.URL.Query().Get("state"), ""},
+			"path":   []string{req.URL.Path, GOOGLE_AUTH_URL_PATH},
+			"host":   []string{req.URL.Host, GOOGLE_AUTH_URL_HOST[len("https://"):]},
+			"scheme": []string{req.URL.Scheme, "https"},
+			"state":  []string{req.URL.Query().Get("state"), ""},
 		})
 		return stopProcessing
 	}

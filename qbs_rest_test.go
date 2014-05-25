@@ -3,7 +3,7 @@ package seven5
 import (
 	"errors"
 	"fmt"
-	"github.com/iansmith/qbs"
+	"github.com/coocood/qbs"
 	_ "github.com/lib/pq"
 	"net/http"
 	"testing"
@@ -104,6 +104,7 @@ func TestTxn(T *testing.T) {
 
 	obj := &testObj{}
 	store := setupTestStore()
+	T.Logf("XXXX %+v", store)
 	wrapped := QbsWrapAll(obj, store)
 
 	WithEmptyQbsStore(store, &someMigrations{}, func() {
