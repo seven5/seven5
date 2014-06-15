@@ -146,7 +146,7 @@ func NewLocalhostEnvironment(appname string, test bool) *LocalhostEnvironment {
 
 func (self *LocalhostEnvironment) GetQbsStore() *QbsStore {
 	if self.IsTest() {
-		return NewQbsStore("test"+self.MustAppValue("dbname"), self.GetAppValue("testdriver"), self)
+		return NewQbsStore(self.MustAppValue("testdbname"), self.GetAppValue("testdriver"), self)
 	}
 	return NewQbsStore(self.MustAppValue("dbname"), self.GetAppValue("driver"), self)
 }

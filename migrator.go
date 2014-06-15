@@ -84,8 +84,8 @@ type MigrationRecord struct {
 
 //FindMigrationsInOrder returns a list of migrations that are needed to reach
 //the provided target.  Migration functions are discovered on m by looking for
-//the pattern "Migration_0001" and "Migration_0001_Rollback" in function names.
-func (self *BaseMigrator) FindMigrationsInOrder(target int, i int, m interface{}) []*MigrationInfo {
+//the pattern "Migrate_0001" and "Migrate_0001_Rollback" in function names.
+func (self *BaseMigrator) FindMigrationsInOrder(target int, i int, migrationContainer interface{}) []*MigrationInfo {
 
 	limit := 100000
 	increment := 1
@@ -101,19 +101,29 @@ func (self *BaseMigrator) FindMigrationsInOrder(target int, i int, m interface{}
 		i++
 	} else {
 		if self.Verbose {
-			fmt.Printf("nothing to do, at correct migration (%04d)\n", i)
+			fmt.Printf("Nothing to do, at correct migration (%04d).\n", i)
 		}
+		return nil
 	}
 
-	v := reflect.ValueOf(m)
+	v := reflect.ValueOf(migrationContainer)
 	for i != limit {
 
 		//found no more migrations in the sequence
-		fn := v.MethodByName(fmt.Sprintf("Migrate_%s%s", fmt.Sprintf("%04d", i), suffix))
+		expected := fmt.Sprintf("Migrate_%s%s", fmt.Sprintf("%04d", i), suffix)
+		if self.Verbose {
+			fmt.Printf("Looking for migration %s...", expected)
+		}
+		fn := v.MethodByName(expected)
 		if !fn.IsValid() {
+			if self.Verbose {
+				fmt.Printf("not found (%v).\n", fn.Kind())
+			}
 			break
 		}
-
+		if self.Verbose {
+			fmt.Printf("found it.\n")
+		}
 		//found something, add to result
 		result = append(result, &MigrationInfo{fn, i, increment < 0})
 
@@ -130,7 +140,7 @@ func (self *BaseMigrator) FindMigrationsInOrder(target int, i int, m interface{}
 			direction = "backward"
 		}
 		if self.Verbose {
-			fmt.Printf("%04d %s migrations needed...\n", len(result), direction)
+			fmt.Printf("%04d %s migrations needed.\n", len(result), direction)
 		}
 	}
 	return result
@@ -215,10 +225,10 @@ func (self *QbsMigrator) RunMigrations(info []*MigrationInfo) error {
 		}
 		direction := ""
 		if pair.is_rollback {
-			direction = "(rollback)"
+			direction = " (rollback)"
 		}
 		if self.Verbose {
-			fmt.Printf("applied migration %04d %s\n", pair.n, direction)
+			fmt.Printf("Applied migration %04d%s.\n", pair.n, direction)
 		}
 	}
 	return nil
