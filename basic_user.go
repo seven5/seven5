@@ -2,7 +2,6 @@ package seven5
 
 import (
 	"errors"
-	_ "fmt"
 	"net/http"
 )
 
@@ -178,7 +177,7 @@ func (self *BasicResource) AllowWrite(bundle PBundle) bool {
 	return false
 }
 
-//Users can only call Find, and Put methods on themselves.  Users cannot call DELETE, even on self.  
+//Users can only call Find, and Put methods on themselves.  Users cannot call DELETE, even on self.
 //Priviledged members can call any method on any id.
 func (self *BasicResource) Allow(id Id, method string, bundle PBundle) bool {
 	if bundle.Session() == nil {

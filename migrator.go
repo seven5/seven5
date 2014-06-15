@@ -2,11 +2,13 @@ package seven5
 
 import (
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/coocood/qbs"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -255,7 +257,16 @@ func (self *BaseMigrator) ParseMigrationFlags(fset *flag.FlagSet) int {
 	return migration
 }
 
-func (self *QbsMigrator) Migrate(target int, migrationFns interface{}) error {
+func (self *QbsMigrator) Migrate(target int, migrationFns interface{}) (result error) {
+	defer func() {
+		if raw := recover(); raw != nil {
+			err := fmt.Sprintf("%s", raw)
+			if strings.HasSuffix(err, "bad connection") {
+				fmt.Fprintf(os.Stderr, "unable to connect to database: check db name, credentials, connectivity, and if the database is running\n")
+				result = errors.New("bad connection")
+			}
+		}
+	}()
 	curr, err := self.DetermineCurrentMigrationNumber()
 	if err != nil {
 		return err
