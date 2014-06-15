@@ -2,7 +2,10 @@ package seven5
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -20,32 +23,46 @@ type RemoteDeployment struct {
 }
 
 type HerokuDeploy struct {
-	env  *EnvironmentVars
+	*EnvironmentVars
 	name string
 }
 
 //NewHerokuDeploy returns a new HerokuDeploy object that implements DeploymentEnvironment.
-func NewHerokuDeploy(n string) *HerokuDeploy {
+func NewHerokuDeploy(herokuName string, localName string) *HerokuDeploy {
 	result := &HerokuDeploy{
-		env:  NewEnvironmentVars(n),
-		name: n,
+		EnvironmentVars: NewEnvironmentVars(localName),
+		name:            herokuName,
 	}
 	return result
 }
 
-func (self *HerokuDeploy) IsTest() bool {
-	t:=self.env.GetAppValue("TEST")
-	return t != ""
+func (self *HerokuDeploy) GetQbsStore() *QbsStore {
+	if self.IsTest() {
+		return NewQbsStore(self.MustAppValue("TESTDBNAME"),
+			self.MustAppValue("TESTDRIVER"), self)
+	}
+	db := os.Getenv("DATABASE_URL")
+	if db == "" {
+		panic("no DATABASE_URL found, cannot connect to a *QbsStore")
+	}
+	log.Printf("found a database:%s", db)
+	pair := strings.SplitN(db, ":", 1)
+	if len(pair) != 2 {
+		panic(fmt.Sprintf("DATABASE_URL does not start with driver: %v", db))
+	}
+	log.Printf("pair %v %v", pair[0], pair[1])
+	return NewQbsStore(pair[1], pair[0], self)
 }
 
-func (self *HerokuDeploy) Environment() *EnvironmentVars {
-	return self.env
+func (self *HerokuDeploy) IsTest() bool {
+	t := self.GetAppValue("TEST")
+	return t != ""
 }
 
 //Port reads the value of the environment variable PORT to get the value to return here.  It
 //will panic if the environment variable is not set or it's not a number.
 func (self *HerokuDeploy) Port() int {
-	p := self.env.GetValueOrPanic("PORT")
+	p := self.EnvironmentVars.GetValueOrPanic("PORT")
 	i, err := strconv.Atoi(p)
 	if err != nil {
 		panic(err)
@@ -53,7 +70,7 @@ func (self *HerokuDeploy) Port() int {
 	return i
 }
 
-//RedirectHost is needed in cases where you are using oauth because this must sent to the 
+//RedirectHost is needed in cases where you are using oauth because this must sent to the
 //"other side" of the handshake without any extra knowlege.
 func (self *HerokuDeploy) RedirectHost(string) string {
 	if self.IsTest() {
