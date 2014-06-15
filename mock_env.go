@@ -139,35 +139,3 @@ func (_m *MockPublicSettings) PublicSettingsHandler(n string) func(http.Response
 func (_mr *_MockPublicSettingsRecorder) PublicSettingsHandler(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PublicSettingsHandler", arg0)
 }
-
-// Mock of ProjectFinder interface
-type MockProjectFinder struct {
-	ctrl     *gomock.Controller
-	recorder *_MockProjectFinderRecorder
-}
-
-// Recorder for MockProjectFinder (not exported)
-type _MockProjectFinderRecorder struct {
-	mock *MockProjectFinder
-}
-
-func NewMockProjectFinder(ctrl *gomock.Controller) *MockProjectFinder {
-	mock := &MockProjectFinder{ctrl: ctrl}
-	mock.recorder = &_MockProjectFinderRecorder{mock}
-	return mock
-}
-
-func (_m *MockProjectFinder) EXPECT() *_MockProjectFinderRecorder {
-	return _m.recorder
-}
-
-func (_m *MockProjectFinder) ProjectFind(target string, projectName string, flavor FileFlavor) (string, error) {
-	ret := _m.ctrl.Call(_m, "ProjectFind", target, projectName, flavor)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockProjectFinderRecorder) ProjectFind(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ProjectFind", arg0, arg1, arg2)
-}

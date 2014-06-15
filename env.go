@@ -4,15 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
-
-//FileFlavor is used to "find" parts of your application at run-time. Use of these constants
-//means that if the default project layout changes you only have to move your files around,
-//not change your code.
-type FileFlavor int
 
 //DeploymentEnvironment encodes information that cannot be obtained from the source code but can only
 //be determined from "outside" the application.
@@ -39,12 +33,6 @@ type DeploymentEnvironment interface {
 //into the URL space for easy access by a client.
 type PublicSettings interface {
 	PublicSettingsHandler(n string) func(http.ResponseWriter, *http.Request)
-}
-
-//ProjectFinder is an abstraction of the typical seven5 project layout. It knows how to
-//find objects of different types in their standard locations within a project.
-type ProjectFinder interface {
-	ProjectFind(target string, projectName string, flavor FileFlavor) (string, error)
 }
 
 //EnvironmentVars is ProjectFinder, OauthClientDetail, and PublicSettings handler
@@ -96,31 +84,6 @@ func (self *EnvironmentVars) ClientId(name string) string {
 //is APPNAME_SERVICENAME_CLIENT_SECRET and is read only once.
 func (self *EnvironmentVars) ClientSecret(name string) string {
 	return self.GetValueOrPanic(fmt.Sprintf("%s_%s_CLIENT_SECRET", self.name, strings.ToUpper(name)))
-}
-
-//ProjectFind defaults to looking at the GOPATH environment variable to work out the location
-//of other objects in the project.  It calls GetValueOrPanic("GOPATH").
-func (self *EnvironmentVars) ProjectFind(target string, projectName string, flavor FileFlavor) (string, error) {
-	env := self.GetValueOrPanic("GOPATH")
-	pieces := strings.Split(env, ":")
-	if len(pieces) > 1 {
-		env = pieces[0]
-	}
-	env = filepath.Clean(env)
-	if strings.HasSuffix(env, "/") && env != "/" {
-		env = env[0 : len(env)-1]
-	}
-	switch flavor {
-	case GO_SOURCE_FLAVOR:
-		return filepath.Join(env, "src", target), nil
-	case DART_FLAVOR:
-		return filepath.Join(filepath.Dir(env), "dart", projectName, target), nil
-	case ASSET_FLAVOR:
-		return filepath.Join(filepath.Dir(env), "dart", projectName, "assets", target), nil
-	case TOP_LEVEL_FLAVOR:
-		return filepath.Join(filepath.Dir(env), target), nil
-	}
-	panic("unknown type of object searched for in the project!")
 }
 
 //GetValueOrPanic returns the environment variable based on the exact value supplied (it is not modified)
