@@ -46,7 +46,7 @@ func (self *HerokuDeploy) GetQbsStore() *QbsStore {
 		panic("no DATABASE_URL found, cannot connect to a *QbsStore")
 	}
 	log.Printf("found a database:%s", db)
-	pair := strings.SplitN(db, ":", 1)
+	pair := strings.SplitN(db, ":", 2)
 	if len(pair) != 2 {
 		panic(fmt.Sprintf("DATABASE_URL does not start with driver: %v", db))
 	}
