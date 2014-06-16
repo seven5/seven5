@@ -80,7 +80,7 @@ func EnvironmentUrlToDSN() *qbs.DataSourceName {
 	}
 	dsn.Username = u.User.Username()
 	dsn.Dialect = StringToDialect(u.Scheme)
-	log.Printf("looking for colon %s", dsn.Port)
+	log.Printf("looking for colon %+v\n", dsn)
 	return dsn
 }
 
