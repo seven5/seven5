@@ -16,12 +16,12 @@ import (
 type someResource struct {
 }
 
-var accepted=false
-var outOfBandLocation="http://foo.bar/baz"
+var accepted = false
+var outOfBandLocation = "http://foo.bar/baz"
 
 func (self *someResource) Index(p PBundle) (interface{}, error) {
 	if accepted {
-		return nil,HTTPError(http.StatusAccepted, outOfBandLocation)
+		return nil, HTTPError(http.StatusAccepted, outOfBandLocation)
 	}
 	return []*someWire{&someWire{Id(1074), "index"}}, nil
 }
@@ -45,11 +45,10 @@ type someWire struct {
 	Foo String255
 }
 
-
 /*---------------------------------------------------------------------------------------*/
 
 func setupMux(f RestAll) *ServeMux {
-	io:=NewRawIOHook(&JsonDecoder{},&JsonEncoder{}, nil)
+	io := NewRawIOHook(&JsonDecoder{}, &JsonEncoder{}, nil)
 	raw := NewRawDispatcher(io, nil, nil, NewSimpleTypeHolder(), "/rest")
 
 	raw.Rez(&someWire{}, f)
@@ -148,8 +147,8 @@ func TestBadResource(t *testing.T) {
 
 	bad := &badlyWrittenResource{}
 
-	io:=NewRawIOHook(&JsonDecoder{},&JsonEncoder{}, nil)
-	raw := NewRawDispatcher(io, nil, nil, NewSimpleTypeHolder(),"/rest")
+	io := NewRawIOHook(&JsonDecoder{}, &JsonEncoder{}, nil)
+	raw := NewRawDispatcher(io, nil, nil, NewSimpleTypeHolder(), "/rest")
 	raw.ResourceSeparate("BadCoder", &someWire{}, nil, bad, nil, nil, nil)
 
 	mux := NewServeMux()
@@ -252,15 +251,15 @@ func TestResponseCodes(t *testing.T) {
 		http.ListenAndServe(":8190", mux)
 	}()
 
-	accepted=true
+	accepted = true
 	resp, err := http.Get("http://localhost:8190/rest/somewire")
 	checkHttpStatus(t, resp, err, http.StatusAccepted)
-	
-	b, err:=ioutil.ReadAll(resp.Body)
-	if err!=nil {
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
 		t.Fatalf("could not ready body of response: %s", err)
 	}
-	if strings.TrimSpace(string(b))!=outOfBandLocation {
-		t.Fatalf("didn't find expected location in body: %s",string(b))
+	if strings.TrimSpace(string(b)) != outOfBandLocation {
+		t.Fatalf("didn't find expected location in body: %s", string(b))
 	}
 }

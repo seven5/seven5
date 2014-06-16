@@ -2,10 +2,7 @@ package seven5
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -37,21 +34,8 @@ func NewHerokuDeploy(herokuName string, localName string) *HerokuDeploy {
 }
 
 func (self *HerokuDeploy) GetQbsStore() *QbsStore {
-	if self.IsTest() {
-		return NewQbsStore(self.MustAppValue("TESTDBNAME"),
-			self.MustAppValue("TESTDRIVER"), self)
-	}
-	db := os.Getenv("DATABASE_URL")
-	if db == "" {
-		panic("no DATABASE_URL found, cannot connect to a *QbsStore")
-	}
-	log.Printf("found a database:%s", db)
-	pair := strings.SplitN(db, ":", 2)
-	if len(pair) != 2 {
-		panic(fmt.Sprintf("DATABASE_URL does not start with driver: %v", db))
-	}
-	log.Printf("pair %v %v", pair[0], pair[1])
-	return NewQbsStore(pair[1], pair[0], self)
+	dsn := EnvironmentUrlToDSN()
+	return NewQbsStore(dsn)
 }
 
 func (self *HerokuDeploy) IsTest() bool {

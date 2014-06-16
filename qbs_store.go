@@ -3,7 +3,9 @@ package seven5
 import (
 	"fmt"
 	"github.com/coocood/qbs"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
 )
 
@@ -13,13 +15,14 @@ type QbsStore struct {
 	Dsn    *qbs.DataSourceName
 }
 
-//NewQbsStore creates an instance of the object that is used to represent a
-//connection to the database via the Qbs ORM.  This function will panic if
-//the database cannot be correctly connected; this is usually what you want
-//because you can't do much if you can't get to the database.
-func NewQbsStore(dbname string, driver string, env DeploymentEnvironment) *QbsStore {
+// NewQbsStore creates an instance of the object that is used to represent a
+// connection to the database via the Qbs ORM.
+// NewQbsStore creates a *QbsStore from a DSN; DSNs can be created
+// directly with ParamsToDSN or from the environment EnvironmentUrlToDSN (via
+// the DATABASE_URL environment var).
+func NewQbsStore(dsn *qbs.DataSourceName) *QbsStore {
 	result := &QbsStore{}
-	result.Dsn = result.DataSourceFromEnvironment(dbname, driver, env)
+	result.Dsn = dsn
 	result.Policy = NewQbsDefaultOrmTransactionPolicy()
 	qbs.RegisterWithDataSourceName(result.Dsn)
 	q, err := qbs.GetQbs()
@@ -30,46 +33,58 @@ func NewQbsStore(dbname string, driver string, env DeploymentEnvironment) *QbsSt
 	return result
 }
 
-//DataSourceFromEnvironment creates a correctly formed DataSourceName for use by
-//Qbs from the EnvironmentVars supplied.  This function will panic if there is
-//no way to retreive the dbname to connect to.
-func (self *QbsStore) DataSourceFromEnvironment(dbname string, driver string, env DeploymentEnvironment) *qbs.DataSourceName {
-	var dsn *qbs.DataSourceName
-	var dbuser, dbpass, dbhost, dbport string
-
-	if env != nil {
-		dbuser = env.GetAppValue("dbuser")
-		dbpass = env.GetAppValue("dbpass")
-		dbhost = env.GetAppValue("dbhost")
-		dbport = env.GetAppValue("dbport")
+//ParamsToDSN allows you to create a DSN directly from some values. This
+//is useful for testing.  If driver or user is "", the default driver and
+//user are used.
+func ParamsToDSN(dbname string, driver string, user string) *qbs.DataSourceName {
+	if driver == "" {
+		driver = "postgres"
 	}
-
-	if driver == "postgres" || driver == "" {
-		dsn = qbs.DefaultPostgresDataSourceName(dbname)
-		//apply the db variables they have set
-		if dbuser != "" {
-			dsn.Username = dbuser
-		}
-		if dbpass != "" {
-			dsn.Password = dbpass
-		}
-		if dbhost != "" {
-			dsn.Host = dbhost
-		}
-		if dbport != "" {
-			dsn.Port = dbport
-		}
-
-	} else if driver == "sqlite3" {
-		dsn = new(qbs.DataSourceName)
-		dsn.DbName = dbname
-		dsn.Dialect = qbs.NewSqlite3()
-	} else {
-		errmsg := fmt.Sprintf("unable to understand driver %s", driver)
-		panic(errmsg)
+	if user == "" {
+		user = "postgres"
 	}
-
+	dsn := &qbs.DataSourceName{}
+	dsn.DbName = dbname
+	dsn.Dialect = StringToDialect(driver)
+	dsn.Username = user
 	return dsn
+}
+
+//This function returns the datasource name for the DATABASE_URL
+//in the environment. If the value cannot be found, this panics.
+func EnvironmentUrlToDSN() *qbs.DataSourceName {
+	db := os.Getenv("DATABASE_URL")
+	if db == "" {
+		panic("no DATABASE_URL found, cannot connect to a *QbsStore")
+	}
+	log.Printf("found a database:%s", db)
+	u, err := url.Parse(db)
+	if err != nil {
+		panic(fmt.Sprintf("unable to parse database URL: %s", err))
+	}
+	log.Printf("got a url %+v\n", u)
+	dsn := &qbs.DataSourceName{}
+	dsn.DbName = u.Path
+	dsn.Host = u.Host
+	p, set := u.User.Password()
+	if set {
+		dsn.Password = p
+	}
+	dsn.Username = u.User.Username()
+	dsn.Dialect = StringToDialect(u.Scheme)
+	return dsn
+}
+
+//StringToDialect returns an sql dialect for use with QBS given a string
+//name.  IF the name is not known, this code panics.
+func StringToDialect(n string) qbs.Dialect {
+	switch n {
+	case "postgres":
+		return qbs.NewPostgres()
+	case "sqlite3":
+		return qbs.NewSqlite3()
+	}
+	panic(fmt.Sprintf("unable to deal with db dialact provided %s", n))
 }
 
 //NewQbsDefaultOrmTransactionPolicy returns a new default implementation of policy
@@ -102,7 +117,7 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 				}
 			}
 		default:
-			fmt.Fprintf(os.Stderr, "got an error type that wasnt HTTP specific, rolling back and returning 500 to client (%v)\n", err)
+			log.Printf("got an error type that wasnt HTTP specific, rolling back and returning 500 to client (%v)\n", err)
 			rerr := tx.Rollback()
 			if rerr != nil {
 				return nil, rerr
@@ -119,7 +134,7 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 
 //HandlePanic rolls back the transiction provided and then panics again.
 func (self *QbsDefaultOrmTransactionPolicy) HandlePanic(tx *qbs.Qbs, err interface{}) (interface{}, error) {
-	fmt.Fprintf(os.Stderr, "got panic, rolling back and returning 500 to client (%v)\n", err)
+	log.Printf("got panic, rolling back and returning 500 to client (%v)\n", err)
 	if rerr := tx.Rollback(); rerr != nil {
 		panic(rerr)
 	}

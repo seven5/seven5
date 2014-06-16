@@ -15,7 +15,7 @@ type TypeHolder interface {
 	All() []*FieldDescription
 }
 
-//SimpleTypeHolder is a basic implementation of TypeHolder. 
+//SimpleTypeHolder is a basic implementation of TypeHolder.
 type SimpleTypeHolder struct {
 	all []*FieldDescription
 }
@@ -32,24 +32,23 @@ func (self *SimpleTypeHolder) All() []*FieldDescription {
 
 //Add takes the type supplied and adds it to the list of known resources.  If this type is not
 //a valid wire type (contains a seven5.Id field called Id, contains only seven5 wire types for other
-//fields, all fields should be public) it will panic.  It does not check to see if the type has been 
+//fields, all fields should be public) it will panic.  It does not check to see if the type has been
 //added previously.
 func (self *SimpleTypeHolder) Add(name string, i interface{}) {
-	t:=reflect.TypeOf(i)
-	d:=WalkWireType(name, t)
-	self.all = append(self.all,d)
+	t := reflect.TypeOf(i)
+	d := WalkWireType(name, t)
+	self.all = append(self.all, d)
 }
 
-
-//Field description gives information about a particular field and this is part of what 
-//is passed over the wire to describe a resource.  This describes the type that is 
-//being used for a particular resource.  If Array or Struct fields are not nil, 
+//Field description gives information about a particular field and this is part of what
+//is passed over the wire to describe a resource.  This describes the type that is
+//being used for a particular resource.  If Array or Struct fields are not nil,
 //then there is a nested structure or array inside the struct and the type name should
 //be ignored.
 type FieldDescription struct {
 	//name is required
 	Name string
-	//type name must a simple type (from seven5) 
+	//type name must a simple type (from seven5)
 	TypeName string
 	//arrays are composed of some number of a single _type_ ... if there is an array
 	//there should NOT be a TypeName or a Struct defn
@@ -61,13 +60,13 @@ type FieldDescription struct {
 	Struct []*FieldDescription
 }
 
-//WalkWireType is the recursive machine that creates a FieldDescription from 
-//a go type.  Given a type it returns a pointer to a FieldDescription struct.  
+//WalkWireType is the recursive machine that creates a FieldDescription from
+//a go type.  Given a type it returns a pointer to a FieldDescription struct.
 //This is public because it's likely to be useful to others.
 func WalkWireType(name string, t reflect.Type) *FieldDescription {
 	if strings.HasSuffix(t.PkgPath(), "seven5") {
 		switch t.Name() {
-		case "Floating", "String255", "Textblob", "Integer", "Id", "Boolean", "DateTime":
+		case "String255", "Textblob", "Id", "Boolean", "DateTime":
 			return &FieldDescription{Name: name, TypeName: t.Name()}
 		}
 	}
@@ -104,12 +103,17 @@ func WalkWireType(name string, t reflect.Type) *FieldDescription {
 			Struct: fieldCollection}
 	}
 	switch t.Kind() {
-	case reflect.Bool, reflect.Float32, reflect.Float64, reflect.Int, reflect.Int32,
-		reflect.Int64, reflect.Int8, reflect.String, reflect.Uint, reflect.Uint16,
-		reflect.Uint32, reflect.Uint64, reflect.Uint8:
-		panic(fmt.Sprintf("Please use seven5 basic types (instead of %v in pkg %s) so it is not ambiguous"+
-			" how to translate them to Json, Dart, and SQL", t.Kind(), t.PkgPath()))
+	case reflect.Bool, reflect.Float64, reflect.Int64:
+		return &FieldDescription{Name: name, TypeName: t.Name()}
+	case reflect.Float32, reflect.Int, reflect.Int32, reflect.Int8:
+		panic(fmt.Sprintf("Use of (%v) prohibited in wire types.  "+
+			"Use float64 or int64 to avoid ambiguity when json marshalling", t.Kind()))
+	case reflect.String:
+		panic(fmt.Sprintf("Use of string prohibited in wire types.  " +
+			"Use seven5.String255 or seven5.Textblob instead to indicate if the size is limited."))
+	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint8:
+		panic(fmt.Sprintf("Use of unsigned types like %v prohibited."+
+			" Use int64 to prevent json marshalling ambiguity.", t.Kind()))
 	}
-	panic(fmt.Sprintf("Unable to understand type definition %s for conversion "+
-		"to a Json/Dart/Sql format", t.Name()))
+	panic(fmt.Sprintf("Unable to understand type definition %s for conversion to a json format", t.Name()))
 }

@@ -7,22 +7,21 @@ import (
 
 /*-------------------------------------------------------------------------*/
 type Rec1 struct {
-	Id	Id
-	A	Boolean
+	Id Id
+	A  bool
 }
 type Rec2 struct {
-	Id	Id
-	S	*Rec1
-	D	String255
-	A	[]Rec3
+	Id Id
+	S  *Rec1
+	D  String255
+	A  []Rec3
 }
 
 type Rec3 struct {
-	Id	Id
-	X	Floating
-	Y	Floating
+	Id Id
+	X  float64
+	Y  float64
 }
-
 
 /*-------------------------------------------------------------------------*/
 /*                          VERIFICATION CODE                              */
@@ -40,7 +39,7 @@ func verifyNoNesting(T *testing.T, f ...*FieldDescription) {
 /*-------------------------------------------------------------------------*/
 
 func TestRecursiveTraversal(T *testing.T) {
-	d := WalkWireType("Rec2",reflect.TypeOf(Rec2{}))
+	d := WalkWireType("Rec2", reflect.TypeOf(Rec2{}))
 	if len(d.Struct) != 4 {
 		T.Errorf("expected 3 fields from Rec2 but found %d", len(d.Struct))
 	}
@@ -60,4 +59,3 @@ func TestRecursiveTraversal(T *testing.T) {
 	fd := d.Struct[3].Array
 	verifyNoNesting(T, fd.Struct[0], fd.Struct[1], fd.Struct[2])
 }
-

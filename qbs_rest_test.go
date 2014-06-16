@@ -19,14 +19,14 @@ const (
 type House struct {
 	Id      int64
 	Address string
-	Zip     int /*0->99999, inclusive*/
+	Zip     int64 /*0->99999, inclusive*/
 }
 
 /*---- wire type for the tests ----*/
 type HouseWire struct {
 	Id      Id
 	Addr    String255
-	ZipCode Integer
+	ZipCode int64
 }
 
 type testObj struct {
@@ -55,7 +55,7 @@ func (self *testObj) PutQbs(id Id, value interface{}, pb PBundle, q *qbs.Qbs) (i
 func (self *testObj) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	in := value.(*HouseWire)
-	house := &House{Address: string(in.Addr), Zip: int(in.ZipCode)}
+	house := &House{Address: string(in.Addr), Zip: in.ZipCode}
 	if _, err := q.Save(house); err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (self *testObj) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interfa
 		return nil, errors.New("testing error handling")
 	}
 
-	return &HouseWire{Id: Id(house.Id), Addr: String255(house.Address), ZipCode: Integer(house.Zip)}, nil
+	return &HouseWire{Id: Id(house.Id), Addr: String255(house.Address), ZipCode: house.Zip}, nil
 }
 
 type someMigrations struct {
@@ -96,6 +96,7 @@ func checkNumberHouses(T *testing.T, store *QbsStore, expected int) {
 		T.Fatalf("Error during find: %s", err)
 	}
 	if len(houses) != expected {
+		panic("fart")
 		T.Errorf("Wrong number of houses! expected %d but got %d", expected, len(houses))
 	}
 }
@@ -104,7 +105,6 @@ func TestTxn(T *testing.T) {
 
 	obj := &testObj{}
 	store := setupTestStore()
-	T.Logf("XXXX %+v", store)
 	wrapped := QbsWrapAll(obj, store)
 
 	WithEmptyQbsStore(store, &someMigrations{}, func() {
@@ -112,7 +112,7 @@ func TestTxn(T *testing.T) {
 		checkNumberHouses(T, store, 0)
 		_, err := wrapped.Post(&HouseWire{Id: 0, Addr: "123 evergreen terrace", ZipCode: 98607}, nil)
 		if err != nil {
-			T.Fatalf("unexpect rest post failure %s", err)
+			T.Fatalf("unexpected rest post failure %s", err)
 		}
 		checkNumberHouses(T, store, 1)
 	})
@@ -149,7 +149,8 @@ func setupDispatcher() (*RawDispatcher, *ServeMux) {
 }
 
 func setupTestStore() *QbsStore {
-	return NewQbsStore("seven5test", "", nil)
+	dsn := ParamsToDSN("seven5test", "", "")
+	return NewQbsStore(dsn)
 }
 
 func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *testObj) {
