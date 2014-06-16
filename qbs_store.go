@@ -64,7 +64,7 @@ func EnvironmentUrlToDSN() *qbs.DataSourceName {
 		panic(fmt.Sprintf("unable to parse database URL: %s", err))
 	}
 	dsn := &qbs.DataSourceName{}
-	dsn.DbName = u.Path
+	dsn.DbName = u.Path[1:]
 	dsn.Host = u.Host
 	if strings.Index(u.Host, ":") != -1 {
 		pair := strings.Split(u.Host, ":")
