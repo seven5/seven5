@@ -71,7 +71,6 @@ func EnvironmentUrlToDSN() *qbs.DataSourceName {
 	}
 	dsn.Username = u.User.Username()
 	dsn.Dialect = StringToDialect(u.Scheme)
-	log.Printf("got a url %+v -> dsn %+v\n", u, dsn)
 	return dsn
 }
 

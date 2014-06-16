@@ -260,7 +260,7 @@ func (self *BaseMigrator) ParseMigrationFlags(fset *flag.FlagSet) int {
 func (self *QbsMigrator) Migrate(target int, migrationFns interface{}) (result error) {
 	defer func() {
 		if raw := recover(); raw != nil {
-			err := fmt.Sprintf("%s", raw)
+			err := fmt.Sprintf("---> %s", raw)
 			if strings.HasSuffix(err, "bad connection") {
 				fmt.Fprintf(os.Stderr, "unable to connect to database: check db name, credentials, connectivity, and if the database is running\n")
 				result = errors.New("bad connection")
@@ -310,8 +310,5 @@ func NewQbsMigrator(s *QbsStore, verbose bool, log bool) *QbsMigrator {
 	result := &QbsMigrator{BaseMigrator: &BaseMigrator{}, Store: s}
 	result.Store.Q.Log = log
 	result.Verbose = verbose
-	//XXX Why do we have to do this?
-	//driverName, driverSourceName, databaseName string, dialect Dialec
-	qbs.Register("postgres", s.Dsn.String(), s.Dsn.DbName, s.Dsn.Dialect)
 	return result
 }
