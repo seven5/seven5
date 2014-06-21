@@ -26,6 +26,7 @@ const (
 	KEYDOWN
 	KEYPRESS
 	KEYUP
+	INPUT_EVENT
 )
 
 func (self EventName) String() string {
@@ -52,6 +53,8 @@ func (self EventName) String() string {
 		return jquery.KEYPRESS
 	case KEYUP:
 		return jquery.KEYUP
+	case INPUT_EVENT:
+		return "input"
 	}
 	panic(fmt.Sprintf("unknown event name %v", self))
 }

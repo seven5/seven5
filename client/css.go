@@ -40,6 +40,9 @@ type HtmlId interface {
 	TextAttribute() DomAttribute
 	DisplayAttribute() DomAttribute
 	Event(EventName, EventFunc)
+	CssExistenceAttribute(clazz CssClass)
+	Val() string
+	SetText(string)
 }
 
 //htmlIdImpl is an implementation of HtmlId that has a fixed tag and
@@ -70,6 +73,17 @@ func (self *htmlIdImpl) Id() string {
 
 func (self *htmlIdImpl) Select() jquery.JQuery {
 	return jquery.NewJQuery(self.TagName() + "#" + self.Id())
+}
+
+//Val returns the value of an input field.  Note that this probably
+//will not do what you want if the object in question is not an
+//input or textarea.
+func (self *htmlIdImpl) Val() string {
+	return self.Select().Val()
+}
+
+func (self *htmlIdImpl) SetText(s string) {
+	self.Select().SetText(s)
 }
 
 //StyleAttribute returns the dom style attribute for the given name
