@@ -80,7 +80,7 @@ func TextEqual(attr Attribute) option {
 //between tags with the same name.
 func HtmlIdFromModel(tag string, m ModelName) HtmlId {
 	id := fmt.Sprintf("%s-%s", strings.ToLower(tag), m.Id())
-	return &htmlIdImpl{tag, id}
+	return NewHtmlId(tag, id)
 }
 
 func (p *ViewImpl) Build() jquery.JQuery {

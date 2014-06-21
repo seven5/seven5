@@ -35,3 +35,26 @@ type Constraint interface {
 	Inputs() []Attribute
 	Fn([]Equaler) Equaler
 }
+
+type ConstraintFunc func([]Equaler) Equaler
+
+type simpleConstraint struct {
+	attr []Attribute
+	fn   ConstraintFunc
+}
+
+//NewSimpleConstraint returns a new constraint that can derive its value
+//from a fixed set of inputs.  The function fn is called to compute the vaule
+//of the constraints and the parameters to fn are the vaules (in order)
+//of the attributes at the current time.
+func NewSimpleConstraint(fn ConstraintFunc, attr ...Attribute) Constraint {
+	return simpleConstraint{attr, fn}
+}
+
+func (self simpleConstraint) Inputs() []Attribute {
+	return self.attr
+}
+
+func (self simpleConstraint) Fn(v []Equaler) Equaler {
+	return self.fn(v)
+}
