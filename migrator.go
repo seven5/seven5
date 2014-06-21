@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/coocood/qbs"
+	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -260,6 +261,10 @@ func (self *BaseMigrator) ParseMigrationFlags(fset *flag.FlagSet) int {
 func (self *QbsMigrator) Migrate(target int, migrationFns interface{}) (result error) {
 	defer func() {
 		if raw := recover(); raw != nil {
+<<<<<<< HEAD
+=======
+			log.Printf("IN RECOVER %+v", raw)
+>>>>>>> input_attr
 			err := fmt.Sprintf("---> %s", raw)
 			if strings.HasSuffix(err, "bad connection") {
 				fmt.Fprintf(os.Stderr, "unable to connect to database: check db name, credentials, connectivity, and if the database is running\n")
@@ -268,6 +273,7 @@ func (self *QbsMigrator) Migrate(target int, migrationFns interface{}) (result e
 		}
 	}()
 	curr, err := self.DetermineCurrentMigrationNumber()
+	log.Printf("current migration is %d\n", curr)
 	if err != nil {
 		return err
 	}

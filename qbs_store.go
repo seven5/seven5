@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type QbsStore struct {
@@ -64,8 +65,16 @@ func EnvironmentUrlToDSN() *qbs.DataSourceName {
 	}
 	log.Printf("got a url %+v\n", u)
 	dsn := &qbs.DataSourceName{}
-	dsn.DbName = u.Path
+	dsn.DbName = u.Path[1:]
 	dsn.Host = u.Host
+	if strings.Index(u.Host, ":") != -1 {
+		pair := strings.Split(u.Host, ":")
+		if len(pair) != 2 {
+			panic("badly formed host:port")
+		}
+		dsn.Host = pair[0]
+		dsn.Port = pair[1]
+	}
 	p, set := u.User.Password()
 	if set {
 		dsn.Password = p
