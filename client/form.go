@@ -8,6 +8,8 @@ import (
 type FormElement interface {
 	Selector() string
 	ContentAttribute() Attribute
+	Val() string
+	SetVal(string)
 }
 
 //InputTextId is a special case of HtmlId that is the exported text
@@ -24,11 +26,11 @@ type inputTextIdImpl struct {
 
 type RadioGroup interface {
 	FormElement
-	Val() string
-	Event(EventName, EventFunc)
+	Dom() NarrowDom
 }
 
 type radioGroupImpl struct {
+	dom      NarrowDom
 	selector string
 	attr     *AttributeImpl
 }
@@ -40,10 +42,20 @@ func NewInputTextId(id string) InputTextId {
 		htmlIdImpl: NewHtmlId("input", id).(htmlIdImpl),
 	}
 	result.attr = NewAttribute(VALUE_ONLY, result.value, nil)
-	result.htmlIdImpl.Event(INPUT_EVENT, func(jquery.JQuery, jquery.Event) {
+	result.htmlIdImpl.Dom().On(INPUT_EVENT, func(jquery.Event) {
 		result.attr.markDirty()
 	})
 	return result
+}
+
+//SetText puts the text provided into the value (such as with an input field).
+func (self inputTextIdImpl) SetVal(s string) {
+	self.htmlIdImpl.t.SetVal(s)
+}
+
+//Val returns the value of an input field.
+func (self inputTextIdImpl) Val() string {
+	return self.htmlIdImpl.t.Val()
 }
 
 func (self inputTextIdImpl) value() Equaler {
@@ -57,32 +69,26 @@ func (self inputTextIdImpl) ContentAttribute() Attribute {
 //NewRadioGroup selects a named set of radio button elements
 //with a given name.
 func NewRadioGroup(name string) RadioGroup {
-	result := radioGroupImpl{
-		selector: "input[name=\"" + name + "\"][type=\"radio\"]",
+	selector := "input[name=\"" + name + "\"][type=\"radio\"]"
+	result := radioGroupImpl{selector: selector}
+	if TestMode {
+		result.dom = newTestOps()
+	} else {
+		wrap(jquery.NewJQuery(selector))
 	}
 	result.attr = NewAttribute(VALUE_ONLY, result.value, nil)
-	result.Event(CLICK, func(jquery.JQuery, jquery.Event) {
+	result.dom.On(CLICK, func(jquery.Event) {
 		result.attr.markDirty()
 	})
 	return result
 }
 
+func (self radioGroupImpl) Dom() NarrowDom {
+	return jqueryWrapper{jq: jquery.NewJQuery()}
+}
+
 func (self radioGroupImpl) value() Equaler {
-	return StringEqualer{S: self.Val()}
-}
-
-func (self radioGroupImpl) Event(name EventName, fn EventFunc) {
-	h := &eventHandler{name, jquery.NewJQuery(self.selector), fn}
-	h.register()
-}
-
-func (self radioGroupImpl) Val() string {
-	jq := jquery.NewJQuery(self.selector + ":checked")
-	val := jq.Val()
-	if val == "undefined" {
-		return ""
-	}
-	return val
+	return StringEqualer{S: self.dom.Val()}
 }
 
 func (self radioGroupImpl) Selector() string {

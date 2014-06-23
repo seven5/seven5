@@ -9,7 +9,7 @@ import (
 //EventFunc is something that can handle an event.  It should not
 //return anything, it should use the event object to stop default
 //event handling and similar.
-type EventFunc func(jquery.JQuery, jquery.Event)
+type EventFunc func(jquery.Event)
 
 type EventName int
 
@@ -61,15 +61,15 @@ func (self EventName) String() string {
 
 type eventHandler struct {
 	name EventName
-	j    jquery.JQuery
+	t    NarrowDom
 	fn   EventFunc
 }
 
-func (self *eventHandler) register() {
-	self.j.On(self.name.String(), self.handle)
+func (self eventHandler) register() {
+	self.t.On(self.name, self.handle)
 }
 
-func (self *eventHandler) handle(event jquery.Event) {
-	self.fn(self.j, event)
+func (self eventHandler) handle(event jquery.Event) {
+	self.fn(event)
 	DrainEagerQueue()
 }

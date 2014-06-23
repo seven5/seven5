@@ -1,14 +1,12 @@
 package client
 
-import (
-	"github.com/gopherjs/jquery"
-)
+import ()
 
 type builder interface {
-	build(jquery.JQuery)
+	build(NarrowDom)
 }
 
-type getDomAttrFunc func(jquery.JQuery) DomAttribute
+type getDomAttrFunc func(NarrowDom) DomAttribute
 
 type builderBase struct {
 	cons Constraint
@@ -25,16 +23,16 @@ type booleanBuilder struct {
 	b BooleanAttribute
 }
 
-func (self *anyBuilder) build(j jquery.JQuery) {
-	dest := self.builderBase.get(j)
+func (self *anyBuilder) build(n NarrowDom) {
+	dest := self.builderBase.get(n)
 	if self.builderBase.cons == nil {
 		self.builderBase.cons = eqConstraint{self.a}
 	}
 	dest.Attach(self.builderBase.cons)
 }
 
-func (self *booleanBuilder) build(j jquery.JQuery) {
-	dest := self.builderBase.get(j)
+func (self *booleanBuilder) build(n NarrowDom) {
+	dest := self.builderBase.get(n)
 	if self.builderBase.cons == nil {
 		self.builderBase.cons = &BoolEq{self.b}
 	}
@@ -44,39 +42,39 @@ func (self *booleanBuilder) build(j jquery.JQuery) {
 func textAttrBuilder(attr Attribute, cons Constraint) builder {
 	return &anyBuilder{
 		a: attr,
-		builderBase: builderBase{cons, func(j jquery.JQuery) DomAttribute {
-			return NewTextAttr(j)
+		builderBase: builderBase{cons, func(n NarrowDom) DomAttribute {
+			return NewTextAttr(n)
 		}}}
 }
 
 func htmlAttrBuilder(h htmlAttrName, attr Attribute, cons Constraint) builder {
 	return &anyBuilder{
 		a: attr,
-		builderBase: builderBase{cons, func(j jquery.JQuery) DomAttribute {
-			return NewHtmlAttrAttr(j, h)
+		builderBase: builderBase{cons, func(n NarrowDom) DomAttribute {
+			return NewHtmlAttrAttr(n, h)
 		}}}
 }
 
 func propBuilder(p propName, attr BooleanAttribute, cons Constraint) builder {
 	return &booleanBuilder{
 		b: attr,
-		builderBase: builderBase{cons, func(j jquery.JQuery) DomAttribute {
-			return NewPropAttr(j, p)
+		builderBase: builderBase{cons, func(n NarrowDom) DomAttribute {
+			return NewPropAttr(n, p)
 		}}}
 }
 
 func cssExistenceBuilder(c CssClass, b BooleanAttribute) builder {
 	return &booleanBuilder{
 		b: b,
-		builderBase: builderBase{nil, func(j jquery.JQuery) DomAttribute {
-			return NewCssExistenceAttr(j, c)
+		builderBase: builderBase{nil, func(n NarrowDom) DomAttribute {
+			return NewCssExistenceAttr(n, c)
 		}}}
 }
 
 func displayBuilder(b BooleanAttribute) builder {
 	return &booleanBuilder{
 		b: b,
-		builderBase: builderBase{nil, func(j jquery.JQuery) DomAttribute {
-			return NewDisplayAttr(j)
+		builderBase: builderBase{nil, func(n NarrowDom) DomAttribute {
+			return NewDisplayAttr(n)
 		}}}
 }

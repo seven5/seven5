@@ -38,10 +38,8 @@ type HtmlId interface {
 	StyleAttribute(string) DomAttribute
 	TextAttribute() DomAttribute
 	DisplayAttribute() DomAttribute
-	Event(EventName, EventFunc)
 	CssExistenceAttribute(clazz CssClass) DomAttribute
-	Val() string
-	SetText(string)
+	Dom() NarrowDom
 }
 
 //htmlIdImpl is an implementation of HtmlId that has a fixed tag and
@@ -50,18 +48,32 @@ type HtmlId interface {
 type htmlIdImpl struct {
 	tag   string
 	id    string
-	jq    jquery.JQuery
+	t     NarrowDom
 	cache map[string]DomAttribute
 }
 
 //NewHtmlId returns a selctor that can find tag#id in the dom.
 func NewHtmlId(tag, id string) HtmlId {
+	if TestMode {
+		return htmlIdImpl{
+			tag:   tag,
+			id:    id,
+			t:     newTestOps(),
+			cache: make(map[string]DomAttribute),
+		}
+	}
 	return htmlIdImpl{
 		tag:   tag,
 		id:    id,
-		jq:    jquery.NewJQuery(tag + "#" + id),
+		t:     wrap(jquery.NewJQuery(tag + "#" + id)),
 		cache: make(map[string]DomAttribute),
 	}
+}
+
+//Dom returns a handle to the dom accessor, which varies between test and
+//browser modes.
+func (self htmlIdImpl) Dom() NarrowDom {
+	return self.t
 }
 
 func (self htmlIdImpl) Selector() string {
@@ -76,18 +88,6 @@ func (self htmlIdImpl) TagName() string {
 //Id returns the stored id.
 func (self htmlIdImpl) Id() string {
 	return self.id
-}
-
-//Val returns the value of an input field.  Note that this probably
-//will not do what you want if the object in question is not an
-//input or textarea.
-func (self htmlIdImpl) Val() string {
-	return self.jq.Val()
-}
-
-//SetText puts the text provided into the tag.
-func (self htmlIdImpl) SetText(s string) {
-	self.jq.SetText(s)
 }
 
 func (self htmlIdImpl) cachedAttribute(name string) DomAttribute {
@@ -112,7 +112,7 @@ func (self htmlIdImpl) getOrCreateAttribute(name string, fn func() DomAttribute)
 //on the dom element selected by this object.
 func (self htmlIdImpl) StyleAttribute(name string) DomAttribute {
 	return self.getOrCreateAttribute("style:"+name, func() DomAttribute {
-		return NewStyleAttr(name, self.jq)
+		return NewStyleAttr(name, self.t)
 	})
 }
 
@@ -120,7 +120,7 @@ func (self htmlIdImpl) StyleAttribute(name string) DomAttribute {
 //expects this to be connected to a constraint returning boolean.
 func (self htmlIdImpl) DisplayAttribute() DomAttribute {
 	return self.getOrCreateAttribute("display", func() DomAttribute {
-		return NewDisplayAttr(self.jq)
+		return NewDisplayAttr(self.t)
 	})
 }
 
@@ -128,7 +128,7 @@ func (self htmlIdImpl) DisplayAttribute() DomAttribute {
 //particular CSS closs.
 func (self htmlIdImpl) CssExistenceAttribute(clazz CssClass) DomAttribute {
 	return self.getOrCreateAttribute("cssexist:"+clazz.ClassName(), func() DomAttribute {
-		return NewCssExistenceAttr(self.jq, clazz)
+		return NewCssExistenceAttr(self.t, clazz)
 	})
 }
 
@@ -136,13 +136,6 @@ func (self htmlIdImpl) CssExistenceAttribute(clazz CssClass) DomAttribute {
 //selected by this object.
 func (self htmlIdImpl) TextAttribute() DomAttribute {
 	return self.getOrCreateAttribute("text", func() DomAttribute {
-		return NewTextAttr(self.jq)
+		return NewTextAttr(self.t)
 	})
-}
-
-//Event hooks an event func to the event named.
-//XXX should probably define the constants for event names as their own type
-func (self htmlIdImpl) Event(n EventName, f EventFunc) {
-	h := &eventHandler{n, self.jq, f}
-	h.register()
 }

@@ -2,15 +2,18 @@ package client
 
 import (
 	"fmt"
-	"github.com/gopherjs/jquery"
+	//"github.com/gopherjs/jquery"
 	//"honnef.co/go/js/console"
 )
 
 const (
-	CONCORDE_DATA     = "concorde_%s"
+	SEVEN5_DATA       = "seven5_%s"
 	CONSTRAINT_MARKER = "constraint"
 )
 
+//DomAttribute is a constrainable entity that references a portion of the dom.
+//The referenced dom element may be either a fixed portion of the dom or
+//part of a dynamically created (sub)tree.
 type DomAttribute interface {
 	Attribute
 	Id() string
@@ -24,7 +27,7 @@ type DomAttribute interface {
 //functionality is delegated to specific subtypes.
 type domAttr struct {
 	attr *AttributeImpl
-	j    jquery.JQuery
+	t    NarrowDom
 	id   string
 	set  SideEffectFunc
 	get  ValueFunc
@@ -35,9 +38,9 @@ type styleAttr struct {
 	name string
 }
 
-func newDomAttr(j jquery.JQuery, id string, g ValueFunc, s SideEffectFunc) *domAttr {
+func newDomAttr(t NarrowDom, id string, g ValueFunc, s SideEffectFunc) *domAttr {
 	result := &domAttr{
-		j:  j,
+		t:  t,
 		id: id,
 	}
 	result.attr = NewAttribute(EAGER, g, s)
@@ -45,19 +48,15 @@ func newDomAttr(j jquery.JQuery, id string, g ValueFunc, s SideEffectFunc) *domA
 }
 
 func (self *domAttr) getData() string {
-	d := self.j.Data(fmt.Sprintf(CONCORDE_DATA, self.id))
-	if d == nil {
-		return ""
-	}
-	return d.(string)
+	return self.t.Data(fmt.Sprintf(SEVEN5_DATA, self.id))
 }
 
 func (self *domAttr) removeData() {
-	self.j.SetData(fmt.Sprintf(CONCORDE_DATA, self.id), nil)
+	self.t.RemoveData(fmt.Sprintf(SEVEN5_DATA, self.id))
 }
 
 func (self *domAttr) setData(v string) {
-	self.j.SetData(fmt.Sprintf(CONCORDE_DATA, self.id), v)
+	self.t.SetData(fmt.Sprintf(SEVEN5_DATA, self.id), v)
 }
 
 //verifyConstraint tests to see if there is already a constraint or not
@@ -107,21 +106,21 @@ func (self *domAttr) Id() string {
 //so the constraint result may be any type.  This the lower level
 //interface, most users will probably prefer to use the
 //StyleAttrBuilder interface.
-func NewStyleAttr(n string, j jquery.JQuery) DomAttribute {
+func NewStyleAttr(n string, t NarrowDom) DomAttribute {
 	result := &styleAttr{name: n}
-	result.domAttr = newDomAttr(j, fmt.Sprintf("style:%s", n), result.get, result.set)
+	result.domAttr = newDomAttr(t, fmt.Sprintf("style:%s", n), result.get, result.set)
 	return result
 }
 
 func (self *styleAttr) get() Equaler {
-	if self.j.Css(self.name) == "undefined" {
+	if self.t.Css(self.name) == "undefined" {
 		return StringEqualer{""}
 	}
-	return StringEqualer{self.j.Css(self.name)}
+	return StringEqualer{self.t.Css(self.name)}
 }
 
 func (self *styleAttr) set(e Equaler) {
-	self.j.SetCss(self.name, fmt.Sprintf("%s", e))
+	self.t.SetCss(self.name, fmt.Sprintf("%s", e))
 }
 
 type textAttr struct {
@@ -133,21 +132,18 @@ type textAttr struct {
 //use the TextBuilder API, this is the lower level access to the raw
 //DomAttribute.  This attribute uses fmt.Sprintf() to compute the final
 //text value written, so the constraint result can be any type.
-func NewTextAttr(j jquery.JQuery) DomAttribute {
+func NewTextAttr(t NarrowDom) DomAttribute {
 	result := &textAttr{}
-	result.domAttr = newDomAttr(j, "text", result.get, result.set)
+	result.domAttr = newDomAttr(t, "text", result.get, result.set)
 	return result
 }
 
 func (self *textAttr) get() Equaler {
-	if self.j.Text() == "undefined" {
-		return StringEqualer{""}
-	}
-	return StringEqualer{self.j.Text()}
+	return StringEqualer{self.t.Text()}
 }
 
 func (self *textAttr) set(e Equaler) {
-	self.j.SetText(fmt.Sprintf("%v", e))
+	self.t.SetText(fmt.Sprintf("%v", e))
 }
 
 type htmlAttrAttr struct {
@@ -162,31 +158,18 @@ type htmlAttrAttr struct {
 //to the raw DomAttribute().  This attribute uses fmt.Sprintf()
 //to compute the final value assigned to the dom element, so the
 //constraint result can be any type.
-func NewHtmlAttrAttr(j jquery.JQuery, a htmlAttrName) DomAttribute {
+func NewHtmlAttrAttr(t NarrowDom, a htmlAttrName) DomAttribute {
 	result := &htmlAttrAttr{name: a}
-	result.domAttr = newDomAttr(j, "attr:"+string(a), result.get, result.set)
+	result.domAttr = newDomAttr(t, "attr:"+string(a), result.get, result.set)
 	return result
 }
 
 func (self *htmlAttrAttr) get() Equaler {
-	if self.j.Attr(string(self.name)) == "undefined" {
-		return StringEqualer{""}
-	}
-	return StringEqualer{self.j.Attr(string(self.name))}
+	return StringEqualer{self.t.Attr(string(self.name))}
 }
 
 func (self *htmlAttrAttr) set(e Equaler) {
-	/*	b, ok := e.(BoolEqualer)
-		if ok {
-			if b.B {
-				self.j.SetProp(string(self.name), true)
-			} else {
-				self.j.SetProp(string(self.name), false)
-			}
-			return
-		}
-	*/
-	self.j.SetAttr(string(self.name), fmt.Sprintf("%v", e))
+	self.t.SetAttr(string(self.name), fmt.Sprintf("%v", e))
 }
 
 type propAttr struct {
@@ -198,19 +181,19 @@ type propAttr struct {
 //named, for the elements that are matched by j.  This is primarily
 //useful for things that have true/false state (such checked, selected,
 //or disabled state) so it expects a boolean attribute.
-func NewPropAttr(j jquery.JQuery, n propName) DomAttribute {
+func NewPropAttr(t NarrowDom, n propName) DomAttribute {
 	result := &propAttr{name: n}
-	result.domAttr = newDomAttr(j, "prop:"+string(n), result.get, result.set)
+	result.domAttr = newDomAttr(t, "prop:"+string(n), result.get, result.set)
 	return result
 }
 
 func (self *propAttr) get() Equaler {
-	b := self.j.Prop(string(self.name))
-	return BoolEqualer{b.(bool)}
+	b := self.t.Prop(string(self.name))
+	return BoolEqualer{b}
 }
 
 func (self *propAttr) set(e Equaler) {
-	self.j.SetProp(string(self.name), e.(BoolEqualer).B)
+	self.t.SetProp(string(self.name), e.(BoolEqualer).B)
 }
 
 type htmlAttrName string
@@ -249,21 +232,21 @@ type cssExistenceAttr struct {
 //j. If the boolean value is provided, the css class is removed. Most
 //users will probably prefer to use the CssExistenceBuilder interface,
 //this is the lower level access to the dom attribute.
-func NewCssExistenceAttr(j jquery.JQuery, clazz CssClass) DomAttribute {
+func NewCssExistenceAttr(t NarrowDom, clazz CssClass) DomAttribute {
 	result := &cssExistenceAttr{clazz: clazz}
-	result.domAttr = newDomAttr(j, "cssclass:"+clazz.ClassName(), result.get, result.set)
+	result.domAttr = newDomAttr(t, "cssclass:"+clazz.ClassName(), result.get, result.set)
 	return result
 }
 
 func (self *cssExistenceAttr) get() Equaler {
-	return BoolEqualer{self.j.HasClass(self.clazz.ClassName())}
+	return BoolEqualer{self.t.HasClass(self.clazz.ClassName())}
 }
 
 func (self *cssExistenceAttr) set(e Equaler) {
 	if e.(BoolEqualer).B {
-		self.j.AddClass(self.clazz.ClassName())
+		self.t.AddClass(self.clazz.ClassName())
 	} else {
-		self.j.RemoveClass(self.clazz.ClassName())
+		self.t.RemoveClass(self.clazz.ClassName())
 	}
 }
 
@@ -273,24 +256,24 @@ func (self *cssExistenceAttr) set(e Equaler) {
 //hide a given dom element.  This is the lower level interface and
 //most users will prefer the DisplayAttrBuilder or DisplayAttribute
 //calls.
-func NewDisplayAttr(j jquery.JQuery) DomAttribute {
+func NewDisplayAttr(t NarrowDom) DomAttribute {
 	result := &styleAttr{name: "display"}
-	result.domAttr = newDomAttr(j, "style:display", result.getDisplay,
+	result.domAttr = newDomAttr(t, "style:display", result.getDisplay,
 		result.setDisplay)
 	return result
 }
 
 func (self *styleAttr) getDisplay() Equaler {
-	if self.j.Css("display") == "undefined" {
+	if self.t.Css("display") == "undefined" {
 		return BoolEqualer{true}
 	}
-	return BoolEqualer{self.j.Css("display") != "none"}
+	return BoolEqualer{self.t.Css("display") != "none"}
 }
 
 func (self *styleAttr) setDisplay(e Equaler) {
 	if e.(BoolEqualer).B {
-		self.j.SetCss("display", "")
+		self.t.SetCss("display", "")
 	} else {
-		self.j.SetCss("display", "none")
+		self.t.SetCss("display", "none")
 	}
 }

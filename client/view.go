@@ -83,7 +83,7 @@ func HtmlIdFromModel(tag string, m ModelName) HtmlId {
 	return NewHtmlId(tag, id)
 }
 
-func (p *ViewImpl) Build() jquery.JQuery {
+func (p *ViewImpl) Build() NarrowDom {
 	id := ""
 	classes := ""
 	if p.id != "" {
@@ -100,26 +100,32 @@ func (p *ViewImpl) Build() jquery.JQuery {
 		t = fmt.Sprintf("<%s%s%s>%s</%s>", p.tag, id, classes, p.text, p.tag)
 	}
 	parsed := jquery.ParseHTML(t)
-	j := jquery.NewJQuery(parsed[0])
+	var nDom NarrowDom
+	if TestMode {
+		nDom = newTestOps()
+	} else {
+		nDom = wrap(jquery.NewJQuery(parsed[0]))
+	}
+
 	for _, child := range p.children {
-		j.Append(child.Build())
+		nDom.Append(child.Build())
 	}
 
 	if p.builders != nil {
 		for _, b := range p.builders {
-			b.build(j)
+			b.build(nDom)
 		}
 	}
 
 	if p.event != nil {
 		for _, h := range p.event {
 			//we have the object now, assign to j
-			h.j = j
+			h.t = nDom
 			h.register()
 		}
 	}
 
-	return j
+	return nDom
 }
 
 func IMG(obj ...interface{}) *ViewImpl {

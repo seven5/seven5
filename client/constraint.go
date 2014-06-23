@@ -1,5 +1,9 @@
 package client
 
+var (
+	TestMode = false
+)
+
 //Equaler is an interface that forces objects to be comparable
 //for equality.  The constraint algorithm needs this to know when
 //a value changes.
