@@ -19,6 +19,7 @@ type NarrowDom interface {
 	Prop(string) bool
 	SetProp(string, bool)
 	On(EventName, EventFunc)
+	Trigger(EventName)
 	HasClass(string) bool
 	AddClass(string)
 	RemoveClass(string)
@@ -44,6 +45,7 @@ type testOpsImpl struct {
 	prop     map[string]bool
 	radio    map[string]string
 	classes  map[string]int
+	event    map[EventName]EventFunc
 	parent   *testOpsImpl //need the nil
 	children []*testOpsImpl
 }
@@ -55,6 +57,7 @@ func newTestOps() NarrowDom {
 		attr:    make(map[string]string),
 		prop:    make(map[string]bool),
 		classes: make(map[string]int),
+		event : make(map[EventName]EventFunc),
 	}
 	return &result
 }
@@ -145,12 +148,23 @@ func (self jqueryWrapper) SetProp(k string, v bool) {
 	self.jq.SetProp(k, v)
 }
 
-func (self *testOpsImpl) On(EventName, EventFunc) {
-	panic("not implemented")
+func (self *testOpsImpl) On(name EventName, fn EventFunc) {
+	self.event[name]=fn
 }
 
 func (self jqueryWrapper) On(n EventName, fn EventFunc) {
-	self.jq.On(n.String(), fn)
+	self.jq.On(n.String(),fn)
+}
+
+func (self *testOpsImpl) Trigger(name EventName) {
+	fn, ok:=self.event[name]
+	if ok {
+		fn(jquery.Event{Type:name.String()})
+	}
+}
+
+func (self jqueryWrapper) Trigger(n EventName) {
+	self.jq.Trigger(n)
 }
 
 func (self *testOpsImpl) HasClass(k string) bool {
