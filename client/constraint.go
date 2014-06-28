@@ -24,6 +24,7 @@ type Attribute interface {
 	Detach()
 	Demand() Equaler
 	SetEqualer(Equaler)
+	SetDebugName(n string)
 }
 
 //Constraint is a function of Attributes that results in an attribute.

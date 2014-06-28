@@ -94,6 +94,7 @@ type node interface {
 //AttributeImpl is the implementation of a node.
 type AttributeImpl struct {
 	n            int
+	name         string
 	evalCount    int
 	demandCount  int
 	clean        bool //to make the zero value of "false" work for us
@@ -173,6 +174,10 @@ func (self *AttributeImpl) Detach() {
 		self.removeIn(e.src().id())
 	}
 	DrainEagerQueue()
+}
+
+func (self *AttributeImpl) SetDebugName(n string){
+	self.name = n
 }
 
 func (self *AttributeImpl) dropIthEdge(i int) {
@@ -330,6 +335,7 @@ func (self *AttributeImpl) SetEqualer(i Equaler) {
 func (self *AttributeImpl) Demand() Equaler {
 	self.demandCount++
 
+	//print("Demand called ", self.id()," (", self.name, ") with dirty ", self.dirty(),"\n")
 	//first if we are not dirty, return our stored value
 	if !self.dirty() {
 		return self.curr
@@ -355,6 +361,8 @@ func (self *AttributeImpl) Demand() Equaler {
 		}
 	})
 
+	//print("inside demand ", self.id()," (", self.name, ") anyMarks = ",anyMarks,"\n")
+
 	//if nobody actually returned a different value, then we
 	//don't need to reevaluate
 	if !anyMarks && self.valueFn == nil {
@@ -365,6 +373,8 @@ func (self *AttributeImpl) Demand() Equaler {
 	self.evalCount++
 	var newval Equaler
 
+	//print("inside demand ", self.id()," (", self.name, ") self.valueFn = ",
+	//	self.valueFn,",", self.constraint,"\n")
 	if self.valueFn != nil && self.constraint == nil {
 		newval = self.valueFn()
 	} else {

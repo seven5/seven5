@@ -95,7 +95,9 @@ func (self *domAttr) Demand() Equaler {
 func (self *domAttr) SetEqualer(e Equaler) {
 	self.attr.SetEqualer(e)
 }
-
+func (self *domAttr) SetDebugName(n string) {
+	self.attr.SetDebugName(n)
+}
 func (self *domAttr) Id() string {
 	return self.id
 }

@@ -12698,7 +12698,7 @@ $packages["strings"] = (function() {
 	return $pkg;
 })();
 $packages["github.com/seven5/seven5/client"] = (function() {
-	var $pkg = {}, js = $packages["github.com/gopherjs/gopherjs/js"], jquery = $packages["github.com/gopherjs/jquery"], fmt = $packages["fmt"], strings = $packages["strings"], BoolEqualer, Equaler, Attribute, Constraint, CssClass, htmlIdImpl, DomAttribute, domAttr, styleAttr, textAttr, cssExistenceAttr, edgeImpl, NodeType, node, AttributeImpl, ValueFunc, SideEffectFunc, EventFunc, EventName, radioGroupImpl, StringEqualer, NarrowDom, jqueryWrapper, testOpsImpl, NewHtmlId, newDomAttr, NewStyleAttr, NewTextAttr, newAttrName, newPropName, NewCssExistenceAttr, NewDisplayAttr, DrainEagerQueue, newEdge, NewAttribute, NewRadioGroup, wrap, newTestOps, eagerQueue, numNodes;
+	var $pkg = {}, js = $packages["github.com/gopherjs/gopherjs/js"], jquery = $packages["github.com/gopherjs/jquery"], fmt = $packages["fmt"], strings = $packages["strings"], BoolEqualer, Equaler, Attribute, Constraint, CssClass, htmlIdImpl, DomAttribute, domAttr, styleAttr, textAttr, cssExistenceAttr, edgeImpl, NodeType, node, AttributeImpl, ValueFunc, SideEffectFunc, EventFunc, EventName, inputTextIdImpl, radioGroupImpl, NarrowDom, jqueryWrapper, testOpsImpl, StringEqualer, NewHtmlId, newDomAttr, NewStyleAttr, NewTextAttr, newAttrName, newPropName, NewCssExistenceAttr, NewDisplayAttr, DrainEagerQueue, newEdge, NewAttribute, NewInputTextId, NewRadioGroup, wrap, newTestOps, eagerQueue, numNodes;
 	BoolEqualer = $pkg.BoolEqualer = $newType(0, "Struct", "client.BoolEqualer", "BoolEqualer", "github.com/seven5/seven5/client", function(B_) {
 		this.$val = this;
 		this.B = B_ !== undefined ? B_ : false;
@@ -12762,21 +12762,23 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 	SideEffectFunc = $pkg.SideEffectFunc = $newType(4, "Func", "client.SideEffectFunc", "SideEffectFunc", "github.com/seven5/seven5/client", null);
 	EventFunc = $pkg.EventFunc = $newType(4, "Func", "client.EventFunc", "EventFunc", "github.com/seven5/seven5/client", null);
 	EventName = $pkg.EventName = $newType(4, "Int", "client.EventName", "EventName", "github.com/seven5/seven5/client", null);
-	radioGroupImpl = $pkg.radioGroupImpl = $newType(0, "Struct", "client.radioGroupImpl", "radioGroupImpl", "github.com/seven5/seven5/client", function(selector_, attr_) {
+	inputTextIdImpl = $pkg.inputTextIdImpl = $newType(0, "Struct", "client.inputTextIdImpl", "inputTextIdImpl", "github.com/seven5/seven5/client", function(htmlIdImpl_, attr_) {
 		this.$val = this;
-		this.selector = selector_ !== undefined ? selector_ : "";
+		this.htmlIdImpl = htmlIdImpl_ !== undefined ? htmlIdImpl_ : new htmlIdImpl.Ptr();
 		this.attr = attr_ !== undefined ? attr_ : ($ptrType(AttributeImpl)).nil;
 	});
-	StringEqualer = $pkg.StringEqualer = $newType(0, "Struct", "client.StringEqualer", "StringEqualer", "github.com/seven5/seven5/client", function(S_) {
+	radioGroupImpl = $pkg.radioGroupImpl = $newType(0, "Struct", "client.radioGroupImpl", "radioGroupImpl", "github.com/seven5/seven5/client", function(dom_, selector_, attr_) {
 		this.$val = this;
-		this.S = S_ !== undefined ? S_ : "";
+		this.dom = dom_ !== undefined ? dom_ : null;
+		this.selector = selector_ !== undefined ? selector_ : "";
+		this.attr = attr_ !== undefined ? attr_ : ($ptrType(AttributeImpl)).nil;
 	});
 	NarrowDom = $pkg.NarrowDom = $newType(8, "Interface", "client.NarrowDom", "NarrowDom", "github.com/seven5/seven5/client", null);
 	jqueryWrapper = $pkg.jqueryWrapper = $newType(0, "Struct", "client.jqueryWrapper", "jqueryWrapper", "github.com/seven5/seven5/client", function(jq_) {
 		this.$val = this;
 		this.jq = jq_ !== undefined ? jq_ : new jquery.JQuery.Ptr();
 	});
-	testOpsImpl = $pkg.testOpsImpl = $newType(0, "Struct", "client.testOpsImpl", "testOpsImpl", "github.com/seven5/seven5/client", function(data_, css_, text_, val_, attr_, prop_, radio_, classes_, parent_, children_) {
+	testOpsImpl = $pkg.testOpsImpl = $newType(0, "Struct", "client.testOpsImpl", "testOpsImpl", "github.com/seven5/seven5/client", function(data_, css_, text_, val_, attr_, prop_, radio_, classes_, event_, parent_, children_) {
 		this.$val = this;
 		this.data = data_ !== undefined ? data_ : false;
 		this.css = css_ !== undefined ? css_ : false;
@@ -12786,8 +12788,13 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 		this.prop = prop_ !== undefined ? prop_ : false;
 		this.radio = radio_ !== undefined ? radio_ : false;
 		this.classes = classes_ !== undefined ? classes_ : false;
+		this.event = event_ !== undefined ? event_ : false;
 		this.parent = parent_ !== undefined ? parent_ : ($ptrType(testOpsImpl)).nil;
 		this.children = children_ !== undefined ? children_ : ($sliceType(($ptrType(testOpsImpl)))).nil;
+	});
+	StringEqualer = $pkg.StringEqualer = $newType(0, "Struct", "client.StringEqualer", "StringEqualer", "github.com/seven5/seven5/client", function(S_) {
+		this.$val = this;
+		this.S = S_ !== undefined ? S_ : "";
 	});
 	BoolEqualer.Ptr.prototype.Equal = function(e) {
 		var self;
@@ -13382,41 +13389,62 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 		throw $panic(new $String(fmt.Sprintf("unknown event name %v", new ($sliceType($emptyInterface))([new EventName(self)]))));
 	};
 	$ptrType(EventName).prototype.String = function() { return new EventName(this.$get()).String(); };
+	NewInputTextId = $pkg.NewInputTextId = function(id) {
+		var x, result, _recv;
+		result = new inputTextIdImpl.Ptr(); $copy(result, new inputTextIdImpl.Ptr((x = NewHtmlId("input", id), (x !== null && x.constructor === htmlIdImpl ? x.$val : $typeAssertionFailed(x, htmlIdImpl))), ($ptrType(AttributeImpl)).nil), inputTextIdImpl);
+		result.attr = NewAttribute(1, (_recv = result, function() { return _recv.value(); }), $throwNilPointerError);
+		result.htmlIdImpl.Dom().On(11, (function() {
+			result.attr.markDirty();
+		}));
+		return new result.constructor.Struct(result);
+	};
+	inputTextIdImpl.Ptr.prototype.SetVal = function(s) {
+		var self;
+		self = new inputTextIdImpl.Ptr(); $copy(self, this, inputTextIdImpl);
+		self.htmlIdImpl.t.SetVal(s);
+	};
+	inputTextIdImpl.prototype.SetVal = function(s) { return this.$val.SetVal(s); };
+	inputTextIdImpl.Ptr.prototype.Val = function() {
+		var self, v;
+		self = new inputTextIdImpl.Ptr(); $copy(self, this, inputTextIdImpl);
+		v = self.htmlIdImpl.t.Val();
+		if (v === "undefined") {
+			return "";
+		}
+		return v;
+	};
+	inputTextIdImpl.prototype.Val = function() { return this.$val.Val(); };
+	inputTextIdImpl.Ptr.prototype.value = function() {
+		var self, x;
+		self = new inputTextIdImpl.Ptr(); $copy(self, this, inputTextIdImpl);
+		return (x = new StringEqualer.Ptr(self.Val()), new x.constructor.Struct(x));
+	};
+	inputTextIdImpl.prototype.value = function() { return this.$val.value(); };
+	inputTextIdImpl.Ptr.prototype.ContentAttribute = function() {
+		var self;
+		self = new inputTextIdImpl.Ptr(); $copy(self, this, inputTextIdImpl);
+		return self.attr;
+	};
+	inputTextIdImpl.prototype.ContentAttribute = function() { return this.$val.ContentAttribute(); };
 	NewRadioGroup = $pkg.NewRadioGroup = function(name) {
-		var result, _recv;
-		result = new radioGroupImpl.Ptr(); $copy(result, new radioGroupImpl.Ptr("input[name=\"" + name + "\"][type=\"radio\"]", ($ptrType(AttributeImpl)).nil), radioGroupImpl);
+		var selector, result, _recv;
+		selector = "input:radio[name=\"" + name + "\"]";
+		result = new radioGroupImpl.Ptr(); $copy(result, new radioGroupImpl.Ptr(null, selector, ($ptrType(AttributeImpl)).nil), radioGroupImpl);
+		console.log("selector ", selector);
+		if ($pkg.TestMode) {
+			result.dom = newTestOps();
+		} else {
+			result.dom = wrap($clone(jquery.NewJQuery(new ($sliceType($emptyInterface))([new $String(selector)])), jquery.JQuery));
+		}
 		result.attr = NewAttribute(1, (_recv = result, function() { return _recv.value(); }), $throwNilPointerError);
 		return new result.constructor.Struct(result);
 	};
-	radioGroupImpl.Ptr.prototype.Dom = function() {
-		var self, x;
-		self = new radioGroupImpl.Ptr(); $copy(self, this, radioGroupImpl);
-		return (x = new jqueryWrapper.Ptr(jquery.NewJQuery(new ($sliceType($emptyInterface))([]))), new x.constructor.Struct(x));
-	};
-	radioGroupImpl.prototype.Dom = function() { return this.$val.Dom(); };
 	radioGroupImpl.Ptr.prototype.value = function() {
 		var self, x;
 		self = new radioGroupImpl.Ptr(); $copy(self, this, radioGroupImpl);
-		return (x = new StringEqualer.Ptr(self.Val()), new x.constructor.Struct(x));
+		return (x = new StringEqualer.Ptr(self.dom.Val()), new x.constructor.Struct(x));
 	};
 	radioGroupImpl.prototype.value = function() { return this.$val.value(); };
-	radioGroupImpl.Ptr.prototype.Val = function() {
-		var self, jq, val;
-		self = new radioGroupImpl.Ptr(); $copy(self, this, radioGroupImpl);
-		jq = new jquery.JQuery.Ptr(); $copy(jq, jquery.NewJQuery(new ($sliceType($emptyInterface))([new $String(self.selector + ":checked")])), jquery.JQuery);
-		val = jq.Val();
-		if (val === "undefined") {
-			return "";
-		}
-		return val;
-	};
-	radioGroupImpl.prototype.Val = function() { return this.$val.Val(); };
-	radioGroupImpl.Ptr.prototype.SetVal = function(s) {
-		var self;
-		self = new radioGroupImpl.Ptr(); $copy(self, this, radioGroupImpl);
-		throw $panic(new $String("not implemented"));
-	};
-	radioGroupImpl.prototype.SetVal = function(s) { return this.$val.SetVal(s); };
 	radioGroupImpl.Ptr.prototype.Selector = function() {
 		var self;
 		self = new radioGroupImpl.Ptr(); $copy(self, this, radioGroupImpl);
@@ -13429,25 +13457,54 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 		return self.attr;
 	};
 	radioGroupImpl.prototype.ContentAttribute = function() { return this.$val.ContentAttribute(); };
-	StringEqualer.Ptr.prototype.Equal = function(e) {
-		var self;
-		self = new StringEqualer.Ptr(); $copy(self, this, StringEqualer);
-		return self.S === (e !== null && e.constructor === StringEqualer ? e.$val : $typeAssertionFailed(e, StringEqualer)).S;
+	radioGroupImpl.Ptr.prototype.Val = function() {
+		var self, v, d, _ref, _type;
+		self = new radioGroupImpl.Ptr(); $copy(self, this, radioGroupImpl);
+		v = "";
+		_ref = self.dom;
+		_type = _ref !== null ? _ref.constructor : null;
+		if (_type === jqueryWrapper) {
+			d = _ref.$val;
+			v = d.jq.Filter(new ($sliceType($emptyInterface))([new $String(":checked")])).Val();
+		} else if (_type === ($ptrType(testOpsImpl))) {
+			d = _ref.$val;
+			v = d.Val();
+			d.Trigger(2);
+		} else {
+			d = _ref;
+			throw $panic(new $String("unknown dom type"));
+		}
+		if (v === "undefined") {
+			return "";
+		}
+		return v;
 	};
-	StringEqualer.prototype.Equal = function(e) { return this.$val.Equal(e); };
-	StringEqualer.Ptr.prototype.String = function() {
-		var self;
-		self = new StringEqualer.Ptr(); $copy(self, this, StringEqualer);
-		return fmt.Sprintf("%s", new ($sliceType($emptyInterface))([new $String(self.S)]));
+	radioGroupImpl.prototype.Val = function() { return this.$val.Val(); };
+	radioGroupImpl.Ptr.prototype.SetVal = function(s) {
+		var self, d, _ref, _type, child;
+		self = new radioGroupImpl.Ptr(); $copy(self, this, radioGroupImpl);
+		_ref = self.dom;
+		_type = _ref !== null ? _ref.constructor : null;
+		if (_type === jqueryWrapper) {
+			d = _ref.$val;
+			child = new jquery.JQuery.Ptr(); $copy(child, d.jq.Filter(new ($sliceType($emptyInterface))([new $String(fmt.Sprintf("[value=\"%s\"]", new ($sliceType($emptyInterface))([new $String(s)])))])), jquery.JQuery);
+			child.SetProp(new ($sliceType($emptyInterface))([new $String("checked"), new $Bool(true)]));
+		} else if (_type === ($ptrType(testOpsImpl))) {
+			d = _ref.$val;
+			d.SetVal(s);
+		} else {
+			d = _ref;
+			throw $panic(new $String("unknown type of dom pointer!"));
+		}
 	};
-	StringEqualer.prototype.String = function() { return this.$val.String(); };
+	radioGroupImpl.prototype.SetVal = function(s) { return this.$val.SetVal(s); };
 	wrap = function(j) {
 		var x;
 		return (x = new jqueryWrapper.Ptr(j), new x.constructor.Struct(x));
 	};
 	newTestOps = function() {
 		var result;
-		result = new testOpsImpl.Ptr(); $copy(result, new testOpsImpl.Ptr(new $Map(), new $Map(), "", "", new $Map(), new $Map(), false, new $Map(), ($ptrType(testOpsImpl)).nil, ($sliceType(($ptrType(testOpsImpl)))).nil), testOpsImpl);
+		result = new testOpsImpl.Ptr(); $copy(result, new testOpsImpl.Ptr(new $Map(), new $Map(), "", "", new $Map(), new $Map(), false, new $Map(), new $Map(), ($ptrType(testOpsImpl)).nil, ($sliceType(($ptrType(testOpsImpl)))).nil), testOpsImpl);
 		return result;
 	};
 	testOpsImpl.Ptr.prototype.SetData = function(k, v) {
@@ -13586,18 +13643,33 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 		self.jq.SetProp(new ($sliceType($emptyInterface))([new $String(k), new $Bool(v)]));
 	};
 	jqueryWrapper.prototype.SetProp = function(k, v) { return this.$val.SetProp(k, v); };
-	testOpsImpl.Ptr.prototype.On = function() {
-		var self;
+	testOpsImpl.Ptr.prototype.On = function(name, fn) {
+		var self, _key;
 		self = this;
-		throw $panic(new $String("not implemented"));
+		_key = name; (self.event || $throwRuntimeError("assignment to entry in nil map"))[_key] = { k: _key, v: fn };
 	};
-	testOpsImpl.prototype.On = function() { return this.$val.On(); };
+	testOpsImpl.prototype.On = function(name, fn) { return this.$val.On(name, fn); };
 	jqueryWrapper.Ptr.prototype.On = function(n, fn) {
 		var self;
 		self = new jqueryWrapper.Ptr(); $copy(self, this, jqueryWrapper);
 		self.jq.On(new ($sliceType($emptyInterface))([new $String((new EventName(n)).String()), new EventFunc(fn)]));
 	};
 	jqueryWrapper.prototype.On = function(n, fn) { return this.$val.On(n, fn); };
+	testOpsImpl.Ptr.prototype.Trigger = function(name) {
+		var self, _tuple, _entry, fn, ok;
+		self = this;
+		_tuple = (_entry = self.event[name], _entry !== undefined ? [_entry.v, true] : [$throwNilPointerError, false]); fn = _tuple[0]; ok = _tuple[1];
+		if (ok) {
+			fn(new jquery.Event.Ptr(null, 0, null, null, null, null, null, null, 0, "", false, 0, 0, (new EventName(name)).String()));
+		}
+	};
+	testOpsImpl.prototype.Trigger = function(name) { return this.$val.Trigger(name); };
+	jqueryWrapper.Ptr.prototype.Trigger = function(n) {
+		var self;
+		self = new jqueryWrapper.Ptr(); $copy(self, this, jqueryWrapper);
+		self.jq.Trigger(new ($sliceType($emptyInterface))([new EventName(n)]));
+	};
+	jqueryWrapper.prototype.Trigger = function(n) { return this.$val.Trigger(n); };
 	testOpsImpl.Ptr.prototype.HasClass = function(k) {
 		var self, _tuple, _entry, ok;
 		self = this;
@@ -13618,9 +13690,10 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 	};
 	testOpsImpl.prototype.Val = function() { return this.$val.Val(); };
 	jqueryWrapper.Ptr.prototype.Val = function() {
-		var self;
+		var self, v;
 		self = new jqueryWrapper.Ptr(); $copy(self, this, jqueryWrapper);
-		return self.jq.Val();
+		v = self.jq.Val();
+		return v;
 	};
 	jqueryWrapper.prototype.Val = function() { return this.$val.Val(); };
 	testOpsImpl.Ptr.prototype.SetVal = function(s) {
@@ -13706,6 +13779,18 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 		return jq.Val();
 	};
 	jqueryWrapper.prototype.RadioButton = function(groupName) { return this.$val.RadioButton(groupName); };
+	StringEqualer.Ptr.prototype.Equal = function(e) {
+		var self;
+		self = new StringEqualer.Ptr(); $copy(self, this, StringEqualer);
+		return self.S === (e !== null && e.constructor === StringEqualer ? e.$val : $typeAssertionFailed(e, StringEqualer)).S;
+	};
+	StringEqualer.prototype.Equal = function(e) { return this.$val.Equal(e); };
+	StringEqualer.Ptr.prototype.String = function() {
+		var self;
+		self = new StringEqualer.Ptr(); $copy(self, this, StringEqualer);
+		return fmt.Sprintf("%s", new ($sliceType($emptyInterface))([new $String(self.S)]));
+	};
+	StringEqualer.prototype.String = function() { return this.$val.String(); };
 	$pkg.init = function() {
 		BoolEqualer.methods = [["Equal", "Equal", "", [Equaler], [$Bool], false, -1], ["String", "String", "", [], [$String], false, -1]];
 		($ptrType(BoolEqualer)).methods = [["Equal", "Equal", "", [Equaler], [$Bool], false, -1], ["String", "String", "", [], [$String], false, -1]];
@@ -13739,18 +13824,21 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 		EventFunc.init([jquery.Event], [], false);
 		EventName.methods = [["String", "String", "", [], [$String], false, -1]];
 		($ptrType(EventName)).methods = [["String", "String", "", [], [$String], false, -1]];
-		radioGroupImpl.methods = [["ContentAttribute", "ContentAttribute", "", [], [Attribute], false, -1], ["Dom", "Dom", "", [], [NarrowDom], false, -1], ["Selector", "Selector", "", [], [$String], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Val", "Val", "", [], [$String], false, -1], ["value", "value", "github.com/seven5/seven5/client", [], [Equaler], false, -1]];
-		($ptrType(radioGroupImpl)).methods = [["ContentAttribute", "ContentAttribute", "", [], [Attribute], false, -1], ["Dom", "Dom", "", [], [NarrowDom], false, -1], ["Selector", "Selector", "", [], [$String], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Val", "Val", "", [], [$String], false, -1], ["value", "value", "github.com/seven5/seven5/client", [], [Equaler], false, -1]];
-		radioGroupImpl.init([["selector", "selector", "github.com/seven5/seven5/client", $String, ""], ["attr", "attr", "github.com/seven5/seven5/client", ($ptrType(AttributeImpl)), ""]]);
+		inputTextIdImpl.methods = [["ContentAttribute", "ContentAttribute", "", [], [Attribute], false, -1], ["CssExistenceAttribute", "CssExistenceAttribute", "", [CssClass], [DomAttribute], false, 0], ["DisplayAttribute", "DisplayAttribute", "", [], [DomAttribute], false, 0], ["Dom", "Dom", "", [], [NarrowDom], false, 0], ["Id", "Id", "", [], [$String], false, 0], ["Selector", "Selector", "", [], [$String], false, 0], ["SetVal", "SetVal", "", [$String], [], false, -1], ["StyleAttribute", "StyleAttribute", "", [$String], [DomAttribute], false, 0], ["TagName", "TagName", "", [], [$String], false, 0], ["TextAttribute", "TextAttribute", "", [], [DomAttribute], false, 0], ["Val", "Val", "", [], [$String], false, -1], ["cachedAttribute", "cachedAttribute", "github.com/seven5/seven5/client", [$String], [DomAttribute], false, 0], ["getOrCreateAttribute", "getOrCreateAttribute", "github.com/seven5/seven5/client", [$String, ($funcType([], [DomAttribute], false))], [DomAttribute], false, 0], ["setCachedAttribute", "setCachedAttribute", "github.com/seven5/seven5/client", [$String, DomAttribute], [], false, 0], ["value", "value", "github.com/seven5/seven5/client", [], [Equaler], false, -1]];
+		($ptrType(inputTextIdImpl)).methods = [["ContentAttribute", "ContentAttribute", "", [], [Attribute], false, -1], ["CssExistenceAttribute", "CssExistenceAttribute", "", [CssClass], [DomAttribute], false, 0], ["DisplayAttribute", "DisplayAttribute", "", [], [DomAttribute], false, 0], ["Dom", "Dom", "", [], [NarrowDom], false, 0], ["Id", "Id", "", [], [$String], false, 0], ["Selector", "Selector", "", [], [$String], false, 0], ["SetVal", "SetVal", "", [$String], [], false, -1], ["StyleAttribute", "StyleAttribute", "", [$String], [DomAttribute], false, 0], ["TagName", "TagName", "", [], [$String], false, 0], ["TextAttribute", "TextAttribute", "", [], [DomAttribute], false, 0], ["Val", "Val", "", [], [$String], false, -1], ["cachedAttribute", "cachedAttribute", "github.com/seven5/seven5/client", [$String], [DomAttribute], false, 0], ["getOrCreateAttribute", "getOrCreateAttribute", "github.com/seven5/seven5/client", [$String, ($funcType([], [DomAttribute], false))], [DomAttribute], false, 0], ["setCachedAttribute", "setCachedAttribute", "github.com/seven5/seven5/client", [$String, DomAttribute], [], false, 0], ["value", "value", "github.com/seven5/seven5/client", [], [Equaler], false, -1]];
+		inputTextIdImpl.init([["htmlIdImpl", "", "github.com/seven5/seven5/client", htmlIdImpl, ""], ["attr", "attr", "github.com/seven5/seven5/client", ($ptrType(AttributeImpl)), ""]]);
+		radioGroupImpl.methods = [["ContentAttribute", "ContentAttribute", "", [], [Attribute], false, -1], ["Selector", "Selector", "", [], [$String], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Val", "Val", "", [], [$String], false, -1], ["value", "value", "github.com/seven5/seven5/client", [], [Equaler], false, -1]];
+		($ptrType(radioGroupImpl)).methods = [["ContentAttribute", "ContentAttribute", "", [], [Attribute], false, -1], ["Selector", "Selector", "", [], [$String], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Val", "Val", "", [], [$String], false, -1], ["value", "value", "github.com/seven5/seven5/client", [], [Equaler], false, -1]];
+		radioGroupImpl.init([["dom", "dom", "github.com/seven5/seven5/client", NarrowDom, ""], ["selector", "selector", "github.com/seven5/seven5/client", $String, ""], ["attr", "attr", "github.com/seven5/seven5/client", ($ptrType(AttributeImpl)), ""]]);
+		NarrowDom.init([["AddClass", "AddClass", "", [$String], [], false], ["Append", "Append", "", [NarrowDom], [], false], ["Attr", "Attr", "", [$String], [$String], false], ["Css", "Css", "", [$String], [$String], false], ["Data", "Data", "", [$String], [$String], false], ["HasClass", "HasClass", "", [$String], [$Bool], false], ["On", "On", "", [EventName, EventFunc], [], false], ["Prop", "Prop", "", [$String], [$Bool], false], ["RemoveClass", "RemoveClass", "", [$String], [], false], ["RemoveData", "RemoveData", "", [$String], [], false], ["SetAttr", "SetAttr", "", [$String, $String], [], false], ["SetCss", "SetCss", "", [$String, $String], [], false], ["SetData", "SetData", "", [$String, $String], [], false], ["SetProp", "SetProp", "", [$String, $Bool], [], false], ["SetText", "SetText", "", [$String], [], false], ["SetVal", "SetVal", "", [$String], [], false], ["Text", "Text", "", [], [$String], false], ["Trigger", "Trigger", "", [EventName], [], false], ["Val", "Val", "", [], [$String], false]]);
+		jqueryWrapper.methods = [["AddClass", "AddClass", "", [$String], [], false, -1], ["Append", "Append", "", [NarrowDom], [], false, -1], ["Attr", "Attr", "", [$String], [$String], false, -1], ["Css", "Css", "", [$String], [$String], false, -1], ["Data", "Data", "", [$String], [$String], false, -1], ["HasClass", "HasClass", "", [$String], [$Bool], false, -1], ["On", "On", "", [EventName, EventFunc], [], false, -1], ["Prop", "Prop", "", [$String], [$Bool], false, -1], ["RadioButton", "RadioButton", "", [$String], [$String], false, -1], ["RemoveClass", "RemoveClass", "", [$String], [], false, -1], ["RemoveData", "RemoveData", "", [$String], [], false, -1], ["SetAttr", "SetAttr", "", [$String, $String], [], false, -1], ["SetCss", "SetCss", "", [$String, $String], [], false, -1], ["SetData", "SetData", "", [$String, $String], [], false, -1], ["SetProp", "SetProp", "", [$String, $Bool], [], false, -1], ["SetRadioButton", "SetRadioButton", "", [$String, $String], [], false, -1], ["SetText", "SetText", "", [$String], [], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Text", "Text", "", [], [$String], false, -1], ["Trigger", "Trigger", "", [EventName], [], false, -1], ["Val", "Val", "", [], [$String], false, -1]];
+		($ptrType(jqueryWrapper)).methods = [["AddClass", "AddClass", "", [$String], [], false, -1], ["Append", "Append", "", [NarrowDom], [], false, -1], ["Attr", "Attr", "", [$String], [$String], false, -1], ["Css", "Css", "", [$String], [$String], false, -1], ["Data", "Data", "", [$String], [$String], false, -1], ["HasClass", "HasClass", "", [$String], [$Bool], false, -1], ["On", "On", "", [EventName, EventFunc], [], false, -1], ["Prop", "Prop", "", [$String], [$Bool], false, -1], ["RadioButton", "RadioButton", "", [$String], [$String], false, -1], ["RemoveClass", "RemoveClass", "", [$String], [], false, -1], ["RemoveData", "RemoveData", "", [$String], [], false, -1], ["SetAttr", "SetAttr", "", [$String, $String], [], false, -1], ["SetCss", "SetCss", "", [$String, $String], [], false, -1], ["SetData", "SetData", "", [$String, $String], [], false, -1], ["SetProp", "SetProp", "", [$String, $Bool], [], false, -1], ["SetRadioButton", "SetRadioButton", "", [$String, $String], [], false, -1], ["SetText", "SetText", "", [$String], [], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Text", "Text", "", [], [$String], false, -1], ["Trigger", "Trigger", "", [EventName], [], false, -1], ["Val", "Val", "", [], [$String], false, -1]];
+		jqueryWrapper.init([["jq", "jq", "github.com/seven5/seven5/client", jquery.JQuery, ""]]);
+		($ptrType(testOpsImpl)).methods = [["AddClass", "AddClass", "", [$String], [], false, -1], ["Append", "Append", "", [NarrowDom], [], false, -1], ["Attr", "Attr", "", [$String], [$String], false, -1], ["Css", "Css", "", [$String], [$String], false, -1], ["Data", "Data", "", [$String], [$String], false, -1], ["HasClass", "HasClass", "", [$String], [$Bool], false, -1], ["On", "On", "", [EventName, EventFunc], [], false, -1], ["Prop", "Prop", "", [$String], [$Bool], false, -1], ["RadioButton", "RadioButton", "", [$String], [$String], false, -1], ["RemoveClass", "RemoveClass", "", [$String], [], false, -1], ["RemoveData", "RemoveData", "", [$String], [], false, -1], ["SetAttr", "SetAttr", "", [$String, $String], [], false, -1], ["SetCss", "SetCss", "", [$String, $String], [], false, -1], ["SetData", "SetData", "", [$String, $String], [], false, -1], ["SetProp", "SetProp", "", [$String, $Bool], [], false, -1], ["SetRadioButton", "SetRadioButton", "", [$String, $String], [], false, -1], ["SetText", "SetText", "", [$String], [], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Text", "Text", "", [], [$String], false, -1], ["Trigger", "Trigger", "", [EventName], [], false, -1], ["Val", "Val", "", [], [$String], false, -1]];
+		testOpsImpl.init([["data", "data", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["css", "css", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["text", "text", "github.com/seven5/seven5/client", $String, ""], ["val", "val", "github.com/seven5/seven5/client", $String, ""], ["attr", "attr", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["prop", "prop", "github.com/seven5/seven5/client", ($mapType($String, $Bool)), ""], ["radio", "radio", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["classes", "classes", "github.com/seven5/seven5/client", ($mapType($String, $Int)), ""], ["event", "event", "github.com/seven5/seven5/client", ($mapType(EventName, EventFunc)), ""], ["parent", "parent", "github.com/seven5/seven5/client", ($ptrType(testOpsImpl)), ""], ["children", "children", "github.com/seven5/seven5/client", ($sliceType(($ptrType(testOpsImpl)))), ""]]);
 		StringEqualer.methods = [["Equal", "Equal", "", [Equaler], [$Bool], false, -1], ["String", "String", "", [], [$String], false, -1]];
 		($ptrType(StringEqualer)).methods = [["Equal", "Equal", "", [Equaler], [$Bool], false, -1], ["String", "String", "", [], [$String], false, -1]];
 		StringEqualer.init([["S", "S", "", $String, ""]]);
-		NarrowDom.init([["AddClass", "AddClass", "", [$String], [], false], ["Append", "Append", "", [NarrowDom], [], false], ["Attr", "Attr", "", [$String], [$String], false], ["Css", "Css", "", [$String], [$String], false], ["Data", "Data", "", [$String], [$String], false], ["HasClass", "HasClass", "", [$String], [$Bool], false], ["On", "On", "", [EventName, EventFunc], [], false], ["Prop", "Prop", "", [$String], [$Bool], false], ["RadioButton", "RadioButton", "", [$String], [$String], false], ["RemoveClass", "RemoveClass", "", [$String], [], false], ["RemoveData", "RemoveData", "", [$String], [], false], ["SetAttr", "SetAttr", "", [$String, $String], [], false], ["SetCss", "SetCss", "", [$String, $String], [], false], ["SetData", "SetData", "", [$String, $String], [], false], ["SetProp", "SetProp", "", [$String, $Bool], [], false], ["SetRadioButton", "SetRadioButton", "", [$String, $String], [], false], ["SetText", "SetText", "", [$String], [], false], ["SetVal", "SetVal", "", [$String], [], false], ["Text", "Text", "", [], [$String], false], ["Val", "Val", "", [], [$String], false]]);
-		jqueryWrapper.methods = [["AddClass", "AddClass", "", [$String], [], false, -1], ["Append", "Append", "", [NarrowDom], [], false, -1], ["Attr", "Attr", "", [$String], [$String], false, -1], ["Css", "Css", "", [$String], [$String], false, -1], ["Data", "Data", "", [$String], [$String], false, -1], ["HasClass", "HasClass", "", [$String], [$Bool], false, -1], ["On", "On", "", [EventName, EventFunc], [], false, -1], ["Prop", "Prop", "", [$String], [$Bool], false, -1], ["RadioButton", "RadioButton", "", [$String], [$String], false, -1], ["RemoveClass", "RemoveClass", "", [$String], [], false, -1], ["RemoveData", "RemoveData", "", [$String], [], false, -1], ["SetAttr", "SetAttr", "", [$String, $String], [], false, -1], ["SetCss", "SetCss", "", [$String, $String], [], false, -1], ["SetData", "SetData", "", [$String, $String], [], false, -1], ["SetProp", "SetProp", "", [$String, $Bool], [], false, -1], ["SetRadioButton", "SetRadioButton", "", [$String, $String], [], false, -1], ["SetText", "SetText", "", [$String], [], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Text", "Text", "", [], [$String], false, -1], ["Val", "Val", "", [], [$String], false, -1]];
-		($ptrType(jqueryWrapper)).methods = [["AddClass", "AddClass", "", [$String], [], false, -1], ["Append", "Append", "", [NarrowDom], [], false, -1], ["Attr", "Attr", "", [$String], [$String], false, -1], ["Css", "Css", "", [$String], [$String], false, -1], ["Data", "Data", "", [$String], [$String], false, -1], ["HasClass", "HasClass", "", [$String], [$Bool], false, -1], ["On", "On", "", [EventName, EventFunc], [], false, -1], ["Prop", "Prop", "", [$String], [$Bool], false, -1], ["RadioButton", "RadioButton", "", [$String], [$String], false, -1], ["RemoveClass", "RemoveClass", "", [$String], [], false, -1], ["RemoveData", "RemoveData", "", [$String], [], false, -1], ["SetAttr", "SetAttr", "", [$String, $String], [], false, -1], ["SetCss", "SetCss", "", [$String, $String], [], false, -1], ["SetData", "SetData", "", [$String, $String], [], false, -1], ["SetProp", "SetProp", "", [$String, $Bool], [], false, -1], ["SetRadioButton", "SetRadioButton", "", [$String, $String], [], false, -1], ["SetText", "SetText", "", [$String], [], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Text", "Text", "", [], [$String], false, -1], ["Val", "Val", "", [], [$String], false, -1]];
-		jqueryWrapper.init([["jq", "jq", "github.com/seven5/seven5/client", jquery.JQuery, ""]]);
-		($ptrType(testOpsImpl)).methods = [["AddClass", "AddClass", "", [$String], [], false, -1], ["Append", "Append", "", [NarrowDom], [], false, -1], ["Attr", "Attr", "", [$String], [$String], false, -1], ["Css", "Css", "", [$String], [$String], false, -1], ["Data", "Data", "", [$String], [$String], false, -1], ["HasClass", "HasClass", "", [$String], [$Bool], false, -1], ["On", "On", "", [EventName, EventFunc], [], false, -1], ["Prop", "Prop", "", [$String], [$Bool], false, -1], ["RadioButton", "RadioButton", "", [$String], [$String], false, -1], ["RemoveClass", "RemoveClass", "", [$String], [], false, -1], ["RemoveData", "RemoveData", "", [$String], [], false, -1], ["SetAttr", "SetAttr", "", [$String, $String], [], false, -1], ["SetCss", "SetCss", "", [$String, $String], [], false, -1], ["SetData", "SetData", "", [$String, $String], [], false, -1], ["SetProp", "SetProp", "", [$String, $Bool], [], false, -1], ["SetRadioButton", "SetRadioButton", "", [$String, $String], [], false, -1], ["SetText", "SetText", "", [$String], [], false, -1], ["SetVal", "SetVal", "", [$String], [], false, -1], ["Text", "Text", "", [], [$String], false, -1], ["Val", "Val", "", [], [$String], false, -1]];
-		testOpsImpl.init([["data", "data", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["css", "css", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["text", "text", "github.com/seven5/seven5/client", $String, ""], ["val", "val", "github.com/seven5/seven5/client", $String, ""], ["attr", "attr", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["prop", "prop", "github.com/seven5/seven5/client", ($mapType($String, $Bool)), ""], ["radio", "radio", "github.com/seven5/seven5/client", ($mapType($String, $String)), ""], ["classes", "classes", "github.com/seven5/seven5/client", ($mapType($String, $Int)), ""], ["parent", "parent", "github.com/seven5/seven5/client", ($ptrType(testOpsImpl)), ""], ["children", "children", "github.com/seven5/seven5/client", ($sliceType(($ptrType(testOpsImpl)))), ""]]);
 		$pkg.TestMode = false;
 		$pkg.REL = newAttrName("rel");
 		$pkg.LINK = newAttrName("link");
@@ -13768,7 +13856,7 @@ $packages["github.com/seven5/seven5/client"] = (function() {
 	return $pkg;
 })();
 $packages["github.com/seven5/seven5/client/functest"] = (function() {
-	var $pkg = {}, client = $packages["github.com/seven5/seven5/client"], TestData, TestCss, TestText, TestRadio, main;
+	var $pkg = {}, client = $packages["github.com/seven5/seven5/client"], TestData, TestCss, TestText, TestRadio, TestTextInput, main;
 	TestData = $pkg.TestData = function(dom, needInit) {
 		var d;
 		d = dom.Data("foo");
@@ -13818,19 +13906,34 @@ $packages["github.com/seven5/seven5/client/functest"] = (function() {
 			throw $panic(new $String("failed to change text value"));
 		}
 	};
-	TestRadio = $pkg.TestRadio = function(dom, needInit) {
-		var v;
+	TestRadio = $pkg.TestRadio = function(rg, needInit) {
 		if (needInit) {
-			return;
+			rg.SetVal("");
 		}
-		v = dom.RadioButton("suess");
-		console.log("radio ", v);
-		if (!(v === "")) {
+		if (!(rg.Val() === "")) {
+			console.log("need init", needInit);
 			throw $panic(new $String("should not have any radio button selected yet"));
+		}
+		rg.SetVal("ham");
+		if (!(rg.Val() === "ham")) {
+			throw $panic(new $String("unable to set the value read"));
+		}
+	};
+	TestTextInput = $pkg.TestTextInput = function(t, needInit) {
+		if (needInit) {
+			t.SetVal("");
+		}
+		if (!(t.Val() === "")) {
+			throw $panic(new $String("should not have any text yet"));
+		}
+		t.SetVal("fleazil");
+		if (!(t.Val() === "fleazil")) {
+			console.log("test text", t.Val(), needInit);
+			throw $panic(new $String("cant read back the value written"));
 		}
 	};
 	main = $pkg.main = function() {
-		var _ref, _i, mode, elem, dom, r;
+		var _ref, _i, mode, elem, dom, r, t;
 		_ref = new ($sliceType($Bool))([false, true]);
 		_i = 0;
 		while (_i < _ref.length) {
@@ -13841,9 +13944,10 @@ $packages["github.com/seven5/seven5/client/functest"] = (function() {
 			TestData(dom, mode);
 			TestCss(dom, mode);
 			TestText(dom, mode);
-			r = client.NewRadioGroup("suess");
-			dom = r.Dom();
-			TestRadio(dom, mode);
+			r = client.NewRadioGroup("seuss");
+			TestRadio(r, mode);
+			t = client.NewInputTextId("somethingelse");
+			TestTextInput(t, mode);
 			_i++;
 		}
 		console.log("all tests passed");

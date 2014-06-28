@@ -55,17 +55,34 @@ func TestText(dom s5.NarrowDom, needInit bool) {
 	}
 }
 
-func TestRadio(dom s5.NarrowDom, needInit bool) {
+func TestRadio(rg s5.RadioGroup, needInit bool) {
 	if needInit {
-		return
+		rg.SetVal("")
 	}
-	v := dom.RadioButton("suess")
-	print("radio ", v)
-	if v != "" {
+	if rg.Val() != "" {
+		print("need init", needInit)
 		panic("should not have any radio button selected yet")
+	}
+	rg.SetVal("ham")
+	if rg.Val() != "ham" {
+		panic("unable to set the value read")
 	}
 }
 
+func TestTextInput(t s5.InputTextId, needInit bool) {
+	if needInit {
+		t.SetVal("")
+	}
+	if t.Val() != "" {
+		panic("should not have any text yet")
+	}
+	t.SetVal("fleazil")
+	if t.Val() != "fleazil" {
+		print("test text", t.Val(), needInit)
+		panic("cant read back the value written")
+	}
+
+}
 func main() {
 	for _, mode := range []bool{false, true} {
 		s5.TestMode = mode
@@ -75,9 +92,11 @@ func main() {
 		TestCss(dom, mode)
 		TestText(dom, mode)
 
-		r := s5.NewRadioGroup("suess")
-		dom = r.Dom()
-		TestRadio(dom, mode)
+		r := s5.NewRadioGroup("seuss")
+		TestRadio(r, mode)
+
+		t := s5.NewInputTextId("somethingelse")
+		TestTextInput(t, mode)
 	}
 	print("all tests passed")
 }

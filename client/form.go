@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/gopherjs/jquery"
 	//"honnef.co/go/js/console"
+	"fmt"
 )
 
 type FormElement interface {
@@ -26,7 +27,6 @@ type inputTextIdImpl struct {
 
 type RadioGroup interface {
 	FormElement
-	Dom() NarrowDom
 }
 
 type radioGroupImpl struct {
@@ -51,11 +51,16 @@ func NewInputTextId(id string) InputTextId {
 //SetText puts the text provided into the value (such as with an input field).
 func (self inputTextIdImpl) SetVal(s string) {
 	self.htmlIdImpl.t.SetVal(s)
+	self.htmlIdImpl.Dom().Trigger(INPUT_EVENT)
 }
 
 //Val returns the value of an input field.
 func (self inputTextIdImpl) Val() string {
-	return self.htmlIdImpl.t.Val()
+	v := self.htmlIdImpl.t.Val()
+	if v == "undefined" {
+		return ""
+	}
+	return v
 }
 
 func (self inputTextIdImpl) value() Equaler {
@@ -69,22 +74,18 @@ func (self inputTextIdImpl) ContentAttribute() Attribute {
 //NewRadioGroup selects a named set of radio button elements
 //with a given name.
 func NewRadioGroup(name string) RadioGroup {
-	selector := "input[name=\"" + name + "\"][type=\"radio\"]"
+	selector := "input:radio[name=\"" + name + "\"]"
 	result := radioGroupImpl{selector: selector}
 	if TestMode {
 		result.dom = newTestOps()
 	} else {
-		wrap(jquery.NewJQuery(selector))
+		result.dom = wrap(jquery.NewJQuery(selector))
 	}
 	result.attr = NewAttribute(VALUE_ONLY, result.value, nil)
 	result.dom.On(CLICK, func(jquery.Event) {
 		result.attr.markDirty()
 	})
 	return result
-}
-
-func (self radioGroupImpl) Dom() NarrowDom {
-	return jqueryWrapper{jq: jquery.NewJQuery()}
 }
 
 func (self radioGroupImpl) value() Equaler {
@@ -99,6 +100,41 @@ func (self radioGroupImpl) ContentAttribute() Attribute {
 	return self.attr
 }
 
+//Val returns the currently selected item or "" if no item is selected. It
+//cannot deal with values that are "" or are exactly the string "undefined".
+func (self radioGroupImpl) Val() string {
+	var v string
+	switch d:=self.dom.(type) {
+	case jqueryWrapper:
+		v = d.jq.Filter(":checked").Val()
+	case *testOpsImpl:
+		v = d.Val()
+	default:
+		panic("unknown dom type")
+	}
+	if v == "undefined" {
+		return ""
+	}
+	return v
+}
+
+//
+func (self radioGroupImpl) SetVal(s string) {
+	switch d:=self.dom.(type) {
+	case jqueryWrapper:
+		child := d.jq.Filter(fmt.Sprintf("[value=\"%s\"]", s))
+		child.SetProp("checked", true)
+	case *testOpsImpl:
+		d.SetVal(s)
+		d.Trigger(CLICK)
+	default:
+		panic("unknown type of dom pointer!")
+	}
+}
+
+//
+// FORM VALIDATION CONSTRAINT
+//
 type formValidFunc func(map[string]Equaler) Equaler
 
 type formValidConstraint struct {

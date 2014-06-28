@@ -167,7 +167,8 @@ func (self *testOpsImpl) Val() string {
 }
 
 func (self jqueryWrapper) Val() string {
-	return self.jq.Val()
+	v := self.jq.Val()
+	return v
 }
 
 func (self *testOpsImpl) SetVal(s string) {
