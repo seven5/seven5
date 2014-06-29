@@ -8,13 +8,13 @@ type RestIndex interface {
 	Index(PBundle) (interface{}, error)
 }
 type RestFind interface {
-	Find(Id, PBundle) (interface{}, error)
+	Find(int64, PBundle) (interface{}, error)
 }
 type RestDelete interface {
-	Delete(Id, PBundle) (interface{}, error)
+	Delete(int64, PBundle) (interface{}, error)
 }
 type RestPut interface {
-	Put(Id, interface{}, PBundle) (interface{}, error)
+	Put(int64, interface{}, PBundle) (interface{}, error)
 }
 type RestPost interface {
 	Post(interface{}, PBundle) (interface{}, error)

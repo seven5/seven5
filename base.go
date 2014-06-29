@@ -4,7 +4,7 @@ import (
 	_ "fmt"
 )
 
-//NewBaseDispatcher returns a raw dispatcher that has several defaults set.  
+//NewBaseDispatcher returns a raw dispatcher that has several defaults set.
 //* The Allow() interfaces are used for authorization checks
 //* The application will keep a single cookie on the browser (that's why the name is passed in)
 //* The application will keep a session associated with the cookie for each "logged in" user (in memory)
@@ -14,16 +14,16 @@ import (
 //is common for applications that involve users.
 func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatcher {
 	var sm SessionManager
-	prefix:="/rest"
-	if optionalSm!=nil {
-		sm=optionalSm
+	prefix := "/rest"
+	if optionalSm != nil {
+		sm = optionalSm
 	} else {
-		sm=NewSimpleSessionManager()
+		sm = NewSimpleSessionManager()
 	}
 	cm := NewSimpleCookieMapper(appName)
-	holder:=NewSimpleTypeHolder()
-	result :=&BaseDispatcher{}
-	io:=&RawIOHook{&JsonDecoder{},&JsonEncoder{}, cm}
+	holder := NewSimpleTypeHolder()
+	result := &BaseDispatcher{}
+	io := &RawIOHook{&JsonDecoder{}, &JsonEncoder{}, cm}
 	result.RawDispatcher = NewRawDispatcher(io, sm, result, holder, prefix)
 	return result
 }
@@ -35,7 +35,6 @@ func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatche
 type BaseDispatcher struct {
 	*RawDispatcher
 }
-
 
 //Index checks with AllowReader.AllowRead to allow/refuse access to this method on _any_ resource
 //associated with this BaseDispatcher.
@@ -59,7 +58,7 @@ func (self *BaseDispatcher) Post(d *restObj, bundle PBundle) bool {
 
 //Find checks with Allower.Allow(FIND) to allow/refuse access to this method on _any_ resource
 //associated with this BaseDispatcher.
-func (self *BaseDispatcher) Find(d *restObj,num Id,  bundle PBundle) bool {
+func (self *BaseDispatcher) Find(d *restObj, num int64, bundle PBundle) bool {
 	allow, ok := d.find.(Allower)
 	if !ok {
 		return false
@@ -69,7 +68,7 @@ func (self *BaseDispatcher) Find(d *restObj,num Id,  bundle PBundle) bool {
 
 //Find checks with Allower.Allow(PUT) to allow/refuse access to this method on _any_ resource
 //associated with this BaseDispatcher.
-func (self *BaseDispatcher) Put(d *restObj,num Id,  bundle PBundle) bool {
+func (self *BaseDispatcher) Put(d *restObj, num int64, bundle PBundle) bool {
 	allow, ok := d.put.(Allower)
 	if !ok {
 		return false
@@ -79,7 +78,7 @@ func (self *BaseDispatcher) Put(d *restObj,num Id,  bundle PBundle) bool {
 
 //Find checks with Allower.Allow(DELETE) to allow/refuse access to this method on _any_ resource
 //associated with this BaseDispatcher.
-func (self *BaseDispatcher) Delete(d *restObj, num Id, bundle PBundle) bool {
+func (self *BaseDispatcher) Delete(d *restObj, num int64, bundle PBundle) bool {
 	allow, ok := d.del.(Allower)
 	if !ok {
 		return false

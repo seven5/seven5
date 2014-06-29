@@ -2,40 +2,41 @@ package seven5
 
 import (
 	"fmt"
-	"net/http"
-	"testing"
 	"io/ioutil"
+	"net/http"
 	"strings"
+	"testing"
 )
 
 var called = 0x00
 var allow = false
 var newRezId = 1200010
+
 type allowResource struct {
-	//resource	
+	//resource
 }
 
 func (self *allowResource) Index(pb PBundle) (interface{}, error) {
 	called |= 0x01
 	return nil, nil
 }
-func (self *allowResource) Find(id Id, pb PBundle) (interface{}, error) {
+func (self *allowResource) Find(id int64, pb PBundle) (interface{}, error) {
 	called |= 0x02
 	return nil, nil
 }
-func (self *allowResource) Delete(id Id, pb PBundle) (interface{}, error) {
+func (self *allowResource) Delete(id int64, pb PBundle) (interface{}, error) {
 	called |= 0x04
 	return nil, nil
 }
 
-func (self *allowResource) Put(id Id, i interface{}, pb PBundle) (interface{}, error) {
+func (self *allowResource) Put(id int64, i interface{}, pb PBundle) (interface{}, error) {
 	called |= 0x08
 	return nil, nil
 }
 
 func (self *allowResource) Post(i interface{}, pb PBundle) (interface{}, error) {
 	called |= 0x10
-	return &someWire{Id(newRezId),""}, nil
+	return &someWire{Id(newRezId), ""}, nil
 }
 
 func (self *allowResource) AllowRead(pb PBundle) bool {
@@ -44,16 +45,16 @@ func (self *allowResource) AllowRead(pb PBundle) bool {
 func (self *allowResource) AllowWrite(pb PBundle) bool {
 	return allow
 }
-func (self *allowResource) Allow(id Id, method string, pb PBundle) bool {
+func (self *allowResource) Allow(id int64, method string, pb PBundle) bool {
 	return allow
 }
 
 func TestAllow(t *testing.T) {
-	base := NewBaseDispatcher("myappname",nil)
+	base := NewBaseDispatcher("myappname", nil)
 
 	serveMux := NewServeMux()
 	serveMux.Dispatch("/rest/", base)
-	
+
 	res := &allowResource{}
 	base.Rez(&someWire{}, res)
 
@@ -82,14 +83,14 @@ func makeRequestCheckStatusNullBody(t *testing.T, client *http.Client, method st
 
 	req := makeReq(t, method, url, body)
 	resp, err := client.Do(req)
-	if method=="POST" && status==http.StatusOK{
-		status=http.StatusCreated
+	if method == "POST" && status == http.StatusOK {
+		status = http.StatusCreated
 	}
 	checkHttpStatus(t, resp, err, status)
-	if method=="POST" && status==http.StatusOK {
-		loc:=resp.Header.Get("Location")
-		if loc!=fmt.Sprintf("/rest/frobnitz/%d",newRezId) {
-			t.Fatalf("Didn't find the new resource we were expecting on POST (create): %s\n",loc)
+	if method == "POST" && status == http.StatusOK {
+		loc := resp.Header.Get("Location")
+		if loc != fmt.Sprintf("/rest/frobnitz/%d", newRezId) {
+			t.Fatalf("Didn't find the new resource we were expecting on POST (create): %s\n", loc)
 		}
 	}
 	all, err := ioutil.ReadAll(resp.Body)
@@ -97,13 +98,13 @@ func makeRequestCheckStatusNullBody(t *testing.T, client *http.Client, method st
 		t.Fatalf("failed to read the body: %s", err)
 	}
 	read := string(all)
-	if (status==http.StatusUnauthorized) {
-		if !strings.HasPrefix(read,"Not authorized") {
+	if status == http.StatusUnauthorized {
+		if !strings.HasPrefix(read, "Not authorized") {
 			t.Errorf("expected not authorized message but got '%s'", read)
 		}
 	} else {
-		if method=="POST" {
-			if strings.Index(read, fmt.Sprintf("%d",newRezId))==-1 {
+		if method == "POST" {
+			if strings.Index(read, fmt.Sprintf("%d", newRezId)) == -1 {
 				t.Errorf("Probably a bad body found on POST (%d) '%s'", len(read), read)
 			}
 		} else {

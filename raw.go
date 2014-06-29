@@ -40,7 +40,7 @@ type RawDispatcher struct {
 	Holder     TypeHolder
 }
 
-//ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods 
+//ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods
 //individually specified.  The name should be singular and camel case. The example should an example
 //of the wire type to be marshalled, unmarshalled.
 func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}, index RestIndex,
@@ -55,7 +55,7 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 		panic("wire example is not a pointer to a struct (but is a pointer)")
 	}
 
-	self.Add(name,wireExample)
+	self.Add(name, wireExample)
 
 	obj := &restObj{
 		t:     under,
@@ -80,17 +80,16 @@ func (self *RawDispatcher) Resource(dartClassname string, wireExample interface{
 //Rez is the really short form for adding a resource. It assumes that the dart classname is
 //the same as the wire type and that the resource supports RestAll.
 func (self *RawDispatcher) Rez(wireExample interface{}, r RestAll) {
-	long:=reflect.TypeOf(wireExample).String()
-	pieces:=strings.Split(long,".")
-	dartName:=pieces[len(pieces)-1]
+	long := reflect.TypeOf(wireExample).String()
+	pieces := strings.Split(long, ".")
+	dartName := pieces[len(pieces)-1]
 	self.Resource(dartName, wireExample, r)
 }
 
 //Dispatch is the entry point for the dispatcher.  Most types will want to leave this method
-//intact (don't override) and instead override particular hooks to add/modify particular 
+//intact (don't override) and instead override particular hooks to add/modify particular
 //functionality.
 func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *http.Request) *ServeMux {
-
 
 	//find the resource and, if present, the id
 	matched, id, d := self.resolve(r.URL.Path)
@@ -125,7 +124,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 			return nil
 		}
 	}
-	
+
 	switch method {
 	case "GET":
 		//TWO FLAVORS OF GET: INDEXER OR FINDER?
@@ -229,7 +228,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 }
 
 func (self *RawDispatcher) SendError(err error, w http.ResponseWriter, msg string) {
-	ours, ok:=err.(*Error)
+	ours, ok := err.(*Error)
 	if !ok {
 		http.Error(w, fmt.Sprintf("%s: %s", msg, err), http.StatusInternalServerError)
 	} else {
@@ -262,8 +261,8 @@ func (self *RawDispatcher) location(obj *restObj, i interface{}) string {
 //that the resulting object is suitable for any purpose, only that it matches.
 func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj) {
 	path := rawPath
-	if strings.HasSuffix(path,"/") && path!="/" {
-		path=path[0:len(path)-1]
+	if strings.HasSuffix(path, "/") && path != "/" {
+		path = path[0 : len(path)-1]
 	}
 	pre := self.Prefix + "/"
 	if self.Prefix != "" {
@@ -293,7 +292,7 @@ func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj) {
 }
 
 //ParseId returns the id contained in a string or an error message about why the id is bad.
-func ParseId(candidate string) (Id, string) {
+func ParseId(candidate string) (int64, string) {
 	var num int64
 	var err error
 	if num, err = strconv.ParseInt(candidate, 10, 64); err != nil {
@@ -303,12 +302,11 @@ func ParseId(candidate string) (Id, string) {
 }
 
 //Add is required by the TypeHolder protocol.  Delegated into the TypeHolder passed at creation time.
-func (self *RawDispatcher) Add(name string,wireType interface{}) {
-	self.Holder.Add(name,wireType)
+func (self *RawDispatcher) Add(name string, wireType interface{}) {
+	self.Holder.Add(name, wireType)
 }
 
 //All is required by the TypeHolder protocol. Delegated into the TypeHolder passed at creation time.
 func (self *RawDispatcher) All() []*FieldDescription {
 	return self.Holder.All()
 }
-

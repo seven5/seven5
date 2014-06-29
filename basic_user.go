@@ -13,7 +13,7 @@ var BAD_ID = errors.New("Bad id supplied in request")
 type BasicUser interface {
 	Email() string
 	SetEmail(string)
-	WireId() Id
+	WireId() int64
 	ToWire() interface{}
 }
 
@@ -28,7 +28,7 @@ type BasicUserSupport interface {
 	IsStaff(BasicUser) bool
 	KnownUsers() []BasicUser
 	UpdateFields(p interface{}, e BasicUser)
-	Delete(Id) BasicUser
+	Delete(int64) BasicUser
 	Generate(c OauthConnection, existing Session) (Session, error)
 }
 
@@ -116,7 +116,7 @@ func (self *BasicResource) Index(bundle PBundle) (interface{}, error) {
 
 //Because of Allow, this resource is _only_ called when the logged in user asks
 //about himself or if the user is priviledged they can ask about anyone.
-func (self *BasicResource) Find(id Id, bundle PBundle) (interface{}, error) {
+func (self *BasicResource) Find(id int64, bundle PBundle) (interface{}, error) {
 	b := bundle.Session().(BasicUser)
 
 	//simple case avoids the search
@@ -134,7 +134,7 @@ func (self *BasicResource) Find(id Id, bundle PBundle) (interface{}, error) {
 
 //Put returns the values of the object, after all changes.   This ends up calling the support
 //object to copy over the needed fields.
-func (self *BasicResource) Put(id Id, proposed interface{}, bundle PBundle) (interface{}, error) {
+func (self *BasicResource) Put(id int64, proposed interface{}, bundle PBundle) (interface{}, error) {
 	var user BasicUser
 	for _, v := range self.Sup.KnownUsers() {
 		if v.WireId() == id {
@@ -150,7 +150,7 @@ func (self *BasicResource) Put(id Id, proposed interface{}, bundle PBundle) (int
 	return user.ToWire(), nil
 }
 
-func (self *BasicResource) Delete(id Id, ignored PBundle) (interface{}, error) {
+func (self *BasicResource) Delete(id int64, ignored PBundle) (interface{}, error) {
 	result := self.Sup.Delete(id).ToWire()
 	return result, nil
 }
@@ -179,7 +179,7 @@ func (self *BasicResource) AllowWrite(bundle PBundle) bool {
 
 //Users can only call Find, and Put methods on themselves.  Users cannot call DELETE, even on self.
 //Priviledged members can call any method on any id.
-func (self *BasicResource) Allow(id Id, method string, bundle PBundle) bool {
+func (self *BasicResource) Allow(id int64, method string, bundle PBundle) bool {
 	if bundle.Session() == nil {
 		return false
 	}
