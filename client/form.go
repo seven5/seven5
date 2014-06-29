@@ -43,10 +43,7 @@ func NewInputTextId(id string) InputTextId {
 	}
 	result.attr = NewAttribute(VALUE_ONLY, result.value, nil)
 	result.htmlIdImpl.Dom().On(INPUT_EVENT, func(jquery.Event) {
-		print("marking dirty")
 		result.attr.markDirty()
-		//		print("drain")
-		//		DrainEagerQueue()
 	})
 	return result
 }
