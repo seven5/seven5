@@ -57,7 +57,7 @@ func newTestOps() NarrowDom {
 		attr:    make(map[string]string),
 		prop:    make(map[string]bool),
 		classes: make(map[string]int),
-		event : make(map[EventName]EventFunc),
+		event:   make(map[EventName]EventFunc),
 	}
 	return &result
 }
@@ -149,17 +149,27 @@ func (self jqueryWrapper) SetProp(k string, v bool) {
 }
 
 func (self *testOpsImpl) On(name EventName, fn EventFunc) {
-	self.event[name]=fn
+	self.event[name] = fn
 }
 
 func (self jqueryWrapper) On(n EventName, fn EventFunc) {
-	self.jq.On(n.String(),fn)
+	handler := eventHandler{
+		name: n,
+		fn:   fn,
+		t:    self,
+	}
+	self.jq.On(n.String(), handler.handle)
 }
 
 func (self *testOpsImpl) Trigger(name EventName) {
-	fn, ok:=self.event[name]
+	fn, ok := self.event[name]
 	if ok {
-		fn(jquery.Event{Type:name.String()})
+		handler := eventHandler{
+			fn:   fn,
+			name: name,
+			t:    self,
+		}
+		handler.handle(jquery.Event{Type: name.String()})
 	}
 }
 

@@ -15,7 +15,7 @@ type EventName int
 
 const (
 	//keys
-	BLUR = iota
+	BLUR EventName = iota
 	CHANGE
 	CLICK
 	DBLCLICK

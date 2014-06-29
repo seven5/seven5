@@ -43,7 +43,10 @@ func NewInputTextId(id string) InputTextId {
 	}
 	result.attr = NewAttribute(VALUE_ONLY, result.value, nil)
 	result.htmlIdImpl.Dom().On(INPUT_EVENT, func(jquery.Event) {
+		print("marking dirty")
 		result.attr.markDirty()
+		//		print("drain")
+		//		DrainEagerQueue()
 	})
 	return result
 }
@@ -104,7 +107,7 @@ func (self radioGroupImpl) ContentAttribute() Attribute {
 //cannot deal with values that are "" or are exactly the string "undefined".
 func (self radioGroupImpl) Val() string {
 	var v string
-	switch d:=self.dom.(type) {
+	switch d := self.dom.(type) {
 	case jqueryWrapper:
 		v = d.jq.Filter(":checked").Val()
 	case *testOpsImpl:
@@ -120,7 +123,7 @@ func (self radioGroupImpl) Val() string {
 
 //
 func (self radioGroupImpl) SetVal(s string) {
-	switch d:=self.dom.(type) {
+	switch d := self.dom.(type) {
 	case jqueryWrapper:
 		child := d.jq.Filter(fmt.Sprintf("[value=\"%s\"]", s))
 		child.SetProp("checked", true)
