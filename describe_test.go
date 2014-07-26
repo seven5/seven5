@@ -13,7 +13,7 @@ type Rec1 struct {
 type Rec2 struct {
 	Id int64
 	S  *Rec1
-	D  String255
+	D  string
 	A  []Rec3
 }
 

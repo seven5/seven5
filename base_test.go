@@ -10,7 +10,7 @@ import (
 
 var called = 0x00
 var allow = false
-var newRezId = 1200010
+var newRezId = int64(1200010)
 
 type allowResource struct {
 	//resource
@@ -36,7 +36,7 @@ func (self *allowResource) Put(id int64, i interface{}, pb PBundle) (interface{}
 
 func (self *allowResource) Post(i interface{}, pb PBundle) (interface{}, error) {
 	called |= 0x10
-	return &someWire{Id(newRezId), ""}, nil
+	return &someWire{newRezId, ""}, nil
 }
 
 func (self *allowResource) AllowRead(pb PBundle) bool {

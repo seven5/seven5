@@ -18,6 +18,7 @@ type SimpleOauthCred struct {
 func (self *SimpleOauthCred) Token() string {
 	return self.tok.Token
 }
+
 func (self *SimpleOauthCred) Secret() string {
 	return self.tok.Secret
 }
@@ -51,7 +52,7 @@ type OauthConnector interface {
 
 //OauthClientDetail is an interface for finding the specific information needed to connect to
 //an Oauth server.  If you don't want to use environment variables as the way you store
-//these, you can provide your own implementation of this class.  
+//these, you can provide your own implementation of this class.
 type OauthClientDetail interface {
 	ClientId(serviceName string) string
 	ClientSecret(serviceName string) string

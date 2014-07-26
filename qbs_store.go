@@ -126,7 +126,6 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 				}
 			}
 		default:
-			log.Printf("got an error type that wasnt HTTP specific, rolling back and returning 500 to client (%v)\n", err)
 			rerr := tx.Rollback()
 			if rerr != nil {
 				return nil, rerr

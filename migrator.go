@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/coocood/qbs"
-	"log"
+	//"log"
 	"os"
 	"reflect"
 	"strings"
@@ -269,7 +269,6 @@ func (self *QbsMigrator) Migrate(target int, migrationFns interface{}) (result e
 		}
 	}()
 	curr, err := self.DetermineCurrentMigrationNumber()
-	log.Printf("current migration is %d\n", curr)
 	if err != nil {
 		return err
 	}

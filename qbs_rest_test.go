@@ -24,8 +24,8 @@ type House struct {
 
 /*---- wire type for the tests ----*/
 type HouseWire struct {
-	Id      Id
-	Addr    String255
+	Id      int64
+	Addr    string
 	ZipCode int64
 }
 
@@ -40,22 +40,22 @@ func (self *testObj) IndexQbs(pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
-func (self *testObj) FindQbs(id Id, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) FindQbs(id int64, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
-func (self *testObj) DeleteQbs(id Id, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) DeleteQbs(id int64, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
-func (self *testObj) PutQbs(id Id, value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+func (self *testObj) PutQbs(id int64, value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
 func (self *testObj) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	in := value.(*HouseWire)
-	house := &House{Address: string(in.Addr), Zip: in.ZipCode}
+	house := &House{Address: in.Addr, Zip: in.ZipCode}
 	if _, err := q.Save(house); err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (self *testObj) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interfa
 		return nil, errors.New("testing error handling")
 	}
 
-	return &HouseWire{Id: Id(house.Id), Addr: String255(house.Address), ZipCode: house.Zip}, nil
+	return &HouseWire{Id: house.Id, Addr: house.Address, ZipCode: house.Zip}, nil
 }
 
 type someMigrations struct {
@@ -96,7 +96,6 @@ func checkNumberHouses(T *testing.T, store *QbsStore, expected int) {
 		T.Fatalf("Error during find: %s", err)
 	}
 	if len(houses) != expected {
-		panic("fart")
 		T.Errorf("Wrong number of houses! expected %d but got %d", expected, len(houses))
 	}
 }
@@ -106,7 +105,7 @@ func TestTxn(T *testing.T) {
 	obj := &testObj{}
 	store := setupTestStore()
 	wrapped := QbsWrapAll(obj, store)
-
+	store.Q.Log = true
 	WithEmptyQbsStore(store, &someMigrations{}, func() {
 		obj.failPost = none
 		checkNumberHouses(T, store, 0)

@@ -103,14 +103,11 @@ func WalkWireType(name string, t reflect.Type) *FieldDescription {
 			Struct: fieldCollection}
 	}
 	switch t.Kind() {
-	case reflect.Bool, reflect.Float64, reflect.Int64:
+	case reflect.Bool, reflect.Float64, reflect.Int64, reflect.String:
 		return &FieldDescription{Name: name, TypeName: t.Name()}
 	case reflect.Float32, reflect.Int, reflect.Int32, reflect.Int8:
 		panic(fmt.Sprintf("Use of (%v) prohibited in wire types.  "+
 			"Use float64 or int64 to avoid ambiguity when json marshalling", t.Kind()))
-	case reflect.String:
-		panic(fmt.Sprintf("Use of string prohibited in wire types.  " +
-			"Use seven5.String255 or seven5.Textblob instead to indicate if the size is limited."))
 	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint8:
 		panic(fmt.Sprintf("Use of unsigned types like %v prohibited."+
 			" Use int64 to prevent json marshalling ambiguity.", t.Kind()))

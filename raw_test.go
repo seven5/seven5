@@ -23,26 +23,26 @@ func (self *someResource) Index(p PBundle) (interface{}, error) {
 	if accepted {
 		return nil, HTTPError(http.StatusAccepted, outOfBandLocation)
 	}
-	return []*someWire{&someWire{Id(1074), "index"}}, nil
+	return []*someWire{&someWire{1074, "index"}}, nil
 }
-func (self *someResource) Find(id Id, p PBundle) (interface{}, error) {
+func (self *someResource) Find(id int64, p PBundle) (interface{}, error) {
 	return &someWire{id, "find"}, nil
 }
 func (self *someResource) Post(i interface{}, p PBundle) (interface{}, error) {
 	s := i.(*someWire)
-	return &someWire{Id(999), s.Foo}, nil
+	return &someWire{999, s.Foo}, nil
 }
-func (self *someResource) Delete(id Id, p PBundle) (interface{}, error) {
-	return &someWire{Id(id), "delete!"}, nil
+func (self *someResource) Delete(id int64, p PBundle) (interface{}, error) {
+	return &someWire{id, "delete!"}, nil
 }
-func (self *someResource) Put(id Id, i interface{}, p PBundle) (interface{}, error) {
+func (self *someResource) Put(id int64, i interface{}, p PBundle) (interface{}, error) {
 	s := i.(*someWire)
-	return &someWire{Id(id), s.Foo + "?"}, nil
+	return &someWire{id, s.Foo + "?"}, nil
 }
 
 type someWire struct {
-	Id  Id
-	Foo String255
+	Id  int64
+	Foo string
 }
 
 /*---------------------------------------------------------------------------------------*/
@@ -70,25 +70,25 @@ func TestResourceMethods(t *testing.T) {
 
 	w := makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/", "",
 		http.StatusOK, true)
-	checkBody(t, w, Id(1074), "index")
+	checkBody(t, w, 1074, "index")
 
 	body := "{ \"Id\":-1, \"Foo\":\"grik\"}"
 	w = makeRequestAndCheckStatus(t, client, "POST", "http://localhost:8189/rest/somewire", body,
 		http.StatusCreated, false)
-	checkBody(t, w, Id(999), "grik")
+	checkBody(t, w, 999, "grik")
 
 	w = makeRequestAndCheckStatus(t, client, "GET", "http://localhost:8189/rest/somewire/2989/?foo=bar", "",
 		http.StatusOK, false)
-	checkBody(t, w, Id(2989), "find")
+	checkBody(t, w, 2989, "find")
 
 	body = "{ \"Id\":214, \"Foo\":\"grak\"}"
 	w = makeRequestAndCheckStatus(t, client, "PUT", "http://localhost:8189/rest/somewire/214", body,
 		http.StatusOK, false)
-	checkBody(t, w, Id(214), "grak?")
+	checkBody(t, w, 214, "grak?")
 
 	w = makeRequestAndCheckStatus(t, client, "DELETE", "http://localhost:8189/rest/somewire/76199", "",
 		http.StatusOK, false)
-	checkBody(t, w, Id(76199), "delete!")
+	checkBody(t, w, 76199, "delete!")
 }
 
 func makeRequestAndCheckStatus(t *testing.T, client *http.Client, method string, url string,
@@ -126,7 +126,7 @@ func readBody(t *testing.T, r io.ReadCloser, isSlice bool) *someWire {
 	return &returned
 }
 
-func checkBody(t *testing.T, returned *someWire, id Id, s string) {
+func checkBody(t *testing.T, returned *someWire, id int64, s string) {
 	if returned.Id != id {
 		t.Errorf("Expected id %d but got %d\n", id, returned.Id)
 	}
@@ -138,7 +138,7 @@ func checkBody(t *testing.T, returned *someWire, id Id, s string) {
 type badlyWrittenResource struct {
 }
 
-func (self *badlyWrittenResource) Find(id Id, p PBundle) (interface{}, error) {
+func (self *badlyWrittenResource) Find(id int64, p PBundle) (interface{}, error) {
 	s := "foo"
 	return &s, nil
 }

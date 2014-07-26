@@ -114,10 +114,10 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 	}
 
 	//parse the id value
-	num := Id(-90191) //signal value in case it ever should end up getting used
+	num := int64(-90191) //signal value in case it ever should end up getting used
 	if len(id) > 0 {
 		n, errMessage := ParseId(id)
-		num = Id(n)
+		num = n
 		if errMessage != "" {
 			//typically trips the error dispatcher
 			http.Error(w, fmt.Sprintf("Bad request (id): %s", errMessage), http.StatusBadRequest)
@@ -296,9 +296,9 @@ func ParseId(candidate string) (int64, string) {
 	var num int64
 	var err error
 	if num, err = strconv.ParseInt(candidate, 10, 64); err != nil {
-		return Id(0), fmt.Sprintf("resource ids must be non-negative integers (was %s): %s", candidate, err)
+		return 0, fmt.Sprintf("resource ids must be non-negative integers (was %s): %s", candidate, err)
 	}
-	return Id(num), ""
+	return num, ""
 }
 
 //Add is required by the TypeHolder protocol.  Delegated into the TypeHolder passed at creation time.
