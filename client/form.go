@@ -20,7 +20,7 @@ type InputTextId interface {
 	FormElement
 }
 
-type inputTextIdImpl struct {\
+type inputTextIdImpl struct {
 	htmlIdImpl
 	attr *AttributeImpl
 }

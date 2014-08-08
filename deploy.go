@@ -93,3 +93,17 @@ func (self *RemoteDeployment) RedirectHost(string) string {
 	}
 	return self.url
 }
+
+type ContainerDeploy struct {
+}
+
+//NewContainerDeployment returns a deployment that understands about postgres
+//connections.
+func NewContainerDeploy() *ContainerDeploy {
+	return &ContainerDeploy{}
+}
+
+func (c *ContainerDeploy) GetQbsStore() *QbsStore {
+	dsn := EnvironmentUrlToDSN()
+	return NewQbsStore(dsn)
+}
