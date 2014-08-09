@@ -73,17 +73,17 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 //in so long as it meets the interface RestAll.  Resource name must be singular and camel case and will be
 //converted to all lowercase for use as a url.  The example wire type's fields must be public and must all be
 //types definde by seven5.
-func (self *RawDispatcher) Resource(dartClassname string, wireExample interface{}, r RestAll) {
-	self.ResourceSeparate(dartClassname, wireExample, r, r, r, r, r)
+func (self *RawDispatcher) Resource(name string, wireExample interface{}, r RestAll) {
+	self.ResourceSeparate(name, wireExample, r, r, r, r, r)
 }
 
-//Rez is the really short form for adding a resource. It assumes that the dart classname is
+//Rez is the really short form for adding a resource. It assumes that the name is
 //the same as the wire type and that the resource supports RestAll.
 func (self *RawDispatcher) Rez(wireExample interface{}, r RestAll) {
 	long := reflect.TypeOf(wireExample).String()
 	pieces := strings.Split(long, ".")
-	dartName := pieces[len(pieces)-1]
-	self.Resource(dartName, wireExample, r)
+	name := pieces[len(pieces)-1]
+	self.Resource(name, wireExample, r)
 }
 
 //Dispatch is the entry point for the dispatcher.  Most types will want to leave this method

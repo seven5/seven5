@@ -97,7 +97,7 @@ func (self *qbsWrapped) Post(value interface{}, pb PBundle) (interface{}, error)
 	})
 }
 
-//Given a QbsRestAll return a RestAl
+//Given a QbsRestAll return a RestAll
 func QbsWrapAll(a QbsRestAll, s *QbsStore) RestAll {
 	return &qbsWrapped{store: s, index: a, find: a, del: a, put: a, post: a}
 }

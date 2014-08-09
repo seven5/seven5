@@ -174,7 +174,7 @@ func (self *testOpsImpl) Trigger(name EventName) {
 }
 
 func (self jqueryWrapper) Trigger(n EventName) {
-	self.jq.Trigger(n)
+	self.jq.Trigger(n.String())
 }
 
 func (self *testOpsImpl) HasClass(k string) bool {

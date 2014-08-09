@@ -1,11 +1,11 @@
 package seven5
 
 import (
-	"net/http"
-	"io"
-	"fmt"
-	"os"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"reflect"
 )
 
@@ -18,30 +18,30 @@ import (
 type IOHook interface {
 	SendHook(d *restObj, w http.ResponseWriter, pb PBundle, i interface{}, location string)
 	BundleHook(w http.ResponseWriter, r *http.Request, sm SessionManager) (PBundle, error)
-	BodyHook(r *http.Request, obj *restObj) (interface{}, error) 
+	BodyHook(r *http.Request, obj *restObj) (interface{}, error)
 	CookieMapper() CookieMapper
 }
 
 //RawIOHook is the default implementation of the IOHook used by the RawDispatcher.
 type RawIOHook struct {
-	Dec Decoder
-	Enc Encoder
+	Dec       Decoder
+	Enc       Encoder
 	CookieMap CookieMapper
 }
 
-//CookieMapper is exposed because other parts of the system may need access to the 
+//CookieMapper is exposed because other parts of the system may need access to the
 //cookie mapper to allow them to manipulate cookies.  This allows centralization of
 //all cookie handling in one type.
 func (self *RawIOHook) CookieMapper() CookieMapper {
 	return self.CookieMap
 }
 
-//NewRawIOHook returns a new RawIOHook ptr with the decoder and encoder provided. This 
+//NewRawIOHook returns a new RawIOHook ptr with the decoder and encoder provided. This
 //object needs a cookie mapper because setting and reading cookies is IO to the client!
 //You can provided your own encoder and decoder pair if you wish to just change the
 //format of the encoding used when marshalling and unmarshalling wire types (from
-//json to xml, for example).  
-func NewRawIOHook(d Decoder, e Encoder, c CookieMapper) *RawIOHook{
+//json to xml, for example).
+func NewRawIOHook(d Decoder, e Encoder, c CookieMapper) *RawIOHook {
 	return &RawIOHook{Dec: d, Enc: e, CookieMap: c}
 }
 
@@ -54,6 +54,7 @@ func (self *RawIOHook) BodyHook(r *http.Request, obj *restObj) (interface{}, err
 	gotEof := false
 	for curr < len(limitedData) {
 		n, err := r.Body.Read(limitedData[curr:])
+		curr += n
 		if err != nil && err == io.EOF {
 			gotEof = true
 			break
@@ -61,7 +62,6 @@ func (self *RawIOHook) BodyHook(r *http.Request, obj *restObj) (interface{}, err
 		if err != nil {
 			return nil, err
 		}
-		curr += n
 	}
 	//if curr==0 then we are done because there is no body
 	if curr == 0 {
@@ -75,10 +75,8 @@ func (self *RawIOHook) BodyHook(r *http.Request, obj *restObj) (interface{}, err
 	if err := self.Dec.Decode(limitedData[:curr], wireObj.Interface()); err != nil {
 		return nil, err
 	}
-
 	return wireObj.Interface(), nil
 }
-
 
 //BundleHook is called to create the bundle of parameters from the request. It often will be
 //using cookies and sessions to compute the bundle.  Note that the ResponseWriter is passed
@@ -110,7 +108,6 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 	return pb, nil
 }
 
-
 //SendHook is called to encode and write the object provided onto the output via the response
 //writer.  The last parameter if not "" is assumed to be a location header.  If the location
 //parameter is provided, then the response code is "Created" otherwise "OK" is returned.
@@ -127,8 +124,8 @@ func (self *RawIOHook) SendHook(d *restObj, w http.ResponseWriter, pb PBundle, i
 		http.Error(w, fmt.Sprintf("unable to encode: %s", err), http.StatusInternalServerError)
 		return
 	}
-	for _, k:=range pb.ReturnHeaders() {
-		w.Header().Add(k,pb.ReturnHeader(k))
+	for _, k := range pb.ReturnHeaders() {
+		w.Header().Add(k, pb.ReturnHeader(k))
 	}
 	w.Header().Add("Content-Type", "text/json")
 	if location != "" {
@@ -154,26 +151,25 @@ func (self *RawIOHook) verifyReturnType(obj *restObj, w interface{}) error {
 		if p.Kind() != reflect.Slice {
 			return errors.New(fmt.Sprintf("Marshalling problem: expected a pointer/slice type but got a %v", p.Kind()))
 		}
-		s:=reflect.ValueOf(w)
+		s := reflect.ValueOf(w)
 		//you can send an _empty_ slice of anything
-		if s.Len()==0 {
+		if s.Len() == 0 {
 			return nil
 		}
-		v:=s.Index(0)
-		p=reflect.TypeOf(v)
+		v := s.Index(0)
+		p = reflect.TypeOf(v)
 		if v.CanInterface() {
-			i:=v.Interface()
-			p=reflect.TypeOf(i)
-		} 
+			i := v.Interface()
+			p = reflect.TypeOf(i)
+		}
 		if p.Kind() != reflect.Ptr {
 			return errors.New(fmt.Sprintf("Marshalling problem: expected a ptr but got %v", p.Kind()))
 		}
-	} 
-	e=p.Elem()
+	}
+	e = p.Elem()
 	if e != obj.t {
 		return errors.New(fmt.Sprintf("Marshalling problem: expected pointer to %v but got pointer to %v",
 			obj.t, e))
 	}
 	return nil
 }
-
