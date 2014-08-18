@@ -54,6 +54,7 @@ func (self *RawIOHook) BodyHook(r *http.Request, obj *restObj) (interface{}, err
 	gotEof := false
 	for curr < len(limitedData) {
 		n, err := r.Body.Read(limitedData[curr:])
+		curr += n
 		if err != nil && err == io.EOF {
 			gotEof = true
 			break
@@ -61,7 +62,6 @@ func (self *RawIOHook) BodyHook(r *http.Request, obj *restObj) (interface{}, err
 		if err != nil {
 			return nil, err
 		}
-		curr += n
 	}
 	//if curr==0 then we are done because there is no body
 	if curr == 0 {
