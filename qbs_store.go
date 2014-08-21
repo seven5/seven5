@@ -42,8 +42,8 @@ func ParamsToDSN(dbname string, driver string, user string) *qbs.DataSourceName 
 		driver = "postgres"
 	}
 	if user == "" {
-		if u:=os.Getenv("PGUSER"); u!="" {
-			user=u
+		if u := os.Getenv("PGUSER"); u != "" {
+			user = u
 		} else {
 			user = "postgres"
 		}
@@ -52,7 +52,7 @@ func ParamsToDSN(dbname string, driver string, user string) *qbs.DataSourceName 
 	dsn.DbName = dbname
 	dsn.Dialect = StringToDialect(driver)
 	dsn.Username = user
-	log.Printf("DSN for DB: %+v\n",dsn)
+	log.Printf("DSN for DB: %+v\n", dsn)
 	return dsn
 }
 
@@ -157,14 +157,4 @@ func (self *QbsDefaultOrmTransactionPolicy) HandlePanic(tx *qbs.Qbs, err interfa
 //QbsDefaultOrmTransactionPolicy is a simple implementation of transaction
 //policy that is sufficient for most applications.
 type QbsDefaultOrmTransactionPolicy struct {
-}
-
-func WithEmptyQbsStore(store *QbsStore, migrations interface{}, fn func()) {
-	migrator := NewQbsMigrator(store, false, false)
-	defer func() {
-		migrator.Store.Q.Close()
-	}()
-	migrator.ToZero(migrations)
-	migrator.ToMax(migrations)
-	fn()
 }

@@ -71,17 +71,6 @@ func (self *testObj) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interfa
 	return &HouseWire{Id: house.Id, Addr: house.Address, ZipCode: house.Zip}, nil
 }
 
-type someMigrations struct {
-}
-
-func (self *someMigrations) Migrate_0001(m Migrator) error {
-	return m.CreateTableIfNotExists(&House{})
-}
-
-func (self *someMigrations) Migrate_0001_Rollback(m Migrator) error {
-	return m.DropTableIfExists(&House{})
-}
-
 /*-------------------------------------------------------------------------*/
 /*                                 TEST CODE                               */
 /*-------------------------------------------------------------------------*/
@@ -101,38 +90,27 @@ func checkNumberHouses(T *testing.T, store *QbsStore, expected int) {
 }
 
 func TestTxn(T *testing.T) {
+	//raw, mux := setupDispatcher()
+	store := setupTestStore()
 
 	obj := &testObj{}
-	store := setupTestStore()
 	wrapped := QbsWrapAll(obj, store)
-	store.Q.Log = true
-	WithEmptyQbsStore(store, &someMigrations{}, func() {
-		obj.failPost = none
+
+	for _, choice := range []int{force_panic, force_error} {
+		obj.failPost = choice
 		checkNumberHouses(T, store, 0)
 		_, err := wrapped.Post(&HouseWire{Id: 0, Addr: "123 evergreen terrace", ZipCode: 98607}, nil)
-		if err != nil {
-			T.Fatalf("unexpected rest post failure %s", err)
+		if err == nil {
+			T.Fatalf("expected an error but didn't get one!")
 		}
-		checkNumberHouses(T, store, 1)
-	})
-	for _, choice := range []int{force_panic, force_error} {
-		WithEmptyQbsStore(store, &someMigrations{}, func() {
-			obj.failPost = choice
-			checkNumberHouses(T, store, 0)
-			_, err := wrapped.Post(&HouseWire{Id: 0, Addr: "123 evergreen terrace", ZipCode: 98607}, nil)
-			if err == nil {
-				T.Fatalf("expected an error but didn't get one!")
-			}
-			e, ok := err.(*Error)
-			if !ok {
-				T.Fatalf("unexpected error type %T", err)
-			}
-			if e.StatusCode != http.StatusInternalServerError {
-				T.Error("Wrong error code, expected %d but got %d", 500, e.StatusCode)
-			}
-			checkNumberHouses(T, store, 0)
-		})
-
+		e, ok := err.(*Error)
+		if !ok {
+			T.Fatalf("unexpected error type %T", err)
+		}
+		if e.StatusCode != http.StatusInternalServerError {
+			T.Error("Wrong error code, expected %d but got %d", 500, e.StatusCode)
+		}
+		checkNumberHouses(T, store, 0)
 	}
 }
 
@@ -189,6 +167,7 @@ func TestWrappingAll(T *testing.T) {
 	raw.Resource("house", &HouseWire{}, QbsWrapAll(obj, store))
 	checkNetworkCalls(T, ":8991", mux, obj)
 
+	store.Q.WhereEqual("Zip", 0).Delete(&House{})
 }
 
 func TestWrappingSeparate(T *testing.T) {
@@ -205,6 +184,8 @@ func TestWrappingSeparate(T *testing.T) {
 		QbsWrapDelete(obj, store))
 
 	checkNetworkCalls(T, ":8992", mux, obj)
+
+	store.Q.WhereEqual("Zip", 0).Delete(&House{})
 
 }
 
