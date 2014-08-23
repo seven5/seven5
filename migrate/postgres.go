@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
+	"io"
+	"time"
 )
 
 type postgresMigrator struct {
@@ -159,15 +161,41 @@ func (m *postgresMigrator) step(fn MigrationFunc) error {
 	return nil
 }
 
+func (m *postgresMigrator) DumpHistory(writer io.Writer) error {
+	rows, err := m.db.Query(m.historyQuery())
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var n int
+		var t time.Time
+
+		err := rows.Scan(&n, &t)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(writer, "%03d %v\n", n, t)
+	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+	return nil
+}
+
 //make it easier to port to other DB
 func (m *postgresMigrator) createTable() string {
-	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (n integer, t timestamp DEFAULT current_timestamp)",
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (n INTEGER, t TIMESTAMP WITH TIME ZONE DEFAULT current_timestamp)",
 		MIGRATION_TABLE)
 }
 
 //make it easier to port to other DB
 func (m *postgresMigrator) numQuery() string {
 	return fmt.Sprintf("SELECT n FROM %s ORDER BY t DESC LIMIT 1", MIGRATION_TABLE)
+}
+
+//make it easier to port to other DB
+func (m *postgresMigrator) historyQuery() string {
+	return fmt.Sprintf("SELECT n,t FROM %s ORDER BY t DESC", MIGRATION_TABLE)
 }
 
 //make it easier to port to other DB
