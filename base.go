@@ -1,8 +1,6 @@
 package seven5
 
-import (
-	_ "fmt"
-)
+import ()
 
 //NewBaseDispatcher returns a raw dispatcher that has several defaults set.
 //* The Allow() interfaces are used for authorization checks
@@ -41,7 +39,7 @@ type BaseDispatcher struct {
 func (self *BaseDispatcher) Index(d *restObj, bundle PBundle) bool {
 	allowReader, ok := d.index.(AllowReader)
 	if !ok {
-		return false
+		return true
 	}
 	return allowReader.AllowRead(bundle)
 }
@@ -51,7 +49,7 @@ func (self *BaseDispatcher) Index(d *restObj, bundle PBundle) bool {
 func (self *BaseDispatcher) Post(d *restObj, bundle PBundle) bool {
 	allowWriter, ok := d.post.(AllowWriter)
 	if !ok {
-		return false
+		return true
 	}
 	return allowWriter.AllowWrite(bundle)
 }
@@ -61,7 +59,7 @@ func (self *BaseDispatcher) Post(d *restObj, bundle PBundle) bool {
 func (self *BaseDispatcher) Find(d *restObj, num int64, bundle PBundle) bool {
 	allow, ok := d.find.(Allower)
 	if !ok {
-		return false
+		return true
 	}
 	return allow.Allow(num, "GET", bundle)
 }
@@ -71,7 +69,7 @@ func (self *BaseDispatcher) Find(d *restObj, num int64, bundle PBundle) bool {
 func (self *BaseDispatcher) Put(d *restObj, num int64, bundle PBundle) bool {
 	allow, ok := d.put.(Allower)
 	if !ok {
-		return false
+		return true
 	}
 	return allow.Allow(num, "PUT", bundle)
 }
@@ -81,7 +79,7 @@ func (self *BaseDispatcher) Put(d *restObj, num int64, bundle PBundle) bool {
 func (self *BaseDispatcher) Delete(d *restObj, num int64, bundle PBundle) bool {
 	allow, ok := d.del.(Allower)
 	if !ok {
-		return false
+		return true
 	}
 	return allow.Allow(num, "DELETE", bundle)
 }
