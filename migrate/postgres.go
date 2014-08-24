@@ -3,7 +3,7 @@ package migrate
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	"io"
 	"time"
 )
@@ -32,8 +32,15 @@ func (m *postgresMigrator) Close() error {
 //error when the DB connection cannot be established).  There is no
 //connection pooling or other optimizations done in Migrator because it
 //is designed to be used primarily in one-off migration situations.
-func NewPostgresMigrator(dbname string) (Migrator, error) {
-	db, err := sql.Open("postgres", fmt.Sprintf("database=%s", dbname))
+func NewPostgresMigrator(url string) (Migrator, error) {
+	fmt.Printf("url to parse: %s\n", url)
+	opts, err := pq.ParseURL(url)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("opts that resulted: %s\n", opts)
+
+	db, err := sql.Open("postgres", opts)
 	if err != nil {
 		return nil, err
 	}
