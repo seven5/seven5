@@ -4,6 +4,7 @@ import (
 	_ "fmt"
 	"net/http"
 )
+
 var goroutineChannel chan *sessionPacket
 
 //SessionManager is a type that most applications should not need to implement.  It handles the particular
@@ -19,11 +20,13 @@ type SessionManager interface {
 //method and can use the SimpleSession object.
 type Session interface {
 	SessionId() string
+	UserData() interface{}
 }
 
 //SimpleSession is a default implementation of Session suitable for most applications.
 type SimpleSession struct {
-	id    string
+	id string
+	ud interface{}
 }
 
 //SessionId returns the sessionId (usually a UDID).
@@ -31,9 +34,14 @@ func (self *SimpleSession) SessionId() string {
 	return self.id
 }
 
+//UserData returns data you want to hang on the session.
+func (self *SimpleSession) UserData() interface{} {
+	return self.ud
+}
+
 //NewSimpleSession returns a new simple session with its SessionId initialized.
-func NewSimpleSession() *SimpleSession {
-	return &SimpleSession{UDID()}
+func NewSimpleSession(userData interface{}) *SimpleSession {
+	return &SimpleSession{UDID(), userData}
 }
 
 //SimpleSessionManager is an implementation of the SessionManager that knows about the semantics
@@ -54,7 +62,7 @@ type sessionPacket struct {
 //NewAuthSessionManager returns an instance of seven5.SessionManager that is actually a Auth session
 //manager.  This keeps the sessions in memory, not on disk.
 func NewSimpleSessionManager() *SimpleSessionManager {
-	if goroutineChannel==nil {
+	if goroutineChannel == nil {
 		goroutineChannel = make(chan *sessionPacket)
 		go handleSessionChecks(goroutineChannel)
 	}
@@ -64,7 +72,7 @@ func NewSimpleSessionManager() *SimpleSessionManager {
 }
 
 //counter is useful for tests
-var packetsProcessed=0
+var packetsProcessed = 0
 
 //handleSessionChecks is the goroutine that reads session manager requests and responds based on its
 //map.  This assumes that you want to delete the session id if you pass del as true.  If you pass
@@ -76,7 +84,7 @@ func handleSessionChecks(ch chan *sessionPacket) {
 	for {
 		pkt := <-ch
 		packetsProcessed++
-		
+
 		//are we doing a delete?
 		if pkt.del {
 			delete(hash, pkt.id)
@@ -106,26 +114,26 @@ func handleSessionChecks(ch chan *sessionPacket) {
 //in the interface for more sophisticated SessionManager implementations.
 func (self *SimpleSessionManager) Generate(c OauthConnection, oldId string, r *http.Request, state string, code string) (Session, error) {
 	//create the default cruft needed for any session
-	result := NewSimpleSession()
+	result := NewSimpleSession(nil)
 	return self.Assign(result)
 }
 
 //Assign is responsible for connecting the new session to any storage resources needed.  Convenient
 //for those overridding the Generate method with their own implementation.
-func (self *SimpleSessionManager) Assign(result Session) (Session,error) {
-	
-	ch:=make(chan Session)
-	
+func (self *SimpleSessionManager) Assign(result Session) (Session, error) {
+
+	ch := make(chan Session)
+
 	pkt := &sessionPacket{
-		del:false,
-		id : result.SessionId(),
-		s: result,
+		del: false,
+		id:  result.SessionId(),
+		s:   result,
 		ret: ch,
 	}
 	self.out <- pkt
-	_ =  <- ch
+	_ = <-ch
 	close(ch)
-		
+
 	//this the now initialized session
 	return result, nil
 }
@@ -133,36 +141,36 @@ func (self *SimpleSessionManager) Assign(result Session) (Session,error) {
 //Destroy is called when a user requests to logout. The session map needs to be updated to no longer
 //hold the session.
 func (self *SimpleSessionManager) Destroy(id string) error {
-	ch:=make(chan Session)
-	
+	ch := make(chan Session)
+
 	pkt := &sessionPacket{
-		del:true,
-		id :id,
-		s: nil,
+		del: true,
+		id:  id,
+		s:   nil,
 		ret: ch,
 	}
 	self.out <- pkt
-	_ =  <- ch
+	_ = <-ch
 	close(ch)
-	
+
 	return nil
 }
 
 //Find is called by the cookie management layer to see if a particular session is known to the
 //app-specific code (our session manager).
 func (self *SimpleSessionManager) Find(id string) (Session, error) {
-	
-	ch:=make(chan Session)
-	
+
+	ch := make(chan Session)
+
 	pkt := &sessionPacket{
-		del:false,
-		id :id,
-		s: nil,
+		del: false,
+		id:  id,
+		s:   nil,
 		ret: ch,
 	}
 	self.out <- pkt
-	s:= <- ch
+	s := <-ch
 	close(ch)
-	
+
 	return s, nil
 }
