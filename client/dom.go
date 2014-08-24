@@ -241,10 +241,12 @@ func NewCssExistenceAttr(t NarrowDom, clazz CssClass) DomAttribute {
 }
 
 func (self *cssExistenceAttr) get() Equaler {
+	//print("get existenc attribute", self.clazz)
 	return BoolEqualer{self.t.HasClass(self.clazz.ClassName())}
 }
 
 func (self *cssExistenceAttr) set(e Equaler) {
+	//print("set existence attribute", self.clazz.ClassName(), e.(BoolEqualer).B)
 	if e.(BoolEqualer).B {
 		self.t.AddClass(self.clazz.ClassName())
 	} else {

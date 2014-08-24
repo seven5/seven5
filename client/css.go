@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"github.com/gopherjs/jquery"
 	//"honnef.co/go/js/console"
 )
@@ -52,7 +53,9 @@ type htmlIdImpl struct {
 	cache map[string]DomAttribute
 }
 
-//NewHtmlId returns a selctor that can find tag#id in the dom.
+//NewHtmlId returns a selctor that can find tag#id in the dom. Note that
+//in production mode (with jquery) this panics if this not "hit" exactly
+//one html entity.
 func NewHtmlId(tag, id string) HtmlId {
 	if TestMode {
 		return htmlIdImpl{
@@ -62,10 +65,14 @@ func NewHtmlId(tag, id string) HtmlId {
 			cache: make(map[string]DomAttribute),
 		}
 	}
+	jq := jquery.NewJQuery(tag + "#" + id)
+	if jq.Length != 1 {
+		panic(fmt.Sprintf("probably your HTML and your code are out of sync: %s", tag+"#"+id))
+	}
 	return htmlIdImpl{
 		tag:   tag,
 		id:    id,
-		t:     wrap(jquery.NewJQuery(tag + "#" + id)),
+		t:     wrap(jq),
 		cache: make(map[string]DomAttribute),
 	}
 }

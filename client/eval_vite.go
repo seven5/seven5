@@ -176,7 +176,7 @@ func (self *AttributeImpl) Detach() {
 	DrainEagerQueue()
 }
 
-func (self *AttributeImpl) SetDebugName(n string){
+func (self *AttributeImpl) SetDebugName(n string) {
 	self.name = n
 }
 
@@ -260,6 +260,7 @@ func (self *AttributeImpl) markDirty() {
 		e.dest().markDirty()
 	})
 
+	//print("mark dirty ---", self.name, "is eager?", self.nType == EAGER)
 	if self.nType == EAGER {
 		eagerQueue = append(eagerQueue, self)
 	}
@@ -271,6 +272,7 @@ func (self *AttributeImpl) assign(newval Equaler, wantSideEffect bool) Equaler {
 	if wantSideEffect && self.sideEffectFn != nil {
 		self.sideEffectFn(newval)
 	}
+	//print("assign ", self.name, "<--", newval)
 
 	//update the value
 	self.curr = newval
