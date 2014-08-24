@@ -63,12 +63,11 @@ func EnvironmentUrlToDSN() *qbs.DataSourceName {
 	if db == "" {
 		panic("no DATABASE_URL found, cannot connect to a *QbsStore")
 	}
-	log.Printf("found a database:%s", db)
 	u, err := url.Parse(db)
 	if err != nil {
 		panic(fmt.Sprintf("unable to parse database URL: %s", err))
 	}
-	log.Printf("got a url %+v\n", u)
+	log.Printf("DATABASE_URL found, connecting to %+v\n", u)
 	dsn := &qbs.DataSourceName{}
 	dsn.DbName = u.Path[1:]
 	dsn.Host = u.Host
