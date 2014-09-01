@@ -229,7 +229,8 @@ func (self *testOpsImpl) Append(nd NarrowDom) {
 }
 
 func (self jqueryWrapper) Append(nd NarrowDom) {
-	self.jq.Append(nd.(jqueryWrapper).jq)
+	wrapper := nd.(jqueryWrapper)
+	self.jq.Append(wrapper.jq)
 }
 
 func (self *testOpsImpl) SetRadioButton(groupName string, value string) {

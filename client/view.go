@@ -38,8 +38,18 @@ func Class(cl CssClass) option {
 	}
 }
 
+func Text(str string) option {
+	return func(self *ViewImpl) *ViewImpl {
+		self.text = str
+		return self
+	}
+}
+
 func Id(id HtmlId) option {
 	return func(self *ViewImpl) *ViewImpl {
+		if id == nil {
+			panic("should not be calling Id() on a nil HtmlId")
+		}
 		self.id = id.Id()
 		return self
 	}
@@ -108,11 +118,15 @@ func (p *ViewImpl) Build() NarrowDom {
 	}
 
 	for _, child := range p.children {
-		nDom.Append(child.Build())
+		built := child.Build()
+		nDom.Append(built)
 	}
 
 	if p.builders != nil {
 		for _, b := range p.builders {
+			if b == nil {
+				panic("found a nil builder in tree construction!")
+			}
 			b.build(nDom)
 		}
 	}
@@ -124,13 +138,17 @@ func (p *ViewImpl) Build() NarrowDom {
 			h.register()
 		}
 	}
-
 	return nDom
 }
 
 func IMG(obj ...interface{}) *ViewImpl {
 	return tag("img", obj...)
 }
+
+func FORM(obj ...interface{}) *ViewImpl {
+	return tag("form", obj...)
+}
+
 func DIV(obj ...interface{}) *ViewImpl {
 	return tag("div", obj...)
 }
