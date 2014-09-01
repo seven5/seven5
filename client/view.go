@@ -45,6 +45,16 @@ func Text(str string) option {
 	}
 }
 
+func IdConstant(id string) option {
+	return func(self *ViewImpl) *ViewImpl {
+		if id == "" {
+			panic("should not be calling IdConstant() with an empty id")
+		}
+		self.id = id
+		return self
+	}
+}
+
 func Id(id HtmlId) option {
 	return func(self *ViewImpl) *ViewImpl {
 		if id == nil {
@@ -78,6 +88,11 @@ func PropEqual(n propName, b BooleanAttribute) option {
 }
 
 func HtmlAttrEqual(h htmlAttrName, attr Attribute) option {
+	return addBuilder(htmlAttrBuilder(h, attr, nil))
+}
+
+func HtmlAttrConstant(h htmlAttrName, str string) option {
+	attr := NewStringSimple(str)
 	return addBuilder(htmlAttrBuilder(h, attr, nil))
 }
 
