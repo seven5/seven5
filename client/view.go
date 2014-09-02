@@ -235,7 +235,7 @@ func tag(tagName string, obj ...interface{}) *ViewImpl {
 
 	for i := 0; i < len(obj); i++ {
 		if obj[i] == nil {
-			panic("cant use a nil value in view construction")
+			panic("nil value in view construction")
 		}
 		opt, ok := obj[i].(option)
 		if ok {
@@ -243,6 +243,9 @@ func tag(tagName string, obj ...interface{}) *ViewImpl {
 			continue
 		}
 		v, ok := obj[i].(*ViewImpl)
+		if v == nil {
+			continue
+		}
 		if ok {
 			p.children = append(p.children, v)
 			continue
