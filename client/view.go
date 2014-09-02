@@ -119,7 +119,7 @@ func ParseHtml(t string) NarrowDom {
 	} else {
 		nDom = wrap(jquery.NewJQuery(parsed[0]))
 	}
-
+	return nDom
 }
 
 func (p *ViewImpl) Build() NarrowDom {

@@ -29,7 +29,17 @@ type RadioGroup interface {
 	FormElement
 }
 
+type SelectGroup interface {
+	FormElement
+}
+
 type radioGroupImpl struct {
+	dom      NarrowDom
+	selector string
+	attr     *AttributeImpl
+}
+
+type selectGroupImpl struct {
 	dom      NarrowDom
 	selector string
 	attr     *AttributeImpl
@@ -118,12 +128,75 @@ func (self radioGroupImpl) Val() string {
 	return v
 }
 
-//
+//SetVal sets the current value of the radio buttons defined in
+//in the radioGroup.
 func (self radioGroupImpl) SetVal(s string) {
 	switch d := self.dom.(type) {
 	case jqueryWrapper:
 		child := d.jq.Filter(fmt.Sprintf("[value=\"%s\"]", s))
 		child.SetProp("checked", true)
+	case *testOpsImpl:
+		d.SetVal(s)
+		d.Trigger(CLICK)
+	default:
+		panic("unknown type of dom pointer!")
+	}
+}
+
+//NewSelectGroup selects one of a named set of elements, usually
+//rendered as a drop down list.
+func NewSelectGroupId(id string) SelectGroup {
+	selector := "input:selected[id=\"" + id + "\"]"
+	result := selectGroupImpl{selector: selector}
+	if TestMode {
+		result.dom = newTestOps()
+	} else {
+		result.dom = wrap(jquery.NewJQuery(selector))
+	}
+	result.attr = NewAttribute(VALUE_ONLY, result.value, nil)
+	result.dom.On(CLICK, func(jquery.Event) {
+		result.attr.markDirty()
+	})
+	return result
+}
+
+func (self selectGroupImpl) value() Equaler {
+	return StringEqualer{S: self.dom.Val()}
+}
+
+func (self selectGroupImpl) Selector() string {
+	return self.selector
+}
+
+func (self selectGroupImpl) ContentAttribute() Attribute {
+	return self.attr
+}
+
+//Val returns the currently selected item or "" if no item is selected. It
+//cannot deal with values that are "" or are exactly the string "undefined".
+func (self selectGroupImpl) Val() string {
+	var v string
+	switch d := self.dom.(type) {
+	case jqueryWrapper:
+		v = d.jq.Filter(":selected").Val()
+	case *testOpsImpl:
+		v = d.Val()
+	default:
+		panic("unknown dom type")
+	}
+	if v == "undefined" {
+		return ""
+	}
+	return v
+}
+
+//SetVal sets the current value of the group defined in
+//in the selectGroup.
+func (self selectGroupImpl) SetVal(s string) {
+	switch d := self.dom.(type) {
+	case jqueryWrapper:
+		child := d.jq.Filter(fmt.Sprintf("[value=\"%s\"]", s))
+		child.SetProp("selected", true)
 	case *testOpsImpl:
 		d.SetVal(s)
 		d.Trigger(CLICK)
