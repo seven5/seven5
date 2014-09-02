@@ -108,6 +108,20 @@ func HtmlIdFromModel(tag string, m ModelName) HtmlId {
 	return NewHtmlId(tag, id)
 }
 
+//ParseHtml returns a NarrowDom that points at the fragment
+//of HTML provided in t.  No attempt is made to validate that
+//the HTML is sensible, much less syntatically correct.
+func ParseHtml(t string) NarrowDom {
+	parsed := jquery.ParseHTML(t)
+	var nDom NarrowDom
+	if TestMode {
+		nDom = newTestOps()
+	} else {
+		nDom = wrap(jquery.NewJQuery(parsed[0]))
+	}
+
+}
+
 func (p *ViewImpl) Build() NarrowDom {
 	id := ""
 	classes := ""
@@ -124,14 +138,7 @@ func (p *ViewImpl) Build() NarrowDom {
 	} else {
 		t = fmt.Sprintf("<%s%s%s>%s</%s>", p.tag, id, classes, p.text, p.tag)
 	}
-	parsed := jquery.ParseHTML(t)
-	var nDom NarrowDom
-	if TestMode {
-		nDom = newTestOps()
-	} else {
-		nDom = wrap(jquery.NewJQuery(parsed[0]))
-	}
-
+	nDom := ParseHtml(t)
 	for _, child := range p.children {
 		built := child.Build()
 		nDom.Append(built)

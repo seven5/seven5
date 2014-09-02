@@ -33,12 +33,12 @@ func (m *postgresMigrator) Close() error {
 //connection pooling or other optimizations done in Migrator because it
 //is designed to be used primarily in one-off migration situations.
 func NewPostgresMigrator(url string) (Migrator, error) {
-	fmt.Printf("url to parse: %s\n", url)
+	//fmt.Printf("url to parse: %s\n", url)
 	opts, err := pq.ParseURL(url)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("opts that resulted: %s\n", opts)
+	//fmt.Printf("opts that resulted: %s\n", opts)
 
 	db, err := sql.Open("postgres", opts)
 	if err != nil {
