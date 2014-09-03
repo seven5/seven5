@@ -11,6 +11,7 @@ type FormElement interface {
 	ContentAttribute() Attribute
 	Val() string
 	SetVal(string)
+	Dom() NarrowDom
 }
 
 //InputTextId is a special case of HtmlId that is the exported text
@@ -128,6 +129,10 @@ func (self radioGroupImpl) Val() string {
 	return v
 }
 
+func (self radioGroupImpl) Dom() NarrowDom {
+	return self.dom
+}
+
 //SetVal sets the current value of the radio buttons defined in
 //in the radioGroup.
 func (self radioGroupImpl) SetVal(s string) {
@@ -170,6 +175,10 @@ func (self selectGroupImpl) Selector() string {
 
 func (self selectGroupImpl) ContentAttribute() Attribute {
 	return self.attr
+}
+
+func (self selectGroupImpl) Dom() NarrowDom {
+	return self.dom
 }
 
 //Val returns the currently selected item or "" if no item is selected. It
