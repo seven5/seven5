@@ -48,8 +48,10 @@ func (self *SimpleTypeHolder) Add(name string, i interface{}) {
 type FieldDescription struct {
 	//name is required
 	Name string
-	//type name must a simple type (from seven5)
+	//type name must a simple type
 	TypeName string
+	//Ptr to allow nil values
+	IsPtr bool
 	//arrays are composed of some number of a single _type_ ... if there is an array
 	//there should NOT be a TypeName or a Struct defn
 	Array *FieldDescription
@@ -64,12 +66,6 @@ type FieldDescription struct {
 //a go type.  Given a type it returns a pointer to a FieldDescription struct.
 //This is public because it's likely to be useful to others.
 func WalkWireType(name string, t reflect.Type) *FieldDescription {
-	if strings.HasSuffix(t.PkgPath(), "seven5") {
-		switch t.Name() {
-		case "String255", "Textblob", "Id", "Boolean", "DateTime":
-			return &FieldDescription{Name: name, TypeName: t.Name()}
-		}
-	}
 	if t.Kind() == reflect.Slice {
 		nested := WalkWireType("slice", t.Elem())
 		return &FieldDescription{Name: name, Array: nested}
@@ -102,9 +98,15 @@ func WalkWireType(name string, t reflect.Type) *FieldDescription {
 		return &FieldDescription{Name: name, StructName: structType.Name(),
 			Struct: fieldCollection}
 	}
-	switch t.Kind() {
+	k := t.Kind() //we change this if this a ptr
+	isPtr := false
+	if t.Kind() == reflect.Ptr {
+		k = t.Elem().Kind()
+		isPtr = true
+	}
+	switch k {
 	case reflect.Bool, reflect.Float64, reflect.Int64, reflect.String:
-		return &FieldDescription{Name: name, TypeName: t.Name()}
+		return &FieldDescription{Name: name, IsPtr: isPtr, TypeName: t.Name()}
 	case reflect.Float32, reflect.Int, reflect.Int32, reflect.Int8:
 		panic(fmt.Sprintf("Use of (%v) prohibited in wire types.  "+
 			"Use float64 or int64 to avoid ambiguity when json marshalling", t.Kind()))

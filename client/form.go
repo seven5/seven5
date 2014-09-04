@@ -7,17 +7,16 @@ import (
 )
 
 type FormElement interface {
+	Dom() NarrowDom
 	Selector() string
 	ContentAttribute() Attribute
 	Val() string
 	SetVal(string)
-	Dom() NarrowDom
 }
 
 //InputTextId is a special case of HtmlId that is the exported text
 //of a type in field.
 type InputTextId interface {
-	HtmlId
 	FormElement
 }
 
@@ -151,7 +150,7 @@ func (self radioGroupImpl) SetVal(s string) {
 //NewSelectGroup selects one of a named set of elements, usually
 //rendered as a drop down list.
 func NewSelectGroupId(id string) SelectGroup {
-	selector := "input:selected[id=\"" + id + "\"]"
+	selector := "select#" + id
 	result := selectGroupImpl{selector: selector}
 	if TestMode {
 		result.dom = newTestOps()
@@ -187,7 +186,7 @@ func (self selectGroupImpl) Val() string {
 	var v string
 	switch d := self.dom.(type) {
 	case jqueryWrapper:
-		v = d.jq.Filter(":selected").Val()
+		v = d.jq.Find(":selected").Val()
 	case *testOpsImpl:
 		v = d.Val()
 	default:

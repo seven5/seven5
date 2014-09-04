@@ -34,13 +34,13 @@ func NewCssClass(name string) CssClass {
 
 //HtmlId represents a particular item in the DOM tree.
 type HtmlId interface {
+	Dom() NarrowDom
 	TagName() string
 	Id() string
 	StyleAttribute(string) DomAttribute
 	TextAttribute() DomAttribute
 	DisplayAttribute() DomAttribute
 	CssExistenceAttribute(clazz CssClass) DomAttribute
-	Dom() NarrowDom
 }
 
 //htmlIdImpl is an implementation of HtmlId that has a fixed tag and
