@@ -26,6 +26,7 @@ type NarrowDom interface {
 	Val() string
 	SetVal(string)
 	Append(NarrowDom)
+	Before(NarrowDom)
 }
 
 type jqueryWrapper struct {
@@ -231,6 +232,29 @@ func (self *testOpsImpl) Append(nd NarrowDom) {
 func (self jqueryWrapper) Append(nd NarrowDom) {
 	wrapper := nd.(jqueryWrapper)
 	self.jq.Append(wrapper.jq)
+}
+
+func (self *testOpsImpl) Before(nd NarrowDom) {
+	child := nd.(*testOpsImpl)
+	parent := child.parent
+	done := false
+	for i, cand := range parent.children {
+		if cand == child {
+			rest := parent.children[i:]
+			parent.children = append(parent.children[0:i], child)
+			parent.children = append(parent.children, rest...)
+			done = true
+			break
+		}
+	}
+	if !done {
+		panic("unable to find child to insert before!")
+	}
+}
+
+func (self jqueryWrapper) Before(nd NarrowDom) {
+	wrapper := nd.(jqueryWrapper)
+	self.jq.Before(wrapper.jq)
 }
 
 func (self *testOpsImpl) SetRadioButton(groupName string, value string) {
