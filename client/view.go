@@ -198,6 +198,9 @@ func SPAN(obj ...interface{}) *ViewImpl {
 func STRONG(obj ...interface{}) *ViewImpl {
 	return tag("strong", obj...)
 }
+func P(obj ...interface{}) *ViewImpl {
+	return tag("p", obj...)
+}
 
 func EM(obj ...interface{}) *ViewImpl {
 	return tag("em", obj...)
