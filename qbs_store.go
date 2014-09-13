@@ -2,12 +2,13 @@ package seven5
 
 import (
 	"fmt"
-	"github.com/coocood/qbs"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/coocood/qbs"
 )
 
 type QbsStore struct {
@@ -16,20 +17,23 @@ type QbsStore struct {
 	Dsn    *qbs.DataSourceName
 }
 
-// NewQbsStore creates an instance of the object that is used to represent a
-// connection to the database via the Qbs ORM.
-// NewQbsStore creates a *QbsStore from a DSN; DSNs can be created
+// NewQbsStoreFromDSN creates a *QbsStore from a DSN; DSNs can be created
 // directly with ParamsToDSN or from the environment EnvironmentUrlToDSN (via
 // the DATABASE_URL environment var).
-func NewQbsStore(dsn *qbs.DataSourceName) *QbsStore {
-	result := &QbsStore{}
-	result.Dsn = dsn
-	result.Policy = NewQbsDefaultOrmTransactionPolicy()
-	qbs.RegisterWithDataSourceName(result.Dsn)
+func NewQbsStoreFromDSN(dsn *qbs.DataSourceName) *QbsStore {
 	q, err := qbs.GetQbs()
 	if err != nil {
 		panic(err)
 	}
+	return NewQbsStoreFromQbs(q)
+}
+
+// NewQbsStoreFromQbs wraps a QbsStore object around the provided connection
+// to Qbs.
+func NewQbsStoreFromQbs(q *qbs.Qbs) *QbsStore {
+	result := &QbsStore{}
+	result.Policy = NewQbsDefaultOrmTransactionPolicy()
+	qbs.RegisterWithDataSourceName(result.Dsn)
 	result.Q = q
 	return result
 }

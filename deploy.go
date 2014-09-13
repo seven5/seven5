@@ -3,6 +3,8 @@ package seven5
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/coocood/qbs"
 )
 
 const (
@@ -35,7 +37,11 @@ func NewHerokuDeploy(herokuName string, localName string) *HerokuDeploy {
 
 func (self *HerokuDeploy) GetQbsStore() *QbsStore {
 	dsn := EnvironmentUrlToDSN()
-	return NewQbsStore(dsn)
+	return NewQbsStoreFromDSN(dsn)
+}
+
+func (self *HerokuDeploy) WrapQbs(q *qbs.Qbs) *QbsStore {
+	return NewQbsStoreFromQbs(q)
 }
 
 func (self *HerokuDeploy) IsTest() bool {
@@ -105,5 +111,5 @@ func NewContainerDeploy() *ContainerDeploy {
 
 func (c *ContainerDeploy) GetQbsStore() *QbsStore {
 	dsn := EnvironmentUrlToDSN()
-	return NewQbsStore(dsn)
+	return NewQbsStoreFromDSN(dsn)
 }
