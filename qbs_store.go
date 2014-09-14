@@ -21,11 +21,14 @@ type QbsStore struct {
 // directly with ParamsToDSN or from the environment EnvironmentUrlToDSN (via
 // the DATABASE_URL environment var).
 func NewQbsStoreFromDSN(dsn *qbs.DataSourceName) *QbsStore {
+	qbs.RegisterWithDataSourceName(dsn)
 	q, err := qbs.GetQbs()
 	if err != nil {
 		panic(err)
 	}
-	return NewQbsStoreFromQbs(q)
+	result := NewQbsStoreFromQbs(q)
+	result.Dsn = dsn
+	return result
 }
 
 // NewQbsStoreFromQbs wraps a QbsStore object around the provided connection
@@ -33,7 +36,6 @@ func NewQbsStoreFromDSN(dsn *qbs.DataSourceName) *QbsStore {
 func NewQbsStoreFromQbs(q *qbs.Qbs) *QbsStore {
 	result := &QbsStore{}
 	result.Policy = NewQbsDefaultOrmTransactionPolicy()
-	qbs.RegisterWithDataSourceName(result.Dsn)
 	result.Q = q
 	return result
 }
