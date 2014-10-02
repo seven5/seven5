@@ -4,8 +4,8 @@
 package seven5
 
 import (
-	gomock "code.google.com/p/gomock/gomock"
 	http "net/http"
+	gomock "code.google.com/p/gomock/gomock"
 )
 
 // Mock of SessionManager interface
@@ -90,4 +90,14 @@ func (_m *MockSession) SessionId() string {
 
 func (_mr *_MockSessionRecorder) SessionId() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SessionId")
+}
+
+func (_m *MockSession) UserData() interface{} {
+	ret := _m.ctrl.Call(_m, "UserData")
+	ret0, _ := ret[0].(interface{})
+	return ret0
+}
+
+func (_mr *_MockSessionRecorder) UserData() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UserData")
 }

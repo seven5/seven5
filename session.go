@@ -40,8 +40,15 @@ func (self *SimpleSession) UserData() interface{} {
 }
 
 //NewSimpleSession returns a new simple session with its SessionId initialized.
-func NewSimpleSession(userData interface{}) *SimpleSession {
-	return &SimpleSession{UDID(), userData}
+//If sid is not "", then it used as the session id and no new UDID is generated.
+//This latter feature is to allow control of the session id and should only be
+//used in test code.
+func NewSimpleSession(userData interface{}, sid string) *SimpleSession {
+	var s = sid
+	if sid == "" {
+		s = UDID()
+	}
+	return &SimpleSession{s, userData}
 }
 
 //SimpleSessionManager is an implementation of the SessionManager that knows about the semantics
@@ -114,7 +121,7 @@ func handleSessionChecks(ch chan *sessionPacket) {
 //in the interface for more sophisticated SessionManager implementations.
 func (self *SimpleSessionManager) Generate(c OauthConnection, oldId string, r *http.Request, state string, code string) (Session, error) {
 	//create the default cruft needed for any session
-	result := NewSimpleSession(nil)
+	result := NewSimpleSession(nil, "")
 	return self.Assign(result)
 }
 

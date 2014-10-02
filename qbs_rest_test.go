@@ -127,7 +127,7 @@ func setupDispatcher() (*RawDispatcher, *ServeMux) {
 
 func setupTestStore() *QbsStore {
 	dsn := ParamsToDSN("seven5test", "", "")
-	return NewQbsStore(dsn)
+	return NewQbsStoreFromDSN(dsn)
 }
 
 func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *testObj) {
