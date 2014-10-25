@@ -100,9 +100,15 @@ func TestContinueDispatch(t *testing.T) {
 	go func() {
 		http.ListenAndServe(":8090", serveMux)
 	}()
-
 	resp, err := http.Get("http://localhost:8090/outer")
 	checkHttpStatus(t, resp, err, 200)
+
+	if count.count != 1 {
+		t.Fatalf("didn't get hit on inner dispatcher: %d", count.count)
+	}
+	if c.count != 1 {
+		t.Fatalf("didn't get hit on outer dispatcher: %d", c.count)
+	}
 }
 
 /***********************************************************************************************/

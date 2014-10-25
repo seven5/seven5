@@ -16,9 +16,9 @@ import (
 //or to change the parameters passed to rest resources in the PBundle (for example to
 //modify query parameter arguments programmatically).
 type IOHook interface {
-	SendHook(d *restObj, w http.ResponseWriter, pb PBundle, i interface{}, location string)
+	SendHook(d *restShared, w http.ResponseWriter, pb PBundle, i interface{}, location string)
 	BundleHook(w http.ResponseWriter, r *http.Request, sm SessionManager) (PBundle, error)
-	BodyHook(r *http.Request, obj *restObj) (interface{}, error)
+	BodyHook(r *http.Request, obj *restShared) (interface{}, error)
 	CookieMapper() CookieMapper
 }
 
@@ -48,7 +48,7 @@ func NewRawIOHook(d Decoder, e Encoder, c CookieMapper) *RawIOHook {
 //BodyHook is called to create a wire object of the appopriate type and fill in the values
 //in that object from the request body.  BodyHook calls the decoder provided at creation time
 //take the bytes provided by the body and initialize the object that is ultimately returned.
-func (self *RawIOHook) BodyHook(r *http.Request, obj *restObj) (interface{}, error) {
+func (self *RawIOHook) BodyHook(r *http.Request, obj *restShared) (interface{}, error) {
 	limitedData := make([]byte, MAX_FORM_SIZE)
 	curr := 0
 	gotEof := false
@@ -114,7 +114,7 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 //SendHook calls the encoder for the encoding of the object into a sequence of bytes for transmission.
 //If the pb is not null, then the SendHook should examine it for outgoing headers, trailers, and
 //transmit them.
-func (self *RawIOHook) SendHook(d *restObj, w http.ResponseWriter, pb PBundle, i interface{}, location string) {
+func (self *RawIOHook) SendHook(d *restShared, w http.ResponseWriter, pb PBundle, i interface{}, location string) {
 	if err := self.verifyReturnType(d, i); err != nil {
 		http.Error(w, fmt.Sprintf("%s", err), http.StatusExpectationFailed)
 		return
@@ -140,7 +140,7 @@ func (self *RawIOHook) SendHook(d *restObj, w http.ResponseWriter, pb PBundle, i
 	}
 }
 
-func (self *RawIOHook) verifyReturnType(obj *restObj, w interface{}) error {
+func (self *RawIOHook) verifyReturnType(obj *restShared, w interface{}) error {
 	if w == nil {
 		return nil
 	}

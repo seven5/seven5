@@ -5,11 +5,14 @@ package seven5
 //other dispatchers.  Applications should typically use the "Allow*" methods on their own resource
 //implementation in combinations with the BaseDispatcher.
 type Authorizer interface {
-	Index(d *restObj, bundle PBundle) bool
-	Post(d *restObj, bundle PBundle) bool
+	Index(d *restShared, bundle PBundle) bool
+	Post(d *restShared, bundle PBundle) bool
 	Find(d *restObj, num int64, bundle PBundle) bool
+	FindUdid(d *restObjUdid, id string, bundle PBundle) bool
 	Put(d *restObj, num int64, bundle PBundle) bool
+	PutUdid(d *restObjUdid, id string, bundle PBundle) bool
 	Delete(d *restObj, num int64, bundle PBundle) bool
+	DeleteUdid(d *restObjUdid, id string, bundle PBundle) bool
 }
 
 //AllowReader is an interface that allows a particular resource to express permissions about what users
@@ -39,4 +42,14 @@ type AllowWriter interface {
 //bundle that will be sent to the implementing method, if this method returns true.
 type Allower interface {
 	Allow(int64, string, PBundle) bool
+}
+
+//AllowerUdid is an interface that allows a UDID resource to express permissions about what users
+//or types of requests are allowed on it.  This is a good place to put gross-level kinds of "policy"
+//decisions like "users may only write to their to objects they own". Allower is used for
+//RestFind, RestPut, or Rest Delete.  The first parameter is the id of the resource.
+//The second is the method of the request as as a string in uppercase, and the third is the parameter
+//bundle that will be sent to the implementing method, if this method returns true.
+type AllowerUdid interface {
+	Allow(string, string, PBundle) bool
 }

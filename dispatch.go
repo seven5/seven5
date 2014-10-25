@@ -1,8 +1,8 @@
 package seven5
 
 import (
-	"net/http"
 	"fmt"
+	"net/http"
 	"os"
 )
 
@@ -34,14 +34,14 @@ type ErrorDispatcher interface {
 }
 
 //NewServeMux creates a new server mux (compatible with http.ServeMux) with the specified error
-//handler, which may be nil.  
+//handler, which may be nil.
 func NewServeMux() *ServeMux {
 	return &ServeMux{
 		http.NewServeMux(), nil,
 	}
 }
 
-func (self *ServeMux) ErrorDispatcher() ErrorDispatcher{
+func (self *ServeMux) ErrorDispatcher() ErrorDispatcher {
 	return self.err
 }
 
@@ -72,8 +72,8 @@ func (self *ServeMux) Dispatch(pattern string, dispatcher Dispatcher) {
 				}
 			}
 		}()
-		w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
-		w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
+		//w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
+		//w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
 		b := dispatcher.Dispatch(self, w, r)
 		if b != nil {
 			b.ServeHTTP(w, r)

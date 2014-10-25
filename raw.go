@@ -1,11 +1,14 @@
 package seven5
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 const MAX_FORM_SIZE = 16 * 1024
@@ -20,6 +23,7 @@ func NewRawDispatcher(io IOHook, sm SessionManager, a Authorizer,
 	hold TypeHolder, prefix string) *RawDispatcher {
 	return &RawDispatcher{
 		Res:        make(map[string]*restObj),
+		ResUdid:    make(map[string]*restObjUdid),
 		IO:         io,
 		SessionMgr: sm,
 		Auth:       a,
@@ -33,11 +37,24 @@ func NewRawDispatcher(io IOHook, sm SessionManager, a Authorizer,
 //by applications.
 type RawDispatcher struct {
 	Res        map[string]*restObj
+	ResUdid    map[string]*restObjUdid
 	IO         IOHook
 	SessionMgr SessionManager
 	Auth       Authorizer
 	Prefix     string
 	Holder     TypeHolder
+}
+
+func (self *RawDispatcher) validateType(example interface{}) reflect.Type {
+	t := reflect.TypeOf(example)
+	if t.Kind() != reflect.Ptr {
+		panic("wire example is not a pointer (should be a pointer to a struct)")
+	}
+	under := t.Elem()
+	if under.Kind() != reflect.Struct {
+		panic("wire example is not a pointer to a struct (but is a pointer)")
+	}
+	return under
 }
 
 //ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods
@@ -46,35 +63,59 @@ type RawDispatcher struct {
 func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}, index RestIndex,
 	find RestFind, post RestPost, put RestPut, del RestDelete) {
 
-	t := reflect.TypeOf(wireExample)
-	if t.Kind() != reflect.Ptr {
-		panic("wire example is not a pointer (should be a pointer to a struct)")
-	}
-	under := t.Elem()
-	if under.Kind() != reflect.Struct {
-		panic("wire example is not a pointer to a struct (but is a pointer)")
-	}
-
+	under := self.validateType(wireExample)
+	self.validateType(wireExample)
 	self.Add(name, wireExample)
-
 	obj := &restObj{
-		t:     under,
-		name:  name,
-		index: index,
-		find:  find,
-		del:   del,
-		post:  post,
-		put:   put,
+		restShared: restShared{
+			t:     under,
+			name:  name,
+			index: index,
+			post:  post,
+		},
+		find: find,
+		del:  del,
+		put:  put,
 	}
 	self.Res[strings.ToLower(name)] = obj
 }
 
+//ResourceSeparateUdid adds a resource type to this dispatcher with each of the RestUdid methods
+//individually specified.  The name should be singular and camel case. The example should an example
+//of the wire type to be marshalled, unmarshalled.  The wire type can have an Id in addition
+//to a Udid field.
+func (self *RawDispatcher) ResourceSeparateUdid(name string, wireExample interface{}, index RestIndex,
+	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
+
+	under := self.validateType(wireExample)
+	self.Add(name, wireExample)
+	obj := &restObjUdid{
+		restShared: restShared{
+			t:     under,
+			name:  name,
+			index: index,
+			post:  post,
+		},
+		find: find,
+		del:  del,
+		put:  put,
+	}
+	self.ResUdid[strings.ToLower(name)] = obj
+}
+
 //Resource is the shorter form of ResourceSeparate that allows you to pass a single resource
 //in so long as it meets the interface RestAll.  Resource name must be singular and camel case and will be
-//converted to all lowercase for use as a url.  The example wire type's fields must be public and must all be
-//types definde by seven5.
+//converted to all lowercase for use as a url.  The example wire type's fields must be public.
 func (self *RawDispatcher) Resource(name string, wireExample interface{}, r RestAll) {
 	self.ResourceSeparate(name, wireExample, r, r, r, r, r)
+}
+
+//ResourceUdid is the shorter form of ResourceSeparateUdid that allows you to pass a single resource
+//in so long as it meets the interface RestAllUdid.  Resource name must be singular and camel case and will be
+//converted to all lowercase for use as a url.  The example wire type's fields must be public.
+
+func (self *RawDispatcher) ResourceUdid(name string, wireExample interface{}, r RestAllUdid) {
+	self.ResourceSeparateUdid(name, wireExample, r, r, r, r, r)
 }
 
 //Rez is the really short form for adding a resource. It assumes that the name is
@@ -92,7 +133,7 @@ func (self *RawDispatcher) Rez(wireExample interface{}, r RestAll) {
 func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *http.Request) *ServeMux {
 
 	//find the resource and, if present, the id
-	matched, id, d := self.resolve(r.URL.Path)
+	matched, id, rez, rezUdid := self.resolve(r.URL.Path)
 	if matched == "" {
 		//typically trips the error dispatcher
 		http.NotFound(w, r)
@@ -106,22 +147,36 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 		return nil
 	}
 
+	var body interface{}
+	var num int64
+
 	//pull anything from the body that's there
-	body, err := self.IO.BodyHook(r, d)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
-		return nil
+	if rezUdid == nil {
+		body, err = self.IO.BodyHook(r, &rez.restShared)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
+			return nil
+		}
+	} else {
+		body, err = self.IO.BodyHook(r, &rezUdid.restShared)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
+			return nil
+		}
 	}
 
-	//parse the id value
-	num := int64(-90191) //signal value in case it ever should end up getting used
-	if len(id) > 0 {
-		n, errMessage := ParseId(id)
-		num = n
-		if errMessage != "" {
-			//typically trips the error dispatcher
-			http.Error(w, fmt.Sprintf("Bad request (id): %s", errMessage), http.StatusBadRequest)
-			return nil
+	//may need to parse it as an int
+	if rezUdid == nil {
+		//parse the id value
+		num = int64(-90191) //signal value in case it ever should end up getting used
+		if len(id) > 0 {
+			n, errMessage := ParseId(id)
+			num = n
+			if errMessage != "" {
+				//typically trips the error dispatcher
+				http.Error(w, fmt.Sprintf("Bad request (id): %s", errMessage), http.StatusBadRequest)
+				return nil
+			}
 		}
 	}
 
@@ -129,102 +184,207 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 	case "GET":
 		//TWO FLAVORS OF GET: INDEXER OR FINDER?
 		if len(id) == 0 { //INDEXER
-			if d.index == nil {
-				//typically trips the error dispatcher
-				http.Error(w, "Not implemented (INDEX)", http.StatusNotImplemented)
-				return nil
-			}
-			if self.Auth != nil && !self.Auth.Index(d, bundle) {
-				//typically trips the error dispatcher
-				http.Error(w, "Not authorized (INDEX)", http.StatusUnauthorized)
-				return nil
-			}
-			result, err := d.index.Index(bundle)
-			if err != nil {
-				self.SendError(err, w, "Internal error on Index")
+			if rez != nil {
+				if rez.index == nil {
+					//typically trips the error dispatcher
+					http.Error(w, "Not implemented (INDEX)", http.StatusNotImplemented)
+					return nil
+				}
+				if self.Auth != nil && !self.Auth.Index(&rez.restShared, bundle) {
+					//typically trips the error dispatcher
+					http.Error(w, "Not authorized (INDEX)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rez.index.Index(bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Index")
+				} else {
+					//go through encoding
+					self.IO.SendHook(&rez.restShared, w, bundle, result, "")
+				}
 			} else {
-				//go through encoding
-				self.IO.SendHook(d, w, bundle, result, "")
+				//UDID INDER
+				if rezUdid.index == nil {
+					//typically trips the error dispatcher
+					http.Error(w, "Not implemented (INDEX, UDID)", http.StatusNotImplemented)
+					return nil
+				}
+				log.Printf("ok, in index? %+v", self.Auth)
+				if self.Auth != nil && !self.Auth.Index(&rezUdid.restShared, bundle) {
+					//typically trips the error dispatcher
+					http.Error(w, "Not authorized (INDEX, UDID)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rezUdid.index.Index(bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Index (UDID)")
+				} else {
+					//go through encoding
+					self.IO.SendHook(&rezUdid.restShared, w, bundle, result, "")
+				}
 			}
 			return nil
 		} else { //FINDER
-			if d.find == nil {
-				//typically trips the error dispatcher
-				http.Error(w, "Not implemented (FIND)", http.StatusNotImplemented)
+			if rez != nil {
+				if rez.find == nil {
+					//typically trips the error dispatcher
+					http.Error(w, "Not implemented (FIND)", http.StatusNotImplemented)
+					return nil
+				}
+				if self.Auth != nil && !self.Auth.Find(rez, num, bundle) {
+					//typically trips the error dispatcher
+					http.Error(w, "Not authorized (FIND)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rez.find.Find(num, bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Find")
+				} else {
+					self.IO.SendHook(&rez.restShared, w, bundle, result, "")
+				}
 				return nil
-			}
-			if self.Auth != nil && !self.Auth.Find(d, num, bundle) {
-				//typically trips the error dispatcher
-				http.Error(w, "Not authorized (FIND)", http.StatusUnauthorized)
-				return nil
-			}
-			result, err := d.find.Find(num, bundle)
-			if err != nil {
-				self.SendError(err, w, "Internal error on Find")
 			} else {
-				self.IO.SendHook(d, w, bundle, result, "")
+				//UDID RESOURCE
+				if rezUdid.find == nil {
+					//typically trips the error dispatcher
+					http.Error(w, "Not implemented (FIND,UDID)", http.StatusNotImplemented)
+					return nil
+				}
+				if self.Auth != nil && !self.Auth.FindUdid(rezUdid, id, bundle) {
+					//typically trips the error dispatcher
+					http.Error(w, "Not authorized (FIND, UDID)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rezUdid.find.Find(id, bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Find (UDID")
+				} else {
+					self.IO.SendHook(&rezUdid.restShared, w, bundle, result, "")
+				}
+				return nil
 			}
-			return nil
 		}
 	case "POST":
-		if id != "" {
-			http.Error(w, "can't POST to a particular resource, did you mean PUT?", http.StatusBadRequest)
+		if rez != nil {
+			if id != "" {
+				http.Error(w, "can't POST to a particular resource, did you mean PUT?", http.StatusBadRequest)
+				return nil
+			}
+			if rez.post == nil {
+				http.Error(w, "Not implemented (POST)", http.StatusNotImplemented)
+				return nil
+			}
+			if self.Auth != nil && !self.Auth.Post(&rez.restShared, bundle) {
+				http.Error(w, "Not authorized (POST)", http.StatusUnauthorized)
+				return nil
+			}
+			result, err := rez.post.Post(body, bundle)
+			if err != nil {
+				self.SendError(err, w, "Internal error on Post")
+			} else {
+				self.IO.SendHook(&rez.restShared, w, bundle, result, self.location(rez.name, false, result))
+			}
 			return nil
-		}
-		if d.post == nil {
-			http.Error(w, "Not implemented (POST)", http.StatusNotImplemented)
-			return nil
-		}
-		if self.Auth != nil && !self.Auth.Post(d, bundle) {
-			http.Error(w, "Not authorized (POST)", http.StatusUnauthorized)
-			return nil
-		}
-		result, err := d.post.Post(body, bundle)
-		if err != nil {
-			self.SendError(err, w, "Internal error on Post")
 		} else {
-			self.IO.SendHook(d, w, bundle, result, self.location(d, result))
+			//UDID POST
+			if id != "" {
+				http.Error(w, "can't (UDID) POST to a particular resource, did you mean PUT?", http.StatusBadRequest)
+				return nil
+			}
+			if rezUdid.post == nil {
+				http.Error(w, "Not implemented (POST, UDID)", http.StatusNotImplemented)
+				return nil
+			}
+			if self.Auth != nil && !self.Auth.Post(&rezUdid.restShared, bundle) {
+				http.Error(w, "Not authorized (POST)", http.StatusUnauthorized)
+				return nil
+			}
+			result, err := rezUdid.post.Post(body, bundle)
+			if err != nil {
+				self.SendError(err, w, "Internal error on Post")
+			} else {
+				self.IO.SendHook(&rezUdid.restShared, w, bundle, result, self.location(rezUdid.name, true, result))
+			}
+			return nil
+
 		}
-		return nil
 	case "PUT", "DELETE":
 		if id == "" {
-			http.Error(w, fmt.Sprintf("%s requires a resource id", method), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("%s requires a resource id or UDID", method), http.StatusBadRequest)
 			return nil
 		}
 		if method == "PUT" {
-			if d.put == nil {
-				http.Error(w, "Not implemented (PUT)", http.StatusNotImplemented)
-				return nil
-			}
-			if self.Auth != nil && !self.Auth.Put(d, num, bundle) {
-				http.Error(w, "Not authorized (PUT)", http.StatusUnauthorized)
-				return nil
-			}
-			result, err := d.put.Put(num, body, bundle)
-			if err != nil {
-				self.SendError(err, w, "Internal error on Put")
+			if rez != nil {
+				if rez.put == nil {
+					http.Error(w, "Not implemented (PUT)", http.StatusNotImplemented)
+					return nil
+				}
+				if self.Auth != nil && !self.Auth.Put(rez, num, bundle) {
+					http.Error(w, "Not authorized (PUT)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rez.put.Put(num, body, bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Put")
+				} else {
+					self.IO.SendHook(&rez.restShared, w, bundle, result, "")
+				}
 			} else {
-				self.IO.SendHook(d, w, bundle, result, "")
+				//PUT ON UDID
+				if rezUdid.put == nil {
+					http.Error(w, "Not implemented (PUT, UDID)", http.StatusNotImplemented)
+					return nil
+				}
+				if self.Auth != nil && !self.Auth.PutUdid(rezUdid, id, bundle) {
+					http.Error(w, "Not authorized (PUT, UDID)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rezUdid.put.Put(id, body, bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Put (UDID)")
+				} else {
+					self.IO.SendHook(&rezUdid.restShared, w, bundle, result, "")
+				}
 			}
 		} else {
-			if d.del == nil {
-				http.Error(w, "Not implemented (DELETE)", http.StatusNotImplemented)
-				return nil
-			}
-			if self.Auth != nil && !self.Auth.Delete(d, num, bundle) {
-				http.Error(w, "Not authorized (DELETE)", http.StatusUnauthorized)
-				return nil
-			}
-			result, err := d.del.Delete(num, bundle)
-			if err != nil {
-				self.SendError(err, w, "Internal error on Delete")
+			if rez != nil {
+				if rez.del == nil {
+					http.Error(w, "Not implemented (DELETE)", http.StatusNotImplemented)
+					return nil
+				}
+				if self.Auth != nil && !self.Auth.Delete(rez, num, bundle) {
+					http.Error(w, "Not authorized (DELETE)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rez.del.Delete(num, bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Delete")
+				} else {
+					self.IO.SendHook(&rez.restShared, w, bundle, result, "")
+				}
 			} else {
-				self.IO.SendHook(d, w, bundle, result, "")
+				//UDID DELETE
+				if rezUdid.del == nil {
+					http.Error(w, "Not implemented (DELETE, UDID)", http.StatusNotImplemented)
+					return nil
+				}
+				if self.Auth != nil && !self.Auth.DeleteUdid(rezUdid, id, bundle) {
+					http.Error(w, "Not authorized (DELETE, UDID)", http.StatusUnauthorized)
+					return nil
+				}
+				result, err := rezUdid.del.Delete(id, bundle)
+				if err != nil {
+					self.SendError(err, w, "Internal error on Delete")
+				} else {
+					self.IO.SendHook(&rezUdid.restShared, w, bundle, result, "")
+				}
 			}
 		}
 		return nil
 	}
-	panic("should not be able to reach here, probably bad method? from bad client?")
+	log.Printf("should not be able to reach here, probably bad method? from bad client?")
+	http.Error(w, "bad client behavior", http.StatusBadRequest)
+	return nil
 }
 
 func (self *RawDispatcher) SendError(err error, w http.ResponseWriter, msg string) {
@@ -237,10 +397,10 @@ func (self *RawDispatcher) SendError(err error, w http.ResponseWriter, msg strin
 }
 
 //Location computes the url path to the object provided
-func (self *RawDispatcher) location(obj *restObj, i interface{}) string {
+func (self *RawDispatcher) location(name string, isUdid bool, i interface{}) string {
 	//we should have already checked that this object is a pointer to a struct with an Id field
 	//in the "right place" and "right type"
-	result := self.Prefix + "/" + obj.name
+	result := self.Prefix + "/" + name
 
 	p := reflect.ValueOf(i)
 	if p.Kind() != reflect.Ptr {
@@ -250,16 +410,20 @@ func (self *RawDispatcher) location(obj *restObj, i interface{}) string {
 	if e.Kind() != reflect.Struct {
 		panic("unexpected kind for e")
 	}
-	f := e.FieldByName("Id")
-	id := f.Int()
-
-	return fmt.Sprintf("%s/%d", result, id)
+	if !isUdid {
+		f := e.FieldByName("Id")
+		id := f.Int()
+		return fmt.Sprintf("%s/%d", result, id)
+	}
+	f := e.FieldByName("Udid")
+	id := f.String()
+	return fmt.Sprintf("%s/%s", result, id)
 }
 
 //resolve is used to find the matching resource for a particular request.  It returns the match
 //and the resource matched.  If no match is found it returns nil for the type.  resolve does not check
 //that the resulting object is suitable for any purpose, only that it matches.
-func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj) {
+func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj, *restObjUdid) {
 	path := rawPath
 	if strings.HasSuffix(path, "/") && path != "/" {
 		path = path[0 : len(path)-1]
@@ -271,24 +435,59 @@ func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj) {
 		}
 		path = path[len(pre):]
 	}
-	d, ok := self.Res[path]
-	var id string
-	result := path
-	if !ok {
-		i := strings.LastIndex(path, "/")
-		if i == -1 {
-			return "", "", nil
-		}
-		id = path[i+1:]
-		var uriPathParent string
-		uriPathParent = path[:i]
-		d, ok = self.Res[uriPathParent]
-		if !ok {
-			return "", "", nil
-		}
-		result = uriPathParent
+	//case 1: simple path to a normal resource
+	rez, ok := self.Res[path]
+	if ok {
+		return path, "", rez, nil
 	}
-	return result, id, d
+	//case 2: simple path to a udid resource
+	rezUdid, okUdid := self.ResUdid[path]
+	if okUdid {
+		return path, "", nil, rezUdid
+	}
+	//maybe we need to split it, so look for last /...
+	i := strings.LastIndex(path, "/")
+	if i == -1 {
+		return "", "", nil, nil
+	}
+	id = path[i+1:]
+	var uriPathParent string
+	uriPathParent = path[:i]
+
+	//case 3, path to a resource ID (int)
+	rez, ok = self.Res[uriPathParent]
+	if ok {
+		return uriPathParent, id, rez, nil
+	}
+
+	//case 4, path to a resource ID (UDID)
+	rezUdid, ok = self.ResUdid[uriPathParent]
+	if ok {
+		return uriPathParent, id, nil, rezUdid
+	}
+
+	//nothing, give up
+	return "", "", nil, nil
+
+}
+func normalizeUdid(raw string) string {
+	if len(raw) != 36 {
+		log.Printf("bad length on UDID: %d", len(raw))
+		return ""
+	}
+	var buff bytes.Buffer
+	for _, ch := range raw {
+		switch ch {
+		case 'a', 'b', 'c', 'd', 'e', 'f', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			buff.WriteRune(ch)
+		case 'A', 'B', 'C', 'D', 'E', 'F':
+			buff.WriteRune(unicode.ToLower(ch))
+		default:
+			log.Printf("bad UDID character: %s", raw)
+			return ""
+		}
+	}
+	return buff.String()
 }
 
 //ParseId returns the id contained in a string or an error message about why the id is bad.

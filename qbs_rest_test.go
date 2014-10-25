@@ -44,6 +44,7 @@ func (self *testObj) FindQbs(id int64, pb PBundle, q *qbs.Qbs) (interface{}, err
 	self.testCallCount++
 	return &HouseWire{}, nil
 }
+
 func (self *testObj) DeleteQbs(id int64, pb PBundle, q *qbs.Qbs) (interface{}, error) {
 	self.testCallCount++
 	return &HouseWire{}, nil
@@ -69,6 +70,59 @@ func (self *testObj) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interfa
 	}
 
 	return &HouseWire{Id: house.Id, Addr: house.Address, ZipCode: house.Zip}, nil
+}
+
+/*                                      */
+/*---- wire type for the udid tests ----*/
+/*                                      */
+type HouseWireUdid struct {
+	Id      string
+	Addr    string
+	ZipCode int64
+}
+
+type HouseUdid struct {
+	Id      string `qbs:"pk"`
+	Address string
+	Zip     int64 /*0->99999, inclusive*/
+}
+
+type testObjUdid struct {
+	testCallCount int
+	failPost      int
+}
+
+/*these funcs are use to test that if you meet the QBSRest interfaces you
+can be wrapped by the qbs code in Seven5 */
+func (self *testObjUdid) IndexQbs(pb PBundle, q *qbs.Qbs) (interface{}, error) {
+	self.testCallCount++
+	return &HouseWireUdid{}, nil
+}
+func (self *testObjUdid) FindQbs(id string, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+	self.testCallCount++
+	return &HouseWireUdid{}, nil
+}
+
+func (self *testObjUdid) DeleteQbs(id string, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+	self.testCallCount++
+	return &HouseWireUdid{}, nil
+}
+func (self *testObjUdid) PutQbs(id string, value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+	self.testCallCount++
+	return &HouseWireUdid{}, nil
+}
+func (self *testObjUdid) PostQbs(value interface{}, pb PBundle, q *qbs.Qbs) (interface{}, error) {
+	self.testCallCount++
+	in := value.(*HouseWireUdid)
+	house := &HouseUdid{Id: in.Id, Address: in.Addr, Zip: in.ZipCode}
+	if house.Id == "" {
+		house.Id = UDID()
+	}
+	if _, err := q.Save(house); err != nil {
+		return nil, err
+	}
+
+	return &HouseWireUdid{Id: house.Id, Addr: house.Address, ZipCode: house.Zip}, nil
 }
 
 /*-------------------------------------------------------------------------*/
@@ -130,30 +184,55 @@ func setupTestStore() *QbsStore {
 	return NewQbsStoreFromDSN(dsn)
 }
 
-func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *testObj) {
-	if obj.testCallCount != 0 {
-		T.Fatalf("sanity check at start failed: %d", obj.testCallCount)
+func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *testObj, udid *testObjUdid) {
+	if udid != nil {
+		if udid.testCallCount != 0 {
+			T.Fatalf("sanity check at start failed: %d", obj.testCallCount)
+		}
+	} else {
+		if obj.testCallCount != 0 {
+			T.Fatalf("sanity check at start failed: %d", obj.testCallCount)
+		}
 	}
-
 	go func() {
 		http.ListenAndServe(portSpec, serveMux)
 	}()
 
 	client := new(http.Client)
 
-	messageData := [][]string{
+	var messageData [][]string
+
+	messageDataUID := [][]string{
 		[]string{"GET", fmt.Sprintf("http://localhost%s/rest/house", portSpec), ""},
 		[]string{"GET", fmt.Sprintf("http://localhost%s/rest/house/1", portSpec), ""},
 		[]string{"DELETE", fmt.Sprintf("http://localhost%s/rest/house/1", portSpec), ""},
 		[]string{"POST", fmt.Sprintf("http://localhost%s/rest/house", portSpec), "{}"},
 		[]string{"PUT", fmt.Sprintf("http://localhost%s/rest/house/1", portSpec), "{}"},
 	}
+	messageDataUdid := [][]string{
+		[]string{"GET", fmt.Sprintf("http://localhost%s/rest/house", portSpec), ""},
+		[]string{"GET", fmt.Sprintf("http://localhost%s/rest/house/e68e9891-1a19-d48b-4f0a-c4aaf5fffef2", portSpec), ""},
+		[]string{"DELETE", fmt.Sprintf("http://localhost%s/rest/house/e68e9891-1a19-d48b-4f0a-c4aaf5fffef2", portSpec), ""},
+		[]string{"POST", fmt.Sprintf("http://localhost%s/rest/house", portSpec), "{}"},
+		[]string{"PUT", fmt.Sprintf("http://localhost%s/rest/house/e68e9891-1a19-d48b-4f0a-c4aaf5fffef2", portSpec), "{}"},
+	}
+	if udid != nil {
+		messageData = messageDataUdid
+	} else {
+		messageData = messageDataUID
+	}
 	for i, callCount := range []int{1, 2, 3, 4, 5} {
 		req := makeReq(T, messageData[i][0], messageData[i][1], messageData[i][2])
 		resp, err := client.Do(req)
 		checkResponse(T, err, resp)
-		if obj.testCallCount != callCount {
-			T.Fatalf("did not call QBS level resource (expected %d calls but found %d)", callCount, obj.testCallCount)
+		if udid != nil {
+			if udid.testCallCount != callCount {
+				T.Fatalf("did not call QBS level resource (expected %d calls but found %d)", callCount, udid.testCallCount)
+			}
+		} else {
+			if obj.testCallCount != callCount {
+				T.Fatalf("did not call QBS level resource (expected %d calls but found %d)", callCount, obj.testCallCount)
+			}
 		}
 	}
 
@@ -165,9 +244,20 @@ func TestWrappingAll(T *testing.T) {
 
 	obj := &testObj{}
 	raw.Resource("house", &HouseWire{}, QbsWrapAll(obj, store))
-	checkNetworkCalls(T, ":8991", mux, obj)
+	checkNetworkCalls(T, ":8991", mux, obj, nil)
 
 	store.Q.WhereEqual("Zip", 0).Delete(&House{})
+}
+
+func TestWrappingUdid(T *testing.T) {
+	raw, mux := setupDispatcher()
+	store := setupTestStore()
+
+	obj := &testObjUdid{}
+	raw.ResourceUdid("house", &HouseWireUdid{}, QbsWrapAllUdid(obj, store))
+	checkNetworkCalls(T, ":8993", mux, nil, obj)
+
+	store.Q.WhereEqual("Zip", 0).Delete(&HouseUdid{})
 }
 
 func TestWrappingSeparate(T *testing.T) {
@@ -183,7 +273,7 @@ func TestWrappingSeparate(T *testing.T) {
 		QbsWrapPut(obj, store),
 		QbsWrapDelete(obj, store))
 
-	checkNetworkCalls(T, ":8992", mux, obj)
+	checkNetworkCalls(T, ":8992", mux, obj, nil)
 
 	store.Q.WhereEqual("Zip", 0).Delete(&House{})
 

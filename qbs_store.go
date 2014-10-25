@@ -58,7 +58,6 @@ func ParamsToDSN(dbname string, driver string, user string) *qbs.DataSourceName 
 	dsn.DbName = dbname
 	dsn.Dialect = StringToDialect(driver)
 	dsn.Username = user
-	log.Printf("DSN for DB: %+v\n", dsn)
 	return dsn
 }
 

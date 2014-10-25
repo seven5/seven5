@@ -36,7 +36,7 @@ type BaseDispatcher struct {
 
 //Index checks with AllowReader.AllowRead to allow/refuse access to this method on _any_ resource
 //associated with this BaseDispatcher.
-func (self *BaseDispatcher) Index(d *restObj, bundle PBundle) bool {
+func (self *BaseDispatcher) Index(d *restShared, bundle PBundle) bool {
 	allowReader, ok := d.index.(AllowReader)
 	if !ok {
 		return true
@@ -46,7 +46,7 @@ func (self *BaseDispatcher) Index(d *restObj, bundle PBundle) bool {
 
 //Post checks with AllowWriter.AllowWrite to allow/refuse access to this method on _any_ resource
 //associated with this BaseDispatcher.
-func (self *BaseDispatcher) Post(d *restObj, bundle PBundle) bool {
+func (self *BaseDispatcher) Post(d *restShared, bundle PBundle) bool {
 	allowWriter, ok := d.post.(AllowWriter)
 	if !ok {
 		return true
@@ -64,7 +64,7 @@ func (self *BaseDispatcher) Find(d *restObj, num int64, bundle PBundle) bool {
 	return allow.Allow(num, "GET", bundle)
 }
 
-//Find checks with Allower.Allow(PUT) to allow/refuse access to this method on _any_ resource
+//Put checks with Allower.Allow(PUT) to allow/refuse access to this method on _any_ resource
 //associated with this BaseDispatcher.
 func (self *BaseDispatcher) Put(d *restObj, num int64, bundle PBundle) bool {
 	allow, ok := d.put.(Allower)
@@ -82,4 +82,34 @@ func (self *BaseDispatcher) Delete(d *restObj, num int64, bundle PBundle) bool {
 		return true
 	}
 	return allow.Allow(num, "DELETE", bundle)
+}
+
+//Find checks with Allower.AllowUdid(GET) to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
+func (self *BaseDispatcher) FindUdid(d *restObjUdid, id string, bundle PBundle) bool {
+	allow, ok := d.find.(AllowerUdid)
+	if !ok {
+		return true
+	}
+	return allow.Allow(id, "GET", bundle)
+}
+
+//Put checks with Allower.AllowUdid(PUT) to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
+func (self *BaseDispatcher) PutUdid(d *restObjUdid, id string, bundle PBundle) bool {
+	allow, ok := d.put.(AllowerUdid)
+	if !ok {
+		return true
+	}
+	return allow.Allow(id, "PUT", bundle)
+}
+
+//Find checks with AllowerUdid.Allow(DELETE) to allow/refuse access to this method on _any_ resource
+//associated with this BaseDispatcher.
+func (self *BaseDispatcher) DeleteUdid(d *restObjUdid, id string, bundle PBundle) bool {
+	allow, ok := d.del.(AllowerUdid)
+	if !ok {
+		return true
+	}
+	return allow.Allow(id, "DELETE", bundle)
 }
