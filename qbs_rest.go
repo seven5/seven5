@@ -209,14 +209,29 @@ func QbsWrapFind(finder QbsRestFind, s *QbsStore) RestFind {
 	return &qbsWrapped{find: finder, store: s}
 }
 
+//Given a QbsRestFindUdid return a RestFindUdid
+func QbsWrapFindUdid(finder QbsRestFindUdid, s *QbsStore) RestFindUdid {
+	return &qbsWrappedUdid{find: finder, store: s}
+}
+
 //Given a QbsRestDelete return a RestDelete
 func QbsWrapDelete(deler QbsRestDelete, s *QbsStore) RestDelete {
 	return &qbsWrapped{del: deler, store: s}
 }
 
+//Given a QbsRestDeleteUdid return a RestDeleteUdid
+func QbsWrapDeleteUdid(deler QbsRestDeleteUdid, s *QbsStore) RestDeleteUdid {
+	return &qbsWrappedUdid{del: deler, store: s}
+}
+
 //Given a QbsRestPut return a RestPut
 func QbsWrapPut(puter QbsRestPut, s *QbsStore) RestPut {
 	return &qbsWrapped{put: puter, store: s}
+}
+
+//Given a QbsRestPut return a RestPut
+func QbsWrapPutUdid(puter QbsRestPutUdid, s *QbsStore) RestPutUdid {
+	return &qbsWrappedUdid{put: puter, store: s}
 }
 
 //Given a QbsRestPost return a RestPost

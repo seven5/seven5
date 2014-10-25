@@ -450,7 +450,7 @@ func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj, *r
 	if i == -1 {
 		return "", "", nil, nil
 	}
-	id = path[i+1:]
+	id := path[i+1:]
 	var uriPathParent string
 	uriPathParent = path[:i]
 
