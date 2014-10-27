@@ -216,6 +216,8 @@ var (
 	PLACEHOLDER = newAttrName("placeholder")
 	HREF        = newAttrName("href")
 	SRC         = newAttrName("src")
+	WIDTH       = newAttrName("width")
+	HEIGHT      = newAttrName("height")
 	VALUE       = newAttrName("value")
 
 	CHECKED  = newPropName("checked")
