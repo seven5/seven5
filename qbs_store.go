@@ -12,7 +12,6 @@ import (
 )
 
 type QbsStore struct {
-	Q      *qbs.Qbs
 	Policy *QbsDefaultOrmTransactionPolicy
 	Dsn    *qbs.DataSourceName
 }
@@ -22,21 +21,10 @@ type QbsStore struct {
 // the DATABASE_URL environment var).
 func NewQbsStoreFromDSN(dsn *qbs.DataSourceName) *QbsStore {
 	qbs.RegisterWithDataSourceName(dsn)
-	q, err := qbs.GetQbs()
-	if err != nil {
-		panic(err)
+	result := &QbsStore{
+		Dsn:    dsn,
+		Policy: NewQbsDefaultOrmTransactionPolicy(),
 	}
-	result := NewQbsStoreFromQbs(q)
-	result.Dsn = dsn
-	return result
-}
-
-// NewQbsStoreFromQbs wraps a QbsStore object around the provided connection
-// to Qbs.
-func NewQbsStoreFromQbs(q *qbs.Qbs) *QbsStore {
-	result := &QbsStore{}
-	result.Policy = NewQbsDefaultOrmTransactionPolicy()
-	result.Q = q
 	return result
 }
 

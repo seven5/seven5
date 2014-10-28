@@ -3,10 +3,11 @@ package seven5
 import (
 	"errors"
 	"fmt"
-	"github.com/coocood/qbs"
-	_ "github.com/lib/pq"
 	"net/http"
 	"testing"
+
+	"github.com/coocood/qbs"
+	_ "github.com/lib/pq"
 )
 
 const (
@@ -134,21 +135,42 @@ const (
 
 func checkNumberHouses(T *testing.T, store *QbsStore, expected int) {
 	houses := []*House{}
-	err := store.Q.FindAll(&houses)
+	q, err := qbs.GetQbs()
 	if err != nil {
+		T.Fatalf("couldn't get QBS: %v", err)
+	}
+	defer q.Close()
+	if err := q.FindAll(&houses); err != nil {
 		T.Fatalf("Error during find: %s", err)
 	}
 	if len(houses) != expected {
 		T.Errorf("Wrong number of houses! expected %d but got %d", expected, len(houses))
+		panic("XXX")
 	}
 }
 
-func xxxTestTxn(T *testing.T) {
+func TestTxn(T *testing.T) {
 	//raw, mux := setupDispatcher()
 	store := setupTestStore()
 
 	obj := &testObj{}
 	wrapped := QbsWrapAll(obj, store)
+
+	//insure that there are no houses at start
+	q, err := qbs.GetQbs()
+	if err != nil {
+		T.Fatalf("couldn't get QBS: %v", err)
+	}
+	defer q.Close()
+	var houses []*House
+	if err := q.FindAll(&houses); err != nil {
+		T.Fatalf("Error during find: %s", err)
+	}
+	for _, h := range houses {
+		if _, err := q.Delete(h); err != nil {
+			T.Fatalf("Can't start test out right: %v", err)
+		}
+	}
 
 	for _, choice := range []int{force_panic, force_error} {
 		obj.failPost = choice
@@ -245,7 +267,13 @@ func TestWrappingAll(T *testing.T) {
 	raw.Resource("house", &HouseWire{}, QbsWrapAll(obj, store))
 	checkNetworkCalls(T, ":8991", mux, obj, nil)
 
-	store.Q.WhereEqual("Zip", 0).Delete(&House{})
+	//clean up
+	q, err := qbs.GetQbs()
+	if err != nil {
+		T.Fatalf("couldn't get a qbs: %v", err)
+	}
+	q.WhereEqual("Zip", 0).Delete(&House{})
+	q.Close()
 }
 
 func TestWrappingUdid(T *testing.T) {
@@ -256,7 +284,13 @@ func TestWrappingUdid(T *testing.T) {
 	raw.ResourceUdid("house", &HouseWireUdid{}, QbsWrapAllUdid(obj, store))
 	checkNetworkCalls(T, ":8993", mux, nil, obj)
 
-	store.Q.WhereEqual("Zip", 0).Delete(&HouseUdid{})
+	//clean up
+	q, err := qbs.GetQbs()
+	if err != nil {
+		T.Fatalf("couldn't get a qbs: %v", err)
+	}
+	q.WhereEqual("Zip", 0).Delete(&HouseUdid{})
+	q.Close()
 }
 
 func TestWrappingSeparate(T *testing.T) {
@@ -274,7 +308,13 @@ func TestWrappingSeparate(T *testing.T) {
 
 	checkNetworkCalls(T, ":8992", mux, obj, nil)
 
-	store.Q.WhereEqual("Zip", 0).Delete(&House{})
+	//clean up
+	q, err := qbs.GetQbs()
+	if err != nil {
+		T.Fatalf("couldn't get a qbs: %v", err)
+	}
+	q.WhereEqual("Zip", 0).Delete(&House{})
+	q.Close()
 
 }
 
