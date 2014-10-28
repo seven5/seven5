@@ -11,8 +11,8 @@ const (
 	callbackURL = "oauth2callback"
 )
 
-//AuthDispatcher is a special dispatcher that understands how to interact with Oauth2-based services for 
-//authenticating the currently logged in user.  
+//AuthDispatcher is a special dispatcher that understands how to interact with Oauth2-based services for
+//authenticating the currently logged in user.
 type AuthDispatcher struct {
 	provider   []OauthConnector
 	prefix     string
@@ -20,8 +20,6 @@ type AuthDispatcher struct {
 	CookieMap  CookieMapper
 	SessionMgr SessionManager
 }
-
-
 
 //NewAuthDispatcherRaw returns a new auth dispatcher which assumes it is mapped at the prefix provided.
 //This should not end with / so mapping at / is passed as "".  Note that this Dispatcher should
@@ -90,13 +88,13 @@ func (self *AuthDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *ht
 
 func (self *AuthDispatcher) Login(conn OauthConnector, w http.ResponseWriter, r *http.Request) *ServeMux {
 	state := r.URL.Query().Get(conn.StateValueName())
-	p1cred, err:=conn.Phase1(state, self.callback(conn))
-	if err!=nil {
+	p1cred, err := conn.Phase1(state, self.callback(conn))
+	if err != nil {
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
 		return nil
 	}
 	//everything is ok, so proceed to user interaction
-	http.Redirect(w, r, conn.UserInteractionURL(p1cred,state,self.callback(conn)), http.StatusFound)
+	http.Redirect(w, r, conn.UserInteractionURL(p1cred, state, self.callback(conn)), http.StatusFound)
 	return nil
 }
 
@@ -135,10 +133,10 @@ func (self *AuthDispatcher) Connect(conn OauthConnector, clientTok string, code 
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
 		return nil
 	}
-	
+
 	state := r.URL.Query().Get(conn.StateValueName())
-	v, err:=self.CookieMap.Value(r)	
-	if err!=nil && err!=NO_SUCH_COOKIE {
+	v, err := self.CookieMap.Value(r)
+	if err != nil && err != NO_SUCH_COOKIE {
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
 		return nil
 	}
@@ -148,17 +146,40 @@ func (self *AuthDispatcher) Connect(conn OauthConnector, clientTok string, code 
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
 		return nil
 	}
-	
-	if session!=nil {
+
+	if session != nil {
 		self.CookieMap.AssociateCookie(w, session)
 	}
-	
+
 	http.Redirect(w, r, self.PageMap.LoginLandingPage(conn, state, code), http.StatusTemporaryRedirect)
 	return nil
 }
 
 func toWebUIPath(s string) string {
 	return fmt.Sprintf("/out%s", s)
+}
+
+func IsUDID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	parts := strings.Split(s, "-")
+	if len(parts) != 5 {
+		return false
+	}
+	for k, v := range map[int]int{0: 8, 1: 4, 2: 4, 3: 4, 4: 12} {
+		if len(parts[k]) != v {
+			return false
+		}
+	}
+	for _, r := range s {
+		switch r {
+		case 'a', 'b', 'c', 'd', 'e', 'f', '-', 'A', 'B', 'C', 'D', 'E', 'F', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func UDID() string {
@@ -179,7 +200,7 @@ func UDID() string {
 //existing BaseDispatcher.  It requires a handle to the ServeMux because the AuthDispatcher creates
 //mappings.  It maps the AuthDispatcher functions to /auth/serviceName/{login,logout,oauth2callback}.
 func AuthDispatcherFromBase(b *BaseDispatcher) *AuthDispatcher {
-	raw:=b.RawDispatcher
-	pm:=NewSimplePageMapper("/oautherror.html","/login.html","/logout.html",)
+	raw := b.RawDispatcher
+	pm := NewSimplePageMapper("/oautherror.html", "/login.html", "/logout.html")
 	return NewAuthDispatcherRaw("/auth", pm, raw.IO.CookieMapper(), raw.SessionMgr)
 }

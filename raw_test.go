@@ -230,6 +230,7 @@ func TestResourceNotImplementedMethods(t *testing.T) {
 func makeReq(t *testing.T, method string, url string, body string) *http.Request {
 	var result *http.Request
 	var err error
+	//t.Logf("make REQ: %s, %s, ---- %s", method, url, body)
 	if body != "" {
 		result, err = http.NewRequest(method, url, strings.NewReader(body))
 	} else {

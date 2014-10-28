@@ -89,7 +89,7 @@ type qbsWrappedUdid struct {
 // WRAPPED
 //
 
-func (self *qbsWrapped) applyPolicy(pb PBundle, fn func(*qbs.Qbs) (interface{}, error)) (result_obj interface{}, result_error error) {
+func (self *qbsWrapped) XXX_DEAD_XXX_applyPolicy(pb PBundle, fn func(*qbs.Qbs) (interface{}, error)) (result_obj interface{}, result_error error) {
 	tx := self.store.Policy.StartTransaction(self.store.Q)
 	defer func() {
 		if x := recover(); x != nil {
@@ -102,44 +102,78 @@ func (self *qbsWrapped) applyPolicy(pb PBundle, fn func(*qbs.Qbs) (interface{}, 
 
 //Index meets the interface RestIndex but calls the wrapped QBSRestIndex
 func (self *qbsWrapped) Index(pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
-		return self.index.IndexQbs(pb, tx)
-	})
+	/*
+		return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+			return self.index.IndexQbs(pb, tx)
+		})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	return self.index.IndexQbs(pb, q)
 }
 
 //Find meets the interface RestFind but calls the wrapped QBSRestFind
 func (self *qbsWrapped) Find(id int64, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.find.FindQbs(id, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+
+	return self.find.FindQbs(id, pb, q)
 }
 
 //Delete meets the interface RestDelete but calls the wrapped QBSRestDelete
 func (self *qbsWrapped) Delete(id int64, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.del.DeleteQbs(id, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+
+	return self.del.DeleteQbs(id, pb, q)
 }
 
 //Put meets the interface RestPut but calls the wrapped QBSRestPut
 func (self *qbsWrapped) Put(id int64, value interface{}, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.put.PutQbs(id, value, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+
+	return self.put.PutQbs(id, value, pb, q)
 }
 
 //Post meets the interface RestPost but calls the wrapped QBSRestPost
 func (self *qbsWrapped) Post(value interface{}, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.post.PostQbs(value, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+
+	return self.post.PostQbs(value, pb, q)
 }
 
 //
 // WRAPPED UDID
 //
 
-func (self *qbsWrappedUdid) applyPolicy(pb PBundle, fn func(*qbs.Qbs) (interface{}, error)) (result_obj interface{}, result_error error) {
+func (self *qbsWrappedUdid) XXX_DEAD_XXX_applyPolicy(pb PBundle, fn func(*qbs.Qbs) (interface{}, error)) (result_obj interface{}, result_error error) {
 	tx := self.store.Policy.StartTransaction(self.store.Q)
 	defer func() {
 		if x := recover(); x != nil {
@@ -152,37 +186,70 @@ func (self *qbsWrappedUdid) applyPolicy(pb PBundle, fn func(*qbs.Qbs) (interface
 
 //Index meets the interface RestIndex but calls the wrapped QBSRestIndex
 func (self *qbsWrappedUdid) Index(pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.index.IndexQbs(pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+
+	return self.index.IndexQbs(pb, q)
 }
 
 //FindUdid meets the interface RestFindUdid but calls the wrapped QBSRestFindUdid
 func (self *qbsWrappedUdid) Find(id string, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.find.FindQbs(id, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+
+	return self.find.FindQbs(id, pb, q)
 }
 
 //DeleteUdid meets the interface RestDeleteUdid but calls the wrapped QBSRestDeleteUdid
 func (self *qbsWrappedUdid) Delete(id string, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.del.DeleteQbs(id, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	return self.del.DeleteQbs(id, pb, q)
 }
 
 //Post meets the interface RestPost but calls the wrapped QBSRestPost
 func (self *qbsWrappedUdid) Post(value interface{}, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.post.PostQbs(value, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	return self.post.PostQbs(value, pb, q)
 }
 
 //PutUdid meets the interface RestPutUdid but calls the wrapped QBSRestPutUdid
 func (self *qbsWrappedUdid) Put(id string, value interface{}, pb PBundle) (interface{}, error) {
-	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
+	/*return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.put.PutQbs(id, value, pb, tx)
-	})
+	})*/
+	q, err := qbs.GetQbs()
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	return self.put.PutQbs(id, value, pb, q)
+
 }
 
 //

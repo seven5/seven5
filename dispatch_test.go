@@ -87,7 +87,7 @@ func (self *continueDispatch) Dispatch(s *ServeMux, w http.ResponseWriter, r *ht
 	return self.wrapped
 }
 
-func TestContinueDispatch(t *testing.T) {
+func TestDispatchContinue(t *testing.T) {
 	count := &countDispatch{}
 
 	nestedMux := NewServeMux()
@@ -121,7 +121,7 @@ func (self *panicDispatch) Dispatch(s *ServeMux, w http.ResponseWriter, r *http.
 	panic(FLEAZIL)
 }
 
-func TestPanicDispatch(t *testing.T) {
+func TestDispatchPanic(t *testing.T) {
 	p := &panicDispatch{}
 	e := &errDispatch{}
 

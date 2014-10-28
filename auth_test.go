@@ -29,7 +29,7 @@ var (
 	//signal value for stopping redirect processing
 	stopProcessing = errors.New("STOP OR I'LL TASE YA")
 	returl         = "/fart/google/oauth2callback"
-	id             = "painful"
+	id             = "painful_discharge2"
 	seekret        = "pustules"
 	errorText      = "no such luck with google on transport to get token"
 	badTransport   = errors.New(errorText)
@@ -39,8 +39,8 @@ var (
 )
 
 /*-------------------------------------------------------------------------------*/
-func TestGoogleLogin(t *testing.T) {
-	port := 8201
+func TestAuthGoogleLogin(t *testing.T) {
+	port := 18201
 
 	//create controller for all mocks
 	ctrl := gomock.NewController(t)
@@ -258,8 +258,8 @@ func createDispatcherWithMocks(ctrl *gomock.Controller, pm PageMapper, cm Cookie
 }
 
 /*-------------------------------------------------------------------------------*/
-func TestCallbackError(t *testing.T) {
-	port := 8202
+func TestAuthCallbackError(t *testing.T) {
+	port := 18202
 
 	//create controller for all mocks
 	ctrl := gomock.NewController(t)
@@ -320,8 +320,8 @@ func TestCallbackError(t *testing.T) {
 }
 
 /*-------------------------------------------------------------------------------*/
-func TestLogout(t *testing.T) {
-	port := 8203
+func TestAuthLogout(t *testing.T) {
+	port := 18203
 
 	//create controller for all mocks
 	ctrl := gomock.NewController(t)
@@ -379,8 +379,8 @@ func TestLogout(t *testing.T) {
 }
 
 /*-------------------------------------------------------------------------------*/
-func TestLoginArgs(t *testing.T) {
-	port := 8204
+func TestAuthLoginArgs(t *testing.T) {
+	port := 18204
 
 	st := "yakshaver:hardcore"
 
