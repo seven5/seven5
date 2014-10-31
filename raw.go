@@ -209,7 +209,6 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 					http.Error(w, "Not implemented (INDEX, UDID)", http.StatusNotImplemented)
 					return nil
 				}
-				log.Printf("ok, in index? %+v", self.Auth)
 				if self.Auth != nil && !self.Auth.Index(&rezUdid.restShared, bundle) {
 					//typically trips the error dispatcher
 					http.Error(w, "Not authorized (INDEX, UDID)", http.StatusUnauthorized)
