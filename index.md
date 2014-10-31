@@ -10,18 +10,22 @@ tagline: "Restful without remorse or pity."
   <div class="span4">
 	
 	
-	<p><em>Seven5</em> defaults to providing you with RESTful web services based on your models (simple Go structs).  <em>Seven5</em> also generates client-side support in Dart for manipulating these models in a browser.</p>
+	<p><em>Seven5</em> defaults to providing you with RESTful web services based on your models (simple Go structs).  <em>Seven5</em> also expects the client side code to be
+	written in Go (compiled with gopherjs) for doing model-view-controller style
+	interfaces in a web browser..</p>
 	
 	<p>Everything, including the client side code, in <em>Seven5</em> is strongly typed and checked.  Any exception to this rule is a bug and should be reported.</p>
 
-	<p>Data storage is a solved problem for 99% of applications.  We support some storage stuff for SQL out of the box, but frankly we will neither notice nor care if you wrote your own storage layer.</p>
+	<p>Data storage is a solved problem for 99% of applications.  We support some storage stuff for SQL out of the box, notably using Qbs, but frankly we will 
+	neither notice nor care if you wrote your own storage layer.</p>
 
 
   </div>
   <div class="span4">
 	<p>Seven5 has no templating language or other machinery to deploy sever-side content; you shouldn't <strong>generate HTML</strong>, you should <strong>speak an API</strong> with a client. If you want to do things "the <em>Seven5</em> way," do your content generation on the <strong>client</strong> side.</p>  Our examples show the way.
 
-	<p>We want to know the exact code that will run in the production system and its exact resource usage, even under load.  For this reason, everything is compiled into the binary of the application for production usage--including static files.  We seek and destroy interpreters that run inside the server (without remorse or pity).</p>
+	<p>We want to know the exact code that will run in the production system and its exact resource usage, even under load. Altough this is not fully implemented
+	yet, our goal is to have even static files compiled into a single Go binary.</p>
 
  </div>
   <div class="span4">
@@ -40,7 +44,7 @@ tagline: "Restful without remorse or pity."
 <h3>What exactly <em>is</em> Seven5 then?</h3>
 
 <p>
-Seven5 could be called many things, but we prefer to think of it as an encoding of a set of strategies and a code generator.  Building a modern web application has a lot of parts that are stupid boilerplate, repetitive and niggling, already solved by others, or just boring.  <em>Seven5</em> generates Dart, SQL, and HTML that is linked together with your application to eliminate this type of work.  
+Seven5 could be called many things, but we prefer to think of it as an encoding of a set of strategies.  Building a modern web application has a lot of parts that are stupid boilerplate, repetitive and niggling, already solved by others, or just boring.  <em>Seven5</em> generates Dart, SQL, and HTML that is linked together with your application to eliminate this type of work.  
 </p>
 [![Build Status](https://drone.io/github.com/seven5/seven5/status.png)](https://github.com/seven5/seven5/latest)
 </div>
