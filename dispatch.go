@@ -81,8 +81,8 @@ func (self *ServeMux) Dispatch(pattern string, dispatcher Dispatcher) {
 				}
 			}
 		}()
-		//w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
-		//w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
+		w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
+		w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
 		b := dispatcher.Dispatch(self, w, r)
 		if b != nil {
 			b.ServeHTTP(w, r)
