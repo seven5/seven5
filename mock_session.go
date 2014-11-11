@@ -61,6 +61,17 @@ func (_mr *_MockSessionManagerRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Destroy", arg0)
 }
 
+func (_m *MockSessionManager) Update(_param0 Session, _param1 interface{}) (Session, error) {
+	ret := _m.ctrl.Call(_m, "Update", _param0, _param1)
+	ret0, _ := ret[0].(Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockSessionManagerRecorder) Update(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1)
+}
+
 // Mock of Session interface
 type MockSession struct {
 	ctrl     *gomock.Controller

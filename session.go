@@ -9,11 +9,16 @@ var goroutineChannel chan *sessionPacket
 
 //SessionManager is a type that most applications should not need to implement.  It handles the particular
 //session semantics in connection with the establishment of Oauth sessions and mapping browser cookies
-//to sessions.
+//to sessions.  SessionManager implementations _must_ be safe to be accessed from multiple
+//goroutines.  Because the SessionManager can be accessed a via the pbundle interface, there
+//will be multiple goroutines handling requests that could call through this interface.  The
+//SimpleSessionManager implentation has this property and may be a useful model for other
+//implementors.
 type SessionManager interface {
 	Find(id string) (Session, error)
 	Generate(c OauthConnection, id string, r *http.Request, state string, code string) (Session, error)
 	Destroy(id string) error
+	Update(Session, interface{}) (Session, error)
 }
 
 //Session is the minimal interface to a session.  Most applications should not need to implement this
@@ -67,7 +72,8 @@ type sessionPacket struct {
 }
 
 //NewAuthSessionManager returns an instance of seven5.SessionManager that is actually a Auth session
-//manager.  This keeps the sessions in memory, not on disk.
+//manager.  This keeps the sessions in memory, not on disk.  Note that this implementation is
+//safe in the face of being called from multiple goroutines.
 func NewSimpleSessionManager() *SimpleSessionManager {
 	if goroutineChannel == nil {
 		goroutineChannel = make(chan *sessionPacket)
@@ -143,6 +149,13 @@ func (self *SimpleSessionManager) Assign(result Session) (Session, error) {
 
 	//this the now initialized session
 	return result, nil
+}
+
+//Update is called from the actual response handlers in the web app to inform
+//us that the session needs to change.  XXX Should the PBundle just expose the
+//Session manager? XXX
+func (self *SimpleSessionManager) Update(result Session, i interface{}) (Session, error) {
+	return self.Assign(NewSimpleSession(i, ""))
 }
 
 //Destroy is called when a user requests to logout. The session map needs to be updated to no longer

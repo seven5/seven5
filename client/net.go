@@ -37,6 +37,7 @@ func PutExisting(i interface{}, root string, id string,
 			"type":        "PUT",
 			"url":         fmt.Sprintf("%s/%s/%s", root, urlname, id),
 			"data":        w.String(),
+			"cache":       false,
 		}).
 		Then(func(v js.Object) {
 		success(v)
@@ -76,6 +77,7 @@ func PostNew(i interface{}, root string, success SuccessNewFunc, failure Failure
 			"type":        "POST",
 			"url":         fmt.Sprintf("%s/%s", root, urlname),
 			"data":        w.String(),
+			"cache":       false,
 		}).
 		Then(func(valueCreated js.Object) {
 		id := valueCreated.Get("Id").Int64()

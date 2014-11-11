@@ -81,7 +81,8 @@ func (self *RawIOHook) BodyHook(r *http.Request, obj *restShared) (interface{}, 
 //BundleHook is called to create the bundle of parameters from the request. It often will be
 //using cookies and sessions to compute the bundle.  Note that the ResponseWriter is passed
 //here but the BundleHook _must_ be careful to not force it out the server--it should only
-//add headers.
+//add headers.  Note that the session manager may receive a call back if the consumer
+//of the pbundle does Update().
 func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm SessionManager) (PBundle, error) {
 	var session Session
 	if self.CookieMap != nil {
@@ -101,7 +102,7 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 			}
 		}
 	}
-	pb, err := NewSimplePBundle(r, session)
+	pb, err := NewSimplePBundle(r, session, sm)
 	if err != nil {
 		return nil, err
 	}
