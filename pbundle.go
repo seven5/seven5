@@ -14,6 +14,7 @@ type PBundle interface {
 	SetReturnHeader(string, string)
 	ReturnHeaders() []string
 	UpdateSession(interface{}) (Session, error)
+	DestroySession() error
 }
 
 type simplePBundle struct {
@@ -53,6 +54,9 @@ func (self *simplePBundle) Session() Session {
 }
 func (self *simplePBundle) UpdateSession(i interface{}) (Session, error) {
 	return self.mgr.Update(self.s, i)
+}
+func (self *simplePBundle) DestroySession() error {
+	return self.mgr.Destroy(self.s.SessionId())
 }
 
 //NewSimplePBundle needs to hold a reference to the session manager as well
