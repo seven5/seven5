@@ -16,6 +16,9 @@ import (
 type someResource struct {
 }
 
+type someSubResource struct {
+}
+
 var accepted = false
 var outOfBandLocation = "http://foo.bar/baz"
 
@@ -40,6 +43,34 @@ func (self *someResource) Put(id int64, i interface{}, p PBundle) (interface{}, 
 	return &someWire{id, s.Foo + "?"}, nil
 }
 
+func (self *someSubResource) Put(id int64, i interface{}, p PBundle) (interface{}, error) {
+	panic("NYI")
+}
+func (self *someSubResource) Find(id int64, p PBundle) (interface{}, error) {
+	panic("NYI")
+}
+func (self *someSubResource) Delete(id int64, p PBundle) (interface{}, error) {
+	panic("NYI")
+}
+func (self *someSubResource) Index(p PBundle) (interface{}, error) {
+	panic("NYI")
+}
+
+func (self *someSubResource) Post(i interface{}, p PBundle) (interface{}, error) {
+	w := p.ParentValue(&someWire{}).(*someWire)
+	sub := i.(*someSubWire)
+	return &someSubWire{
+		Id:       668, //the neighbor of the beast
+		MyParent: w.Id,
+		Bar:      sub.Bar,
+	}, nil
+}
+
+type someSubWire struct {
+	Id       int64
+	MyParent int64
+	Bar      string
+}
 type someWire struct {
 	Id  int64
 	Foo string
@@ -47,11 +78,15 @@ type someWire struct {
 
 /*---------------------------------------------------------------------------------------*/
 
-func setupMux(f RestAll) *ServeMux {
+func setupMux(f RestAll, s RestAll) *ServeMux {
 	io := NewRawIOHook(&JsonDecoder{}, &JsonEncoder{}, nil)
 	raw := NewRawDispatcher(io, nil, nil, NewSimpleTypeHolder(), "/rest")
 
 	raw.Rez(&someWire{}, f)
+
+	if s != nil {
+		raw.SubRezSeparate(&someWire{}, &someSubWire{}, s, s, s, s, s)
+	}
 
 	mux := NewServeMux()
 	//note this prefix ends up _on_ all resources
@@ -61,7 +96,7 @@ func setupMux(f RestAll) *ServeMux {
 
 func TestResourceMethods(t *testing.T) {
 	resource := &someResource{}
-	mux := setupMux(resource)
+	mux := setupMux(resource, nil)
 	go func() {
 		http.ListenAndServe(":8189", mux)
 	}()
@@ -89,6 +124,29 @@ func TestResourceMethods(t *testing.T) {
 	w = makeRequestAndCheckStatus(t, client, "DELETE", "http://localhost:8189/rest/somewire/76199", "",
 		http.StatusOK, false)
 	checkBody(t, w, 76199, "delete!")
+}
+
+func TestSubResourceMethods(t *testing.T) {
+	resource := &someResource{}
+	subresource := &someSubResource{}
+	mux := setupMux(resource, subresource)
+	go func() {
+		http.ListenAndServe(":8192", mux)
+	}()
+	client := new(http.Client)
+	//CREATE THE PARENT
+	body := "{ \"Id\":-1, \"Foo\":\"grik\"}"
+	w := makeRequestAndCheckStatus(t, client, "POST",
+		"http://localhost:8192/rest/somewire", body,
+		http.StatusCreated, false)
+	checkBody(t, w, 999, "grik")
+
+	//CREATE THE CHILD
+	body = "{ \"Id\":-1, \"Bar\":\"grak\"}"
+	req := makeReq(t, "POST", "http://localhost:8192/rest/somewire/999/somesubwire/", body)
+	resp, err := client.Do(req)
+	checkHttpStatus(t, resp, err, http.StatusCreated)
+
 }
 
 func makeRequestAndCheckStatus(t *testing.T, client *http.Client, method string, url string,
@@ -167,7 +225,7 @@ func TestBadResource(t *testing.T) {
 
 func TestBadJson(t *testing.T) {
 
-	mux := setupMux(nil)
+	mux := setupMux(nil, nil)
 	go func() {
 		http.ListenAndServe(":8187", mux)
 	}()
@@ -193,7 +251,7 @@ func TestBadJson(t *testing.T) {
 
 func TestResourceNotImplementedMethods(t *testing.T) {
 
-	mux := setupMux(nil)
+	mux := setupMux(nil, nil)
 	go func() {
 		http.ListenAndServe(":8188", mux)
 	}()
@@ -247,7 +305,7 @@ func makeReq(t *testing.T, method string, url string, body string) *http.Request
 
 func TestResponseCodes(t *testing.T) {
 	resource := &someResource{}
-	mux := setupMux(resource)
+	mux := setupMux(resource, nil)
 	go func() {
 		http.ListenAndServe(":8190", mux)
 	}()

@@ -71,7 +71,8 @@ func (self *RawIOHook) BodyHook(r *http.Request, obj *restShared) (interface{}, 
 		return nil, errors.New(fmt.Sprintf("Body is too large! max is %d", MAX_FORM_SIZE))
 	}
 	//we have a body of data, need to decode it... first allocate one
-	wireObj := reflect.New(obj.t)
+	strukt := obj.typ.Elem() //we have checked that this is a ptr to struct at insert
+	wireObj := reflect.New(strukt)
 	if err := self.Dec.Decode(limitedData[:curr], wireObj.Interface()); err != nil {
 		return nil, err
 	}
@@ -146,7 +147,6 @@ func (self *RawIOHook) verifyReturnType(obj *restShared, w interface{}) error {
 		return nil
 	}
 	p := reflect.TypeOf(w)
-	var e reflect.Type
 	if p.Kind() != reflect.Ptr {
 		//could be a slice of these pointers
 		if p.Kind() != reflect.Slice {
@@ -167,10 +167,9 @@ func (self *RawIOHook) verifyReturnType(obj *restShared, w interface{}) error {
 			return errors.New(fmt.Sprintf("Marshalling problem: expected a ptr but got %v", p.Kind()))
 		}
 	}
-	e = p.Elem()
-	if e != obj.t {
-		return errors.New(fmt.Sprintf("Marshalling problem: expected pointer to %v but got pointer to %v",
-			obj.t, e))
+	if p != obj.typ {
+		return errors.New(fmt.Sprintf("Marshalling problem: expected  %v but got %v",
+			obj.typ, p))
 	}
 	return nil
 }

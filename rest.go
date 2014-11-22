@@ -47,7 +47,7 @@ type RestAllUdid interface {
 }
 
 type restShared struct {
-	t     reflect.Type
+	typ   reflect.Type
 	name  string
 	index RestIndex
 	post  RestPost

@@ -76,7 +76,7 @@ func (self *ServeMux) Dispatch(pattern string, dispatcher Dispatcher) {
 				if self.err != nil {
 					self.err.PanicDispatch(err, w, r)
 				} else {
-					fmt.Fprintf(os.Stderr, "re-panic: %s", err)
+					fmt.Fprintf(os.Stderr, "re-panic: %s\n", err)
 					panic(err)
 				}
 			}

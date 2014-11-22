@@ -22,8 +22,7 @@ const MAX_FORM_SIZE = 16 * 1024
 func NewRawDispatcher(io IOHook, sm SessionManager, a Authorizer,
 	hold TypeHolder, prefix string) *RawDispatcher {
 	return &RawDispatcher{
-		Res:        make(map[string]*restObj),
-		ResUdid:    make(map[string]*restObjUdid),
+		Root:       NewRestNode(),
 		IO:         io,
 		SessionMgr: sm,
 		Auth:       a,
@@ -32,12 +31,31 @@ func NewRawDispatcher(io IOHook, sm SessionManager, a Authorizer,
 	}
 }
 
+//RestNodes are tree nodes in the tree of rest resources.  A RestNode encodes
+//all the items that are directly reachable from this point.  This type is
+//not of interest to those not implementing their own dispatching.
+type RestNode struct {
+	Res          map[string]*restObj
+	ResUdid      map[string]*restObjUdid
+	Children     map[string]*RestNode
+	ChildrenUdid map[string]*RestNode
+}
+
+//NewRestNode creates a new, empty rest node.
+func NewRestNode() *RestNode {
+	return &RestNode{
+		Res:          make(map[string]*restObj),
+		ResUdid:      make(map[string]*restObjUdid),
+		Children:     make(map[string]*RestNode),
+		ChildrenUdid: make(map[string]*RestNode),
+	}
+}
+
 //RawDispatcher is the "parent" type of dispatchers that understand REST.   This class
 //is actually broken into pieces so that parts of its implementation may be changed
 //by applications.
 type RawDispatcher struct {
-	Res        map[string]*restObj
-	ResUdid    map[string]*restObjUdid
+	Root       *RestNode
 	IO         IOHook
 	SessionMgr SessionManager
 	Auth       Authorizer
@@ -54,21 +72,19 @@ func (self *RawDispatcher) validateType(example interface{}) reflect.Type {
 	if under.Kind() != reflect.Struct {
 		panic("wire example is not a pointer to a struct (but is a pointer)")
 	}
-	return under
+	return t
 }
 
-//ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods
-//individually specified.  The name should be singular and camel case. The example should an example
-//of the wire type to be marshalled, unmarshalled.
-func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}, index RestIndex,
+//AddResourceSeparate adds a resource to a given rest node, in a way parallel
+//to ResourceSeparate.
+func (self *RawDispatcher) AddResourceSeparate(node *RestNode, name string, wireExample interface{}, index RestIndex,
 	find RestFind, post RestPost, put RestPut, del RestDelete) {
 
-	under := self.validateType(wireExample)
-	self.validateType(wireExample)
+	t := self.validateType(wireExample)
 	self.Add(name, wireExample)
 	obj := &restObj{
 		restShared: restShared{
-			t:     under,
+			typ:   t,
 			name:  name,
 			index: index,
 			post:  post,
@@ -77,7 +93,16 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 		del:  del,
 		put:  put,
 	}
-	self.Res[strings.ToLower(name)] = obj
+	node.Res[strings.ToLower(name)] = obj
+}
+
+//ResourceSeparate adds a resource type to this dispatcher with each of the Rest methods
+//individually specified.  The name should be singular and camel case. The example should an example
+//of the wire type to be marshalled, unmarshalled. This is just a wrapper around adding a
+//resource at the top (root) level of the dispatcher with AddResourceSeparate.
+func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}, index RestIndex,
+	find RestFind, post RestPost, put RestPut, del RestDelete) {
+	self.AddResourceSeparate(self.Root, name, wireExample, index, find, post, put, del)
 }
 
 //ResourceSeparateUdid adds a resource type to this dispatcher with each of the RestUdid methods
@@ -87,11 +112,18 @@ func (self *RawDispatcher) ResourceSeparate(name string, wireExample interface{}
 func (self *RawDispatcher) ResourceSeparateUdid(name string, wireExample interface{}, index RestIndex,
 	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
 
-	under := self.validateType(wireExample)
+	self.AddResourceSeparateUdid(self.Root, name, wireExample, index, find, post, put, del)
+}
+
+//AddResourceSeparateUdid adds a resource to a given rest node, in a way parallel
+//to ResourceSeparateUdid.
+func (self *RawDispatcher) AddResourceSeparateUdid(node *RestNode, name string, wireExample interface{}, index RestIndex,
+	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
+	t := self.validateType(wireExample)
 	self.Add(name, wireExample)
 	obj := &restObjUdid{
 		restShared: restShared{
-			t:     under,
+			typ:   t,
 			name:  name,
 			index: index,
 			post:  post,
@@ -100,7 +132,7 @@ func (self *RawDispatcher) ResourceSeparateUdid(name string, wireExample interfa
 		del:  del,
 		put:  put,
 	}
-	self.ResUdid[strings.ToLower(name)] = obj
+	node.ResUdid[strings.ToLower(name)] = obj
 }
 
 //Resource is the shorter form of ResourceSeparate that allows you to pass a single resource
@@ -113,7 +145,6 @@ func (self *RawDispatcher) Resource(name string, wireExample interface{}, r Rest
 //ResourceUdid is the shorter form of ResourceSeparateUdid that allows you to pass a single resource
 //in so long as it meets the interface RestAllUdid.  Resource name must be singular and camel case and will be
 //converted to all lowercase for use as a url.  The example wire type's fields must be public.
-
 func (self *RawDispatcher) ResourceUdid(name string, wireExample interface{}, r RestAllUdid) {
 	self.ResourceSeparateUdid(name, wireExample, r, r, r, r, r)
 }
@@ -121,19 +152,133 @@ func (self *RawDispatcher) ResourceUdid(name string, wireExample interface{}, r 
 //Rez is the really short form for adding a resource. It assumes that the name is
 //the same as the wire type and that the resource supports RestAll.
 func (self *RawDispatcher) Rez(wireExample interface{}, r RestAll) {
+	self.Resource(exampleTypeToName(wireExample), wireExample, r)
+}
+
+//RezUdid is the really short form for adding a resource based on Udid. It
+//assumes that the name is the same as the wire type and that the resource
+//supports RestAllUdid.
+func (self *RawDispatcher) RezUdid(wireExample interface{}, r RestAllUdid) {
+	self.ResourceUdid(exampleTypeToName(wireExample), wireExample, r)
+}
+
+func exampleTypeToName(wireExample interface{}) string {
 	long := reflect.TypeOf(wireExample).String()
 	pieces := strings.Split(long, ".")
-	name := pieces[len(pieces)-1]
-	self.Resource(name, wireExample, r)
+	return pieces[len(pieces)-1]
+}
+
+func sanityCheckParentWireExample(parentWire interface{}) reflect.Type {
+	t := reflect.TypeOf(parentWire)
+	if t.Kind() != reflect.Ptr {
+		panic("parent wire example is not a pointer (should be a pointer to a struct)")
+	}
+	under := t.Elem()
+	if under.Kind() != reflect.Struct {
+		panic("parent wire example is not a pointer to struct (but is a pointer)")
+	}
+	return t
+}
+
+//SubRez is the really short form for adding a subresource. It assumes that the name is
+//the same as the wire type and that the subresource supports RestAll.  This panics
+//if the provided parent wire example cannot be located because this indicates that
+//the program is misconfigured and cannot work.
+func (self *RawDispatcher) SubRezSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
+	find RestFind, post RestPost, put RestPut, del RestDelete) {
+
+	parent := self.FindWireType(sanityCheckParentWireExample(parentWire), self.Root)
+	if parent == nil {
+		panic(fmt.Sprintf("unable to find wire type (parent) %T", parentWire))
+	}
+	child := NewRestNode()
+	parent.Children[strings.ToLower(exampleTypeToName(wireExample))] = child
+	self.AddResourceSeparate(child, exampleTypeToName(wireExample), wireExample,
+		index, find, post, put, del)
+}
+
+//SubRezUdid is the really short form for adding a subresource udid. It assumes that the name is
+//the same as the wire type and that the subresource supports RestAll.  This panics
+//if the provided parent wire example cannot be located because this indicates that
+//the program is misconfigured and cannot work.
+func (self *RawDispatcher) SubRezUdidSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
+	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
+
+	parent := self.FindWireType(sanityCheckParentWireExample(parentWire), self.Root)
+	if parent == nil {
+		panic(fmt.Sprintf("unable to find wire type (parent) %T", parentWire))
+	}
+	child := NewRestNode()
+	parent.ChildrenUdid[strings.ToLower(exampleTypeToName(wireExample))] = child
+	self.AddResourceSeparateUdid(child, exampleTypeToName(wireExample), wireExample, index,
+		find, post, put, del)
+}
+
+//FindWireType searches the tree of rest resources trying to find one that has the
+//given type as a target. This is only of interest to dispatch implementors.
+func (self *RawDispatcher) FindWireType(target reflect.Type, curr *RestNode) *RestNode {
+	for _, v := range curr.Res {
+		if v.typ == target {
+			return curr
+		}
+	}
+	for _, v := range curr.ResUdid {
+		if v.typ == target {
+			return curr
+		}
+	}
+
+	//we now need to recurse into children, does DFS
+	for _, child := range curr.Children {
+		if node := self.FindWireType(target, child); node != nil {
+			return node
+		}
+	}
+	for _, child := range curr.ChildrenUdid {
+		if node := self.FindWireType(target, child); node != nil {
+			return node
+		}
+	}
+	//loser
+	return nil
 }
 
 //Dispatch is the entry point for the dispatcher.  Most types will want to leave this method
 //intact (don't override) and instead override particular hooks to add/modify particular
 //functionality.
 func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *http.Request) *ServeMux {
+	//check the prefix for sanity
+	pre := self.Prefix + "/"
+	path := r.URL.Path
+	if strings.HasSuffix(path, "/") && path != "/" {
+		path = path[0 : len(path)-1]
+	}
+	if self.Prefix != "" {
+		if !strings.HasPrefix(path, pre) {
+			panic(fmt.Sprintf("expected prefix %s on the URL path but not found on: %s", pre, path))
+		}
+		path = path[len(pre):]
+	}
+	parts := strings.Split(path, "/")
+	bundle, err := self.IO.BundleHook(w, r, self.SessionMgr)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to create parameter bundle:%s", err), http.StatusInternalServerError)
+		return nil
+	}
+	return self.DispatchSegment(mux, w, r, parts, self.Root, bundle)
+}
+
+//DispatchSegment is responsible for taking a part of the url, starting from the left
+//and breaking it into segments for processing.  This is called by Dispatch() to initiate
+//processing at the top level of resources but will be called recursively during
+//dispatch processing.
+func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter, r *http.Request,
+	parts []string, current *RestNode, bundle PBundle) *ServeMux {
+
+	var err error
 
 	//find the resource and, if present, the id
-	matched, id, rez, rezUdid := self.resolve(r.URL.Path)
+	matched, id, rez, rezUdid := self.resolve(parts, current)
 	if matched == "" {
 		//typically trips the error dispatcher
 		http.NotFound(w, r)
@@ -141,29 +286,9 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 	}
 	method := strings.ToUpper(r.Method)
 	//compute the parameter bundle
-	bundle, err := self.IO.BundleHook(w, r, self.SessionMgr)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("can't create or destroy session:%s", err), http.StatusInternalServerError)
-		return nil
-	}
 
 	var body interface{}
 	var num int64
-
-	//pull anything from the body that's there
-	if rezUdid == nil {
-		body, err = self.IO.BodyHook(r, &rez.restShared)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
-			return nil
-		}
-	} else {
-		body, err = self.IO.BodyHook(r, &rezUdid.restShared)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
-			return nil
-		}
-	}
 
 	//may need to parse it as an int
 	if rezUdid == nil {
@@ -177,6 +302,79 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 				http.Error(w, fmt.Sprintf("Bad request (id): %s", errMessage), http.StatusBadRequest)
 				return nil
 			}
+		}
+	}
+
+	//
+	// RECURSE LOOKING FOR NEXT SEGMENT?
+	//
+	count := 1
+	if id != "" {
+		count = 2
+	}
+	if len(parts) > count {
+		//we need to shear off the front parts and process the id
+		if rezUdid == nil {
+			if num <= 0 {
+				http.Error(w, fmt.Sprintf("Bad request id"), http.StatusBadRequest)
+				return nil
+			}
+			if rez.find == nil {
+				http.Error(w, "Not implemented (FIND)", http.StatusNotImplemented)
+				return nil
+			}
+			if self.Auth != nil && !self.Auth.Find(rez, num, bundle) {
+				//typically trips the error dispatcher
+				http.Error(w, "Not authorized (FIND)", http.StatusUnauthorized)
+				return nil
+			}
+			result, err := rez.find.Find(num, bundle)
+			if err != nil {
+				self.SendError(err, w, "Internal error on Find")
+				return nil
+			} else {
+				bundle.SetParentValue(rez.typ, result)
+				//RECURSE
+				return self.DispatchSegment(mux, w, r, parts[2:],
+					current.Children[parts[2]], bundle)
+			}
+		}
+		//it's a UDID
+		if rezUdid.find == nil {
+			//typically trips the error dispatcher
+			http.Error(w, "Not implemented (FIND,UDID)", http.StatusNotImplemented)
+			return nil
+		}
+		if self.Auth != nil && !self.Auth.FindUdid(rezUdid, id, bundle) {
+			//typically trips the error dispatcher
+			http.Error(w, "Not authorized (FIND, UDID)", http.StatusUnauthorized)
+			return nil
+		}
+		result, err := rezUdid.find.Find(id, bundle)
+		if err != nil {
+			self.SendError(err, w, "Internal error on Find (UDID")
+			return nil
+		}
+		bundle.SetParentValue(rezUdid.typ, result)
+		//RECURSE
+		return self.DispatchSegment(mux, w, r, parts[2:],
+			current.ChildrenUdid[parts[2]], bundle)
+	}
+
+	//
+	//pull anything from the body that's there, we might need it
+	//
+	if rezUdid == nil {
+		body, err = self.IO.BodyHook(r, &rez.restShared)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
+			return nil
+		}
+	} else {
+		body, err = self.IO.BodyHook(r, &rezUdid.restShared)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
+			return nil
 		}
 	}
 
@@ -422,47 +620,30 @@ func (self *RawDispatcher) location(name string, isUdid bool, i interface{}) str
 //resolve is used to find the matching resource for a particular request.  It returns the match
 //and the resource matched.  If no match is found it returns nil for the type.  resolve does not check
 //that the resulting object is suitable for any purpose, only that it matches.
-func (self *RawDispatcher) resolve(rawPath string) (string, string, *restObj, *restObjUdid) {
-	path := rawPath
-	if strings.HasSuffix(path, "/") && path != "/" {
-		path = path[0 : len(path)-1]
-	}
-	pre := self.Prefix + "/"
-	if self.Prefix != "" {
-		if !strings.HasPrefix(path, pre) {
-			panic(fmt.Sprintf("expected prefix %s on the URL path but not found on: %s", pre, path))
-		}
-		path = path[len(pre):]
-	}
+func (self *RawDispatcher) resolve(parts []string, node *RestNode) (string, string, *restObj, *restObjUdid) {
 	//case 1: simple path to a normal resource
-	rez, ok := self.Res[path]
-	if ok {
-		return path, "", rez, nil
+	rez, ok := node.Res[parts[0]]
+	if ok && len(parts) == 1 {
+		return parts[0], "", rez, nil
 	}
 	//case 2: simple path to a udid resource
-	rezUdid, okUdid := self.ResUdid[path]
-	if okUdid {
-		return path, "", nil, rezUdid
+	rezUdid, okUdid := node.ResUdid[parts[0]]
+	if okUdid && len(parts) == 1 {
+		return parts[0], "", nil, rezUdid
 	}
-	//maybe we need to split it, so look for last /...
-	i := strings.LastIndex(path, "/")
-	if i == -1 {
-		return "", "", nil, nil
-	}
-	id := path[i+1:]
-	var uriPathParent string
-	uriPathParent = path[:i]
+	id := parts[1]
+	uriPathParent := parts[0]
 
 	//case 3, path to a resource ID (int)
-	rez, ok = self.Res[uriPathParent]
+	rez, ok = node.Res[uriPathParent]
 	if ok {
-		return uriPathParent, id, rez, nil
+		return parts[0], id, rez, nil
 	}
 
 	//case 4, path to a resource ID (UDID)
-	rezUdid, ok = self.ResUdid[uriPathParent]
+	rezUdid, ok = node.ResUdid[uriPathParent]
 	if ok {
-		return uriPathParent, id, nil, rezUdid
+		return parts[0], id, nil, rezUdid
 	}
 
 	//nothing, give up

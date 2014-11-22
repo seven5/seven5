@@ -31,8 +31,7 @@ func (self *SimpleTypeHolder) All() []*FieldDescription {
 }
 
 //Add takes the type supplied and adds it to the list of known resources.  If this type is not
-//a valid wire type (contains a seven5.Id field called Id, contains only seven5 wire types for other
-//fields, all fields should be public) it will panic.  It does not check to see if the type has been
+//a valid wire type it will panic.  It does not check to see if the type has been
 //added previously.
 func (self *SimpleTypeHolder) Add(name string, i interface{}) {
 	t := reflect.TypeOf(i)
