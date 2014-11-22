@@ -260,7 +260,8 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 		http.Error(w, fmt.Sprintf("failed to create parameter bundle:%s", err), http.StatusInternalServerError)
 		return nil
 	}
-	return self.DispatchSegment(mux, w, r, parts, self.Root, bundle)
+	self.DispatchSegment(mux, w, r, parts, self.Root, bundle)
+	return nil
 }
 
 //DispatchSegment is responsible for taking a part of the url, starting from the left
@@ -268,7 +269,7 @@ func (self *RawDispatcher) Dispatch(mux *ServeMux, w http.ResponseWriter, r *htt
 //processing at the top level of resources but will be called recursively during
 //dispatch processing.
 func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter, r *http.Request,
-	parts []string, current *RestNode, bundle PBundle) *ServeMux {
+	parts []string, current *RestNode, bundle PBundle) {
 
 	var err error
 
@@ -277,7 +278,7 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 	if matched == "" {
 		//typically trips the error dispatcher
 		http.NotFound(w, r)
-		return nil
+		return
 	}
 	method := strings.ToUpper(r.Method)
 	//compute the parameter bundle
@@ -295,7 +296,7 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 			if errMessage != "" {
 				//typically trips the error dispatcher
 				http.Error(w, fmt.Sprintf("Bad request (id): %s", errMessage), http.StatusBadRequest)
-				return nil
+				return
 			}
 		}
 	}
@@ -312,48 +313,50 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 		if rezUdid == nil {
 			if num <= 0 {
 				http.Error(w, fmt.Sprintf("Bad request id"), http.StatusBadRequest)
-				return nil
+				return
 			}
 			if rez.find == nil {
 				http.Error(w, "Not implemented (FIND)", http.StatusNotImplemented)
-				return nil
+				return
 			}
 			if self.Auth != nil && !self.Auth.Find(rez, num, bundle) {
 				//typically trips the error dispatcher
 				http.Error(w, "Not authorized (FIND)", http.StatusUnauthorized)
-				return nil
+				return
 			}
 			result, err := rez.find.Find(num, bundle)
 			if err != nil {
 				self.SendError(err, w, "Internal error on Find")
-				return nil
+				return
 			} else {
 				bundle.SetParentValue(rez.typ, result)
 				//RECURSE
-				return self.DispatchSegment(mux, w, r, parts[2:],
+				self.DispatchSegment(mux, w, r, parts[2:],
 					current.Children[parts[2]], bundle)
+				return
 			}
 		}
 		//it's a UDID
 		if rezUdid.find == nil {
 			//typically trips the error dispatcher
 			http.Error(w, "Not implemented (FIND,UDID)", http.StatusNotImplemented)
-			return nil
+			return
 		}
 		if self.Auth != nil && !self.Auth.FindUdid(rezUdid, id, bundle) {
 			//typically trips the error dispatcher
 			http.Error(w, "Not authorized (FIND, UDID)", http.StatusUnauthorized)
-			return nil
+			return
 		}
 		result, err := rezUdid.find.Find(id, bundle)
 		if err != nil {
 			self.SendError(err, w, "Internal error on Find (UDID")
-			return nil
+			return
 		}
 		bundle.SetParentValue(rezUdid.typ, result)
 		//RECURSE
-		return self.DispatchSegment(mux, w, r, parts[2:],
+		self.DispatchSegment(mux, w, r, parts[2:],
 			current.ChildrenUdid[parts[2]], bundle)
+		return
 	}
 
 	//
@@ -363,13 +366,13 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 		body, err = self.IO.BodyHook(r, &rez.restShared)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
-			return nil
+			return
 		}
 	} else {
 		body, err = self.IO.BodyHook(r, &rezUdid.restShared)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("badly formed body data: %s", err), http.StatusBadRequest)
-			return nil
+			return
 		}
 	}
 
@@ -381,12 +384,12 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				if rez.index == nil {
 					//typically trips the error dispatcher
 					http.Error(w, "Not implemented (INDEX)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.Index(&rez.restShared, bundle) {
 					//typically trips the error dispatcher
 					http.Error(w, "Not authorized (INDEX)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rez.index.Index(bundle)
 				if err != nil {
@@ -400,12 +403,12 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				if rezUdid.index == nil {
 					//typically trips the error dispatcher
 					http.Error(w, "Not implemented (INDEX, UDID)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.Index(&rezUdid.restShared, bundle) {
 					//typically trips the error dispatcher
 					http.Error(w, "Not authorized (INDEX, UDID)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rezUdid.index.Index(bundle)
 				if err != nil {
@@ -415,18 +418,18 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 					self.IO.SendHook(&rezUdid.restShared, w, bundle, result, "")
 				}
 			}
-			return nil
+			return
 		} else { //FINDER
 			if rez != nil {
 				if rez.find == nil {
 					//typically trips the error dispatcher
 					http.Error(w, "Not implemented (FIND)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.Find(rez, num, bundle) {
 					//typically trips the error dispatcher
 					http.Error(w, "Not authorized (FIND)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rez.find.Find(num, bundle)
 				if err != nil {
@@ -434,18 +437,18 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				} else {
 					self.IO.SendHook(&rez.restShared, w, bundle, result, "")
 				}
-				return nil
+				return
 			} else {
 				//UDID RESOURCE
 				if rezUdid.find == nil {
 					//typically trips the error dispatcher
 					http.Error(w, "Not implemented (FIND,UDID)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.FindUdid(rezUdid, id, bundle) {
 					//typically trips the error dispatcher
 					http.Error(w, "Not authorized (FIND, UDID)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rezUdid.find.Find(id, bundle)
 				if err != nil {
@@ -453,22 +456,22 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				} else {
 					self.IO.SendHook(&rezUdid.restShared, w, bundle, result, "")
 				}
-				return nil
+				return
 			}
 		}
 	case "POST":
 		if rez != nil {
 			if id != "" {
 				http.Error(w, "can't POST to a particular resource, did you mean PUT?", http.StatusBadRequest)
-				return nil
+				return
 			}
 			if rez.post == nil {
 				http.Error(w, "Not implemented (POST)", http.StatusNotImplemented)
-				return nil
+				return
 			}
 			if self.Auth != nil && !self.Auth.Post(&rez.restShared, bundle) {
 				http.Error(w, "Not authorized (POST)", http.StatusUnauthorized)
-				return nil
+				return
 			}
 			result, err := rez.post.Post(body, bundle)
 			if err != nil {
@@ -476,20 +479,20 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 			} else {
 				self.IO.SendHook(&rez.restShared, w, bundle, result, self.location(rez.name, false, result))
 			}
-			return nil
+			return
 		} else {
 			//UDID POST
 			if id != "" {
 				http.Error(w, "can't (UDID) POST to a particular resource, did you mean PUT?", http.StatusBadRequest)
-				return nil
+				return
 			}
 			if rezUdid.post == nil {
 				http.Error(w, "Not implemented (POST, UDID)", http.StatusNotImplemented)
-				return nil
+				return
 			}
 			if self.Auth != nil && !self.Auth.Post(&rezUdid.restShared, bundle) {
 				http.Error(w, "Not authorized (POST)", http.StatusUnauthorized)
-				return nil
+				return
 			}
 			result, err := rezUdid.post.Post(body, bundle)
 			if err != nil {
@@ -497,23 +500,23 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 			} else {
 				self.IO.SendHook(&rezUdid.restShared, w, bundle, result, self.location(rezUdid.name, true, result))
 			}
-			return nil
+			return
 
 		}
 	case "PUT", "DELETE":
 		if id == "" {
 			http.Error(w, fmt.Sprintf("%s requires a resource id or UDID", method), http.StatusBadRequest)
-			return nil
+			return
 		}
 		if method == "PUT" {
 			if rez != nil {
 				if rez.put == nil {
 					http.Error(w, "Not implemented (PUT)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.Put(rez, num, bundle) {
 					http.Error(w, "Not authorized (PUT)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rez.put.Put(num, body, bundle)
 				if err != nil {
@@ -525,11 +528,11 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				//PUT ON UDID
 				if rezUdid.put == nil {
 					http.Error(w, "Not implemented (PUT, UDID)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.PutUdid(rezUdid, id, bundle) {
 					http.Error(w, "Not authorized (PUT, UDID)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rezUdid.put.Put(id, body, bundle)
 				if err != nil {
@@ -542,11 +545,11 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 			if rez != nil {
 				if rez.del == nil {
 					http.Error(w, "Not implemented (DELETE)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.Delete(rez, num, bundle) {
 					http.Error(w, "Not authorized (DELETE)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rez.del.Delete(num, bundle)
 				if err != nil {
@@ -558,11 +561,11 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				//UDID DELETE
 				if rezUdid.del == nil {
 					http.Error(w, "Not implemented (DELETE, UDID)", http.StatusNotImplemented)
-					return nil
+					return
 				}
 				if self.Auth != nil && !self.Auth.DeleteUdid(rezUdid, id, bundle) {
 					http.Error(w, "Not authorized (DELETE, UDID)", http.StatusUnauthorized)
-					return nil
+					return
 				}
 				result, err := rezUdid.del.Delete(id, bundle)
 				if err != nil {
@@ -572,11 +575,10 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				}
 			}
 		}
-		return nil
+		return
 	}
 	log.Printf("should not be able to reach here, probably bad method? from bad client?")
 	http.Error(w, "bad client behavior", http.StatusBadRequest)
-	return nil
 }
 
 func (self *RawDispatcher) SendError(err error, w http.ResponseWriter, msg string) {
