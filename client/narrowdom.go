@@ -25,7 +25,8 @@ type NarrowDom interface {
 	RemoveClass(string)
 	Val() string
 	SetVal(string)
-	Append(NarrowDom)
+	Clear()
+	Append(...NarrowDom)
 	Before(NarrowDom)
 }
 
@@ -219,19 +220,29 @@ func (self *testOpsImpl) RemoveClass(s string) {
 func (self jqueryWrapper) RemoveClass(s string) {
 	self.jq.RemoveClass(s)
 }
-
-func (self *testOpsImpl) Append(nd NarrowDom) {
-	child := nd.(*testOpsImpl)
-	if child.parent != nil {
-		panic("can't add a child, it already has a parent!")
-	}
-	child.parent = self
-	self.children = append(self.children, child)
+func (self *testOpsImpl) Clear() {
+	self.children = make([]*testOpsImpl, 10)
+}
+func (self jqueryWrapper) Clear() {
+	self.jq.Empty()
 }
 
-func (self jqueryWrapper) Append(nd NarrowDom) {
-	wrapper := nd.(jqueryWrapper)
-	self.jq.Append(wrapper.jq)
+func (self *testOpsImpl) Append(childrennd ...NarrowDom) {
+	for _, nd := range childrennd {
+		child := nd.(*testOpsImpl)
+		if child.parent != nil {
+			panic("can't add a child, it already has a parent!")
+		}
+		child.parent = self
+		self.children = append(self.children, child)
+	}
+}
+
+func (self jqueryWrapper) Append(childrennd ...NarrowDom) {
+	for _, nd := range childrennd {
+		wrapper := nd.(jqueryWrapper)
+		self.jq.Append(wrapper.jq)
+	}
 }
 
 func (self *testOpsImpl) Before(nd NarrowDom) {
