@@ -19,14 +19,12 @@ const MAX_FORM_SIZE = 16 * 1024
 //it is mounted so it can "strip" this prefix from any URL paths it is decoding.  This should
 //be "" if the dispatcher is mounted at /; it should not end in a / or the entire world
 //will come to a fiery end.
-func NewRawDispatcher(io IOHook, sm SessionManager, a Authorizer,
-	hold TypeHolder, prefix string) *RawDispatcher {
+func NewRawDispatcher(io IOHook, sm SessionManager, a Authorizer, prefix string) *RawDispatcher {
 	return &RawDispatcher{
 		Root:       NewRestNode(),
 		IO:         io,
 		SessionMgr: sm,
 		Auth:       a,
-		Holder:     hold,
 		Prefix:     prefix,
 	}
 }
@@ -60,7 +58,6 @@ type RawDispatcher struct {
 	SessionMgr SessionManager
 	Auth       Authorizer
 	Prefix     string
-	Holder     TypeHolder
 }
 
 func (self *RawDispatcher) validateType(example interface{}) reflect.Type {
@@ -81,7 +78,6 @@ func (self *RawDispatcher) AddResourceSeparate(node *RestNode, name string, wire
 	find RestFind, post RestPost, put RestPut, del RestDelete) {
 
 	t := self.validateType(wireExample)
-	self.Add(name, wireExample)
 	obj := &restObj{
 		restShared: restShared{
 			typ:   t,
@@ -120,7 +116,6 @@ func (self *RawDispatcher) ResourceSeparateUdid(name string, wireExample interfa
 func (self *RawDispatcher) AddResourceSeparateUdid(node *RestNode, name string, wireExample interface{}, index RestIndex,
 	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
 	t := self.validateType(wireExample)
-	self.Add(name, wireExample)
 	obj := &restObjUdid{
 		restShared: restShared{
 			typ:   t,
@@ -678,14 +673,4 @@ func ParseId(candidate string) (int64, string) {
 		return 0, fmt.Sprintf("resource ids must be non-negative integers (was %s): %s", candidate, err)
 	}
 	return num, ""
-}
-
-//Add is required by the TypeHolder protocol.  Delegated into the TypeHolder passed at creation time.
-func (self *RawDispatcher) Add(name string, wireType interface{}) {
-	self.Holder.Add(name, wireType)
-}
-
-//All is required by the TypeHolder protocol. Delegated into the TypeHolder passed at creation time.
-func (self *RawDispatcher) All() []*FieldDescription {
-	return self.Holder.All()
 }

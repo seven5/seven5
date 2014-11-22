@@ -19,10 +19,9 @@ func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatche
 		sm = NewSimpleSessionManager()
 	}
 	cm := NewSimpleCookieMapper(appName)
-	holder := NewSimpleTypeHolder()
 	result := &BaseDispatcher{}
 	io := &RawIOHook{&JsonDecoder{}, &JsonEncoder{}, cm}
-	result.RawDispatcher = NewRawDispatcher(io, sm, result, holder, prefix)
+	result.RawDispatcher = NewRawDispatcher(io, sm, result, prefix)
 	return result
 }
 

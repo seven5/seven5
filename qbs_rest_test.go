@@ -193,7 +193,7 @@ func TestTxn(T *testing.T) {
 func setupDispatcher() (*RawDispatcher, *ServeMux) {
 
 	io := NewRawIOHook(&JsonDecoder{}, &JsonEncoder{}, nil)
-	raw := NewRawDispatcher(io, nil, nil, NewSimpleTypeHolder(), "/rest")
+	raw := NewRawDispatcher(io, nil, nil, "/rest")
 
 	serveMux := NewServeMux()
 	serveMux.Dispatch("/rest/", raw)

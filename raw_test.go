@@ -80,7 +80,7 @@ type someWire struct {
 
 func setupMux(f RestAll, s RestAll) *ServeMux {
 	io := NewRawIOHook(&JsonDecoder{}, &JsonEncoder{}, nil)
-	raw := NewRawDispatcher(io, nil, nil, NewSimpleTypeHolder(), "/rest")
+	raw := NewRawDispatcher(io, nil, nil, "/rest")
 
 	raw.Rez(&someWire{}, f)
 
@@ -206,7 +206,7 @@ func TestBadResource(t *testing.T) {
 	bad := &badlyWrittenResource{}
 
 	io := NewRawIOHook(&JsonDecoder{}, &JsonEncoder{}, nil)
-	raw := NewRawDispatcher(io, nil, nil, NewSimpleTypeHolder(), "/rest")
+	raw := NewRawDispatcher(io, nil, nil, "/rest")
 	raw.ResourceSeparate("BadCoder", &someWire{}, nil, bad, nil, nil, nil)
 
 	mux := NewServeMux()
