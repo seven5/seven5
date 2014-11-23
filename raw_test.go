@@ -85,7 +85,7 @@ func setupMux(f RestAll, s RestAll) *ServeMux {
 	raw.Rez(&someWire{}, f)
 
 	if s != nil {
-		raw.SubRezSeparate(&someWire{}, &someSubWire{}, s, s, s, s, s)
+		raw.SubResourceSeparate(&someWire{}, &someSubWire{}, s, s, s, s, s)
 	}
 
 	mux := NewServeMux()

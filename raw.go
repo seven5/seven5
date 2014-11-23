@@ -175,11 +175,11 @@ func sanityCheckParentWireExample(parentWire interface{}) reflect.Type {
 	return t
 }
 
-//SubRez is the really short form for adding a subresource. It assumes that the name is
-//the same as the wire type and that the subresource supports RestAll.  This panics
-//if the provided parent wire example cannot be located because this indicates that
+//SubResource is for adding a subresource, analagous to ResourceSeparate. It assumes that the name is
+//the same as the wire type.
+//This call panics if the provided parent wire example cannot be located because this indicates that
 //the program is misconfigured and cannot work.
-func (self *RawDispatcher) SubRezSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
+func (self *RawDispatcher) SubResourceSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
 	find RestFind, post RestPost, put RestPut, del RestDelete) {
 
 	parent := self.FindWireType(sanityCheckParentWireExample(parentWire), self.Root)
@@ -192,11 +192,11 @@ func (self *RawDispatcher) SubRezSeparate(parentWire interface{}, wireExample in
 		index, find, post, put, del)
 }
 
-//SubRezUdid is the really short form for adding a subresource udid. It assumes that the name is
-//the same as the wire type and that the subresource supports RestAll.  This panics
-//if the provided parent wire example cannot be located because this indicates that
+//SubResourceUdid is for adding a subresource udid, analagous to ResourceSeparateUdid.
+//It assumes that the name is the same as the wire type.
+//If the provided parent wire example cannot be located because this indicates that
 //the program is misconfigured and cannot work.
-func (self *RawDispatcher) SubRezUdidSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
+func (self *RawDispatcher) SubResourceUdidSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
 	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
 
 	parent := self.FindWireType(sanityCheckParentWireExample(parentWire), self.Root)
