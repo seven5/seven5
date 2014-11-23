@@ -330,9 +330,17 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 				return
 			} else {
 				bundle.SetParentValue(rez.typ, result)
+				node, ok := current.Children[parts[2]]
+				if !ok {
+					node, ok = current.ChildrenUdid[parts[2]]
+					if !ok {
+						http.Error(w, fmt.Sprintf("No such subresource:%s", parts[2]),
+							http.StatusNotFound)
+					}
+				}
 				//RECURSE
 				self.DispatchSegment(mux, w, r, parts[2:],
-					current.Children[parts[2]], bundle)
+					node, bundle)
 				return
 			}
 		}
@@ -353,9 +361,17 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 			return
 		}
 		bundle.SetParentValue(rezUdid.typ, result)
+		node, ok := current.Children[parts[2]]
+		if !ok {
+			node, ok = current.ChildrenUdid[parts[2]]
+			if !ok {
+				http.Error(w, fmt.Sprintf("No such subresource:%s", parts[2]),
+					http.StatusNotFound)
+			}
+		}
 		//RECURSE
 		self.DispatchSegment(mux, w, r, parts[2:],
-			current.ChildrenUdid[parts[2]], bundle)
+			node, bundle)
 		return
 	}
 
