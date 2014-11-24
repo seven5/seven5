@@ -190,10 +190,12 @@ func NewList(joiner Joiner) *Collection {
 func (self *Collection) Add(m Model) {
 
 	//console.Log("adding an attribute %O", m)
-	obj := self.coll.Demand().(EqList)
-	for _, e := range obj {
-		if e.Equal(m) {
-			return
+	if self.coll.Demand() != nil {
+		obj := self.coll.Demand().(EqList)
+		for _, e := range obj {
+			if e.Equal(m) {
+				return
+			}
 		}
 	}
 	self.PushRaw(m)
