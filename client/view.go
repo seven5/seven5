@@ -100,6 +100,22 @@ func TextEqual(attr Attribute) option {
 	return addBuilder(textAttrBuilder(attr, nil))
 }
 
+//BindEqual constrains the attribute provided to be the same as the value of
+//the tag this is located in.  Typically, this is an INPUT tag.  Data flows
+//_from_ the input text that the user types to the attribute, not the other
+//way around.
+func BindEqual(attr Attribute) option {
+	return addBuilder(valueAttrBuilder(attr, nil))
+}
+
+//BindEqual constrains the attribute provided to be a function of the value of
+//the tag this call is located in.  Typically, this is an INPUT tag.  Data flows
+//_from_ the input text that the user types to the attribute via this constraint
+//given, not the other way around.
+func Bind(attr Attribute, cons Constraint) option {
+	return addBuilder(valueAttrBuilder(attr, cons))
+}
+
 //HtmlIdFromModel returns an HtmlId object from the given modelname and
 //tagname.  Resulting id is unique to the modelname and tag, but not
 //between tags with the same name.

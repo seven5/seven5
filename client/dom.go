@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	//"github.com/gopherjs/jquery"
+	"github.com/gopherjs/jquery"
 	//"honnef.co/go/js/console"
 )
 
@@ -282,4 +282,20 @@ func (self *styleAttr) setDisplay(e Equaler) {
 	} else {
 		self.t.SetCss("display", "none")
 	}
+}
+
+//NewValueAttr creates a _source_ attribute from a value in the DOM.  In other
+//words you use this as a constraint INPUT not as a value output (such as
+//with NewDisplayAttr or NewCssExistenceAttr).  This is useful for using the
+//value of input fields as a source in constraint graph.  This should probably
+//be used only with tags of type INPUT although this is not enforced.
+func NewValueAttr(t NarrowDom) Attribute {
+	result := NewAttribute(VALUE_ONLY, func() Equaler {
+		return StringEqualer{S: t.Val()}
+	}, nil)
+
+	t.On(INPUT_EVENT, func(e jquery.Event) {
+		result.markDirty()
+	})
+	return result
 }

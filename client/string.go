@@ -67,6 +67,10 @@ func (self eqConstraint) Fn(in []Equaler) Equaler {
 	return self.dep.Demand()
 }
 
+func StringEquality(src Attribute) Constraint {
+	return eqConstraint{src}
+}
+
 func Equality(dest, src Attribute) {
 	dest.Attach(eqConstraint{src})
 }

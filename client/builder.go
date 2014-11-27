@@ -6,7 +6,7 @@ type builder interface {
 	build(NarrowDom)
 }
 
-type getDomAttrFunc func(NarrowDom) DomAttribute
+type getDomAttrFunc func(NarrowDom) Attribute
 
 type builderBase struct {
 	cons Constraint
@@ -14,6 +14,11 @@ type builderBase struct {
 }
 
 type anyBuilder struct {
+	builderBase
+	a Attribute
+}
+
+type reverseBuilder struct {
 	builderBase
 	a Attribute
 }
@@ -31,6 +36,14 @@ func (self *anyBuilder) build(n NarrowDom) {
 	dest.Attach(self.builderBase.cons)
 }
 
+func (self *reverseBuilder) build(n NarrowDom) {
+	dest := self.a
+	if self.builderBase.cons == nil {
+		self.builderBase.cons = eqConstraint{self.builderBase.get(n)}
+	}
+	dest.Attach(self.builderBase.cons)
+}
+
 func (self *booleanBuilder) build(n NarrowDom) {
 	dest := self.builderBase.get(n)
 	if self.builderBase.cons == nil {
@@ -42,15 +55,23 @@ func (self *booleanBuilder) build(n NarrowDom) {
 func textAttrBuilder(attr Attribute, cons Constraint) builder {
 	return &anyBuilder{
 		a: attr,
-		builderBase: builderBase{cons, func(n NarrowDom) DomAttribute {
+		builderBase: builderBase{cons, func(n NarrowDom) Attribute {
 			return NewTextAttr(n)
+		}}}
+}
+
+func valueAttrBuilder(attr Attribute, cons Constraint) builder {
+	return &reverseBuilder{
+		a: attr,
+		builderBase: builderBase{cons, func(n NarrowDom) Attribute {
+			return NewValueAttr(n)
 		}}}
 }
 
 func htmlAttrBuilder(h htmlAttrName, attr Attribute, cons Constraint) builder {
 	return &anyBuilder{
 		a: attr,
-		builderBase: builderBase{cons, func(n NarrowDom) DomAttribute {
+		builderBase: builderBase{cons, func(n NarrowDom) Attribute {
 			return NewHtmlAttrAttr(n, h)
 		}}}
 }
@@ -58,7 +79,7 @@ func htmlAttrBuilder(h htmlAttrName, attr Attribute, cons Constraint) builder {
 func propBuilder(p propName, attr BooleanAttribute, cons Constraint) builder {
 	return &booleanBuilder{
 		b: attr,
-		builderBase: builderBase{cons, func(n NarrowDom) DomAttribute {
+		builderBase: builderBase{cons, func(n NarrowDom) Attribute {
 			return NewPropAttr(n, p)
 		}}}
 }
@@ -66,7 +87,7 @@ func propBuilder(p propName, attr BooleanAttribute, cons Constraint) builder {
 func cssExistenceBuilder(c CssClass, b BooleanAttribute) builder {
 	return &booleanBuilder{
 		b: b,
-		builderBase: builderBase{nil, func(n NarrowDom) DomAttribute {
+		builderBase: builderBase{nil, func(n NarrowDom) Attribute {
 			return NewCssExistenceAttr(n, c)
 		}}}
 }
@@ -74,7 +95,7 @@ func cssExistenceBuilder(c CssClass, b BooleanAttribute) builder {
 func displayBuilder(b BooleanAttribute) builder {
 	return &booleanBuilder{
 		b: b,
-		builderBase: builderBase{nil, func(n NarrowDom) DomAttribute {
+		builderBase: builderBase{nil, func(n NarrowDom) Attribute {
 			return NewDisplayAttr(n)
 		}}}
 }
