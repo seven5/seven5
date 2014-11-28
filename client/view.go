@@ -104,7 +104,9 @@ func TextEqual(attr Attribute) option {
 //BindEqual constrains the attribute provided to be the same as the value of
 //the tag this is located in.  Typically, this is an INPUT tag.  Data flows
 //_from_ the input text that the user types to the attribute, not the other
-//way around.
+//way around. There is a strange, but useful, edge case
+//in the initialization of the INPUT tag: ff the attr provided returns a string
+//value, that value is used to initialize INPUT field.
 func BindEqual(attr Attribute) option {
 	return addBuilder(valueAttrBuilder(attr, nil))
 }
@@ -112,7 +114,9 @@ func BindEqual(attr Attribute) option {
 //BindEqual constrains the attribute provided to be a function of the value of
 //the tag this call is located in.  Typically, this is an INPUT tag.  Data flows
 //_from_ the input text that the user types to the attribute via this constraint
-//given, not the other way around.
+//given, not the other way around.  There is a strange, but useful, edge case
+//in the initialization of the INPUT tag: ff the attr provided returns a string
+//value, that value is used to initialize INPUT field.
 func Bind(attr Attribute, cons Constraint) option {
 	return addBuilder(valueAttrBuilder(attr, cons))
 }

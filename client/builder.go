@@ -64,6 +64,10 @@ func valueAttrBuilder(attr Attribute, cons Constraint) builder {
 	return &reverseBuilder{
 		a: attr,
 		builderBase: builderBase{cons, func(n NarrowDom) Attribute {
+			raw := attr.Demand()
+			if s, ok := raw.(StringEqualer); ok {
+				n.SetVal(s.S)
+			}
 			return NewValueAttr(n)
 		}}}
 }
