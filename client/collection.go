@@ -1,8 +1,8 @@
 package client
 
-import (
+import ()
+
 //"honnef.co/go/js/console"
-)
 
 //Collection is a collection models.  Note that the type of the collection
 //elements are Model which implies Equaler.
@@ -104,7 +104,11 @@ func (self *computedLength) Value() int {
 //length is a private function; use LengthAttribute() to access the
 //the length.
 func (self *Collection) length() Equaler {
-	return IntEqualer{len(self.coll.Demand().(EqList))}
+	raw := self.coll.Demand()
+	if raw == nil {
+		return IntEqualer{I: 0}
+	}
+	return IntEqualer{len(raw.(EqList))}
 }
 
 //LengthAttribute should be used by callers to assess how many items
@@ -188,9 +192,9 @@ func NewList(joiner Joiner) *Collection {
 //If the list has any joiners, they are notified about the new element, but
 //after the change has taken place.
 func (self *Collection) Add(m Model) {
-
 	//console.Log("adding an attribute %O", m)
 	if self.coll.Demand() != nil {
+
 		obj := self.coll.Demand().(EqList)
 		for _, e := range obj {
 			if e.Equal(m) {
