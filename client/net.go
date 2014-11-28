@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -13,6 +14,33 @@ import (
 type FailureFunc func(int, string)
 type SuccessNewFunc func(int64)
 type SuccessPutFunc func(js.Object)
+
+func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
+	t := reflect.TypeOf(ptrToStruct)
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("expected pointer to struct, but got %v", t.Kind())
+	}
+	elem := t.Elem()
+	if elem.Kind() != reflect.Struct {
+		return fmt.Errorf("expected pointer to struct, but got pointer to  %v", elem.Kind())
+
+	}
+	v := reflect.ValueOf(ptrToStruct)
+	v = v.Elem()
+	for i := 0; i < elem.NumField(); i++ {
+		f := v.Field(i)
+		name := elem.Field(i).Name
+		switch f.Type().Kind() {
+		case reflect.Int64:
+			f.SetInt(jsonBlob.Get(name).Int64())
+		case reflect.String:
+			f.SetString(jsonBlob.Get(name).Str())
+		case reflect.Float64:
+			f.SetFloat(jsonBlob.Get(name).Float())
+		}
+	}
+	return nil
+}
 
 //PutExisting sends a new version of the object given by id to the server.
 //It returns an error only if the put could not be started, otherwise success
