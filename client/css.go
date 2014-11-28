@@ -53,6 +53,29 @@ type htmlIdImpl struct {
 	cache map[string]DomAttribute
 }
 
+//newHtmlIdNoCheck is the same as NewHtmlId except that no check is performed
+//to see if the named element exists in the DOM.  This is useful in a few cases
+//where dynamically constructed HTML but should not be used by client code
+//because it is error prone.
+func newHtmlIdNoCheck(tag, id string) HtmlId {
+	if TestMode {
+		return htmlIdImpl{
+			tag:   tag,
+			id:    id,
+			t:     newTestOps(),
+			cache: make(map[string]DomAttribute),
+		}
+	}
+	jq := jquery.NewJQuery(tag + "#" + id)
+
+	return htmlIdImpl{
+		tag:   tag,
+		id:    id,
+		t:     wrap(jq),
+		cache: make(map[string]DomAttribute),
+	}
+}
+
 //NewHtmlId returns a selctor that can find tag#id in the dom. Note that
 //in production mode (with jquery) this panics if this not "hit" exactly
 //one html entity.

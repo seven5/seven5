@@ -28,6 +28,7 @@ type NarrowDom interface {
 	Clear()
 	Append(...NarrowDom)
 	Before(NarrowDom)
+	Remove()
 }
 
 type jqueryWrapper struct {
@@ -225,6 +226,21 @@ func (self *testOpsImpl) Clear() {
 }
 func (self jqueryWrapper) Clear() {
 	self.jq.Empty()
+}
+func (self *testOpsImpl) Remove() {
+	siblings := self.parent.children
+	for i, c := range siblings {
+		if c == self {
+			if i == len(siblings)-1 {
+				self.parent.children = siblings[:i]
+			} else {
+				self.parent.children = append(siblings[:i], siblings[i+1:]...)
+			}
+		}
+	}
+}
+func (self jqueryWrapper) Remove() {
+	self.jq.Remove()
 }
 
 func (self *testOpsImpl) Append(childrennd ...NarrowDom) {

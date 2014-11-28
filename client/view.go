@@ -67,7 +67,8 @@ func Id(id HtmlId) option {
 
 func ModelId(m ModelName) option {
 	return func(self *ViewImpl) *ViewImpl {
-		self.id = HtmlIdFromModel(self.tag, m).Id()
+		id := fmt.Sprintf("%s-%s", strings.ToLower(self.tag), m.Id())
+		self.id = newHtmlIdNoCheck(self.tag, id).Id()
 		return self
 	}
 }
