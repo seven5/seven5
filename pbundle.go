@@ -1,7 +1,6 @@
 package seven5
 
 import (
-	_ "fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -55,7 +54,7 @@ func (self *simplePBundle) ReturnHeader(k string) string {
 //Header returns the header sent from the client named s. If there is no such
 //header, false will be returned in the second argument.
 func (self *simplePBundle) Header(s string) (string, bool) {
-	v, ok := self.h[s]
+	v, ok := self.h[strings.ToLower(s)]
 	return v, ok
 }
 func (self *simplePBundle) Query(s string) (string, bool) {
@@ -127,7 +126,7 @@ func NewSimplePBundle(r *http.Request, s Session, mgr SessionManager) (PBundle, 
 func ToSimpleMap(m map[string][]string) map[string]string {
 	result := make(map[string]string)
 	for k, v := range m {
-		result[k] = strings.TrimSpace(v[0])
+		result[strings.ToLower(k)] = strings.TrimSpace(v[0])
 	}
 	return result
 }

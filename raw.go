@@ -175,28 +175,39 @@ func sanityCheckParentWireExample(parentWire interface{}) reflect.Type {
 	return t
 }
 
-//SubResource is for adding a subresource, analagous to ResourceSeparate. It assumes that the name is
-//the same as the wire type.
-//This call panics if the provided parent wire example cannot be located because this indicates that
+//SubResource is for adding a subresource, analagous to Resource
+//You must provide the name of the wire type, lower case and singular, to be used
+//with this resource.  This call panics if the provided parent wire example cannot be located because this indicates that
 //the program is misconfigured and cannot work.
-func (self *RawDispatcher) SubResourceSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
-	find RestFind, post RestPost, put RestPut, del RestDelete) {
+func (self *RawDispatcher) SubResource(parentWire interface{},
+	subresourcename string, wireExample interface{}, index RestIndex, find RestFind, post RestPost, put RestPut, del RestDelete) {
 
 	parent := self.FindWireType(sanityCheckParentWireExample(parentWire), self.Root)
 	if parent == nil {
 		panic(fmt.Sprintf("unable to find wire type (parent) %T", parentWire))
 	}
 	child := NewRestNode()
-	parent.Children[strings.ToLower(exampleTypeToName(wireExample))] = child
-	self.AddResourceSeparate(child, exampleTypeToName(wireExample), wireExample,
+	parent.Children[subresourcename] = child
+	self.AddResourceSeparate(child, subresourcename, wireExample,
 		index, find, post, put, del)
 }
 
-//SubResourceUdid is for adding a subresource udid, analagous to ResourceSeparateUdid.
-//It assumes that the name is the same as the wire type.
+//SubResourceSeparate is for adding a subresource, analagous to ResourceSeparate.
+//It assumes that the subresource name is the same as the wire type.
+//This call panics if the provided parent wire example cannot be located because this indicates that
+//the program is misconfigured and cannot work.
+func (self *RawDispatcher) SubResourceSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
+	find RestFind, post RestPost, put RestPut, del RestDelete) {
+
+	self.SubResource(parentWire, strings.ToLower(exampleTypeToName(wireExample)),
+		wireExample, index, find, post, put, del)
+}
+
+//SubResourceUdid is for adding a subresource udid, analagous to ResourceUdid.
+//You must provide the subresource name, singular and lower case.
 //If the provided parent wire example cannot be located because this indicates that
 //the program is misconfigured and cannot work.
-func (self *RawDispatcher) SubResourceUdidSeparate(parentWire interface{}, wireExample interface{}, index RestIndex,
+func (self *RawDispatcher) SubResourceUdid(parentWire interface{}, subresourcename string, wireExample interface{}, index RestIndex,
 	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
 
 	parent := self.FindWireType(sanityCheckParentWireExample(parentWire), self.Root)
@@ -205,8 +216,18 @@ func (self *RawDispatcher) SubResourceUdidSeparate(parentWire interface{}, wireE
 	}
 	child := NewRestNode()
 	parent.ChildrenUdid[strings.ToLower(exampleTypeToName(wireExample))] = child
-	self.AddResourceSeparateUdid(child, exampleTypeToName(wireExample), wireExample, index,
+	self.AddResourceSeparateUdid(child, subresourcename, wireExample, index,
 		find, post, put, del)
+}
+
+//SubResourceSeparateUdid is for adding a subresource udid, analagous to ResourceSeparateUdid.
+//It assumes that the subresource name is the same as the wire type.
+//If the provided parent wire example cannot be located because this indicates that
+//the program is misconfigured and cannot work.
+func (self *RawDispatcher) SubResourceSeparateUdid(parentWire interface{}, wireExample interface{}, index RestIndex,
+	find RestFindUdid, post RestPost, put RestPutUdid, del RestDeleteUdid) {
+	self.SubResourceUdid(parentWire, strings.ToLower(exampleTypeToName(wireExample)),
+		wireExample, index, find, post, put, del)
 }
 
 //FindWireType searches the tree of rest resources trying to find one that has the
