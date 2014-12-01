@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	_ "runtime"
+	"runtime"
 )
 
 //Dispatcher is the low-level interface to requests and responses.  Most user level code should not
@@ -65,14 +65,12 @@ func (self *ServeMux) Dispatch(pattern string, dispatcher Dispatcher) {
 	h := func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				/*
-					fmt.Fprintf(os.Stderr, "XXXX WE WE HAVE RECOVERED %+v\n", err)
-					fmt.Fprintf(os.Stderr, "-------------+++++++++++++++++++\n")
-					buf := make([]byte, 48000)
-					l := runtime.Stack(buf, false)
-					fmt.Fprintf(os.Stderr, "%s\n", string(buf[:l]))
-					fmt.Fprintf(os.Stderr, "-------------+++++++++++++++++++\n")
-				*/
+				fmt.Fprintf(os.Stderr, "++++++++++++ PANIC +++++++++++++++++++\n")
+				buf := make([]byte, 48000)
+				l := runtime.Stack(buf, false)
+				fmt.Fprintf(os.Stderr, "%s\n", string(buf[:l]))
+				fmt.Fprintf(os.Stderr, "++++++++++++++++++++++++++++++++++++++\n")
+
 				if self.err != nil {
 					self.err.PanicDispatch(err, w, r)
 				} else {

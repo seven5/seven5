@@ -29,7 +29,10 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 	v = v.Elem()
 	for i := 0; i < elem.NumField(); i++ {
 		f := v.Field(i)
-		name := elem.Field(i).Name
+		name := elem.Field(i).Tag.Get("json")
+		if jsonBlob.Get(name).IsUndefined() || jsonBlob.Get(name).IsNull() {
+			continue
+		}
 		switch f.Type().Kind() {
 		case reflect.Int64:
 			f.SetInt(jsonBlob.Get(name).Int64())
@@ -37,6 +40,10 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 			f.SetString(jsonBlob.Get(name).Str())
 		case reflect.Float64:
 			f.SetFloat(jsonBlob.Get(name).Float())
+		case reflect.Bool:
+			f.SetBool(jsonBlob.Get(name).Bool())
+		default:
+			print("warning: %s", name, " has a type other than int64, string, float64 or bool")
 		}
 	}
 	return nil
