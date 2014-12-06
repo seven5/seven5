@@ -50,7 +50,6 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 	for i := 0; i < elem.NumField(); i++ {
 		f := v.Field(i)
 		fn := getFieldName(elem.Field(i))
-		print("fn is ", fn)
 		if fn == "-" || jsonBlob.Get(fn).IsUndefined() || jsonBlob.Get(fn).IsNull() {
 			continue
 		}
