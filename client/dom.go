@@ -219,6 +219,8 @@ var (
 	WIDTH       = newAttrName("width")
 	HEIGHT      = newAttrName("height")
 	VALUE       = newAttrName("value")
+	SIZE        = newAttrName("size")
+	MAXLENGTH   = newAttrName("maxlength")
 
 	CHECKED  = newPropName("checked")
 	SELECTED = newPropName("selected")
