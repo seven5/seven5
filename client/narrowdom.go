@@ -27,6 +27,7 @@ type NarrowDom interface {
 	SetVal(string)
 	Clear()
 	Append(...NarrowDom)
+	Prepend(...NarrowDom)
 	Before(NarrowDom)
 	Remove()
 }
@@ -204,6 +205,7 @@ func (self *testOpsImpl) SetVal(s string) {
 
 func (self jqueryWrapper) SetVal(s string) {
 	self.jq.SetVal(s)
+	self.jq.Underlying().Call("trigger", "input")
 }
 
 func (self *testOpsImpl) AddClass(s string) {
@@ -261,6 +263,23 @@ func (self jqueryWrapper) Append(childrennd ...NarrowDom) {
 	}
 }
 
+func (self *testOpsImpl) Prepend(childrennd ...NarrowDom) {
+	for _, nd := range childrennd {
+		child := nd.(*testOpsImpl)
+		if child.parent != nil {
+			panic("can't add a child, it already has a parent!")
+		}
+		child.parent = self
+		self.children = append([]*testOpsImpl{child}, self.children...)
+	}
+}
+
+func (self jqueryWrapper) Prepend(childrennd ...NarrowDom) {
+	for _, nd := range childrennd {
+		wrapper := nd.(jqueryWrapper)
+		self.jq.Prepend(wrapper.jq)
+	}
+}
 func (self *testOpsImpl) Before(nd NarrowDom) {
 	child := nd.(*testOpsImpl)
 	parent := child.parent

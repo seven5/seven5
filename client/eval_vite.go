@@ -337,7 +337,7 @@ func (self *AttributeImpl) SetEqualer(i Equaler) {
 func (self *AttributeImpl) Demand() Equaler {
 	self.demandCount++
 
-	//print("Demand called ", self.id()," (", self.name, ") with dirty ", self.dirty(),"\n")
+	//print("Demand called ", self.id(), " (", self.name, ") with dirty ", self.dirty(), "\n")
 	//first if we are not dirty, return our stored value
 	if !self.dirty() {
 		return self.curr
@@ -363,7 +363,7 @@ func (self *AttributeImpl) Demand() Equaler {
 		}
 	})
 
-	//print("inside demand ", self.id()," (", self.name, ") anyMarks = ",anyMarks,"\n")
+	//print("inside demand ", self.id(), " (", self.name, ") anyMarks = ", anyMarks, "\n")
 
 	//if nobody actually returned a different value, then we
 	//don't need to reevaluate
@@ -375,8 +375,8 @@ func (self *AttributeImpl) Demand() Equaler {
 	self.evalCount++
 	var newval Equaler
 
-	//print("inside demand ", self.id()," (", self.name, ") self.valueFn = ",
-	//	self.valueFn,",", self.constraint,"\n")
+	//print("inside demand ", self.id(), " (", self.name, ") self.valueFn = ",
+	//	self.valueFn, ",", self.constraint, "\n")
 	if self.valueFn != nil && self.constraint == nil {
 		newval = self.valueFn()
 	} else {
