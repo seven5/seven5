@@ -1,5 +1,9 @@
 package client
 
+import (
+	"fmt"
+)
+
 var (
 	TestMode = false
 )
@@ -62,4 +66,112 @@ func (self simpleConstraint) Inputs() []Attribute {
 
 func (self simpleConstraint) Fn(v []Equaler) Equaler {
 	return self.fn(v)
+}
+
+// SelectableAttribute provides an abstraction which allows an attribute
+// to be turned on an off by another boolean attribute, called the chooser.
+// When the chooser is false, this attribute's value is a
+// constant (typically provided at construction time).  If the chooser is true
+// then this attribute is a shim over another attribute, also provided at
+// construction-time.  Note that assignemnts to this attribute are logically
+// passed through to the attribute, but are ignored if the chooser is false.
+// Calls to SetEqualer will be honored, and passed through, if the chooser is true.
+type SelectableAttribute struct {
+	*AttributeImpl
+	chooser         BooleanAttribute
+	unselectedValue Equaler
+	attr            Attribute
+	cons            Constraint
+}
+
+//NewSelectableAttribute creates a new SelectableAttribute with a given chooser
+//a boolean attribute, a constant to be used when the chooser is false, and
+//attribute to used when the chooser is true.  If you pass nil as the chooser
+//this call will create a new boolean attribute to use as the chooser and
+//it's initial value will be false.  The attribute provided must not be nil.
+func NewSelectableAttribute(chooser BooleanAttribute, unselectedValue Equaler,
+	attr Attribute) *SelectableAttribute {
+
+	cattr := chooser
+	if cattr == nil {
+		cattr = NewBooleanSimple(false)
+	}
+	result := &SelectableAttribute{
+		chooser:         cattr,
+		unselectedValue: unselectedValue,
+		attr:            attr,
+	}
+	result.AttributeImpl = NewAttribute(NORMAL, nil, nil)
+	result.cons = NewSimpleConstraint(result.value, cattr, attr)
+	result.AttributeImpl.Attach(result.cons)
+	return result
+}
+
+//Chooser return  the chooser that is in use for this
+//selectable attribute.  This is useful when you want feedabck about the chooser
+//itself, rather than the composite output provided by SelectableAttribute.
+func (s *SelectableAttribute) Chooser() BooleanAttribute {
+	return s.chooser
+}
+
+//Selectable returns the attribute that is turned on and off inside this
+//atribute.
+func (s *SelectableAttribute) Selectable() Attribute {
+	return s.attr
+}
+
+//value is the function that takes in the values of the two dependent attributes
+//and figures out the value of this attribute, embodied in wrapped.
+func (s *SelectableAttribute) value(v []Equaler) Equaler {
+	chooserVal := v[0].(BoolEqualer).B
+	attrVal := v[1]
+
+	if chooserVal {
+		return attrVal
+	}
+	return s.unselectedValue
+}
+
+//Attach attaches a constraint to this selectable attribute.  Note that this
+//constraint will be called on any changes to the SelectableAttribute's boolean
+//chooser or its underlying attribute.
+func (s *SelectableAttribute) Attach(cons Constraint) {
+	s.AttributeImpl.Attach(cons)
+}
+
+//Detach removes a constraint attached to this SelectableAttribute.
+func (s *SelectableAttribute) Detach() {
+	s.AttributeImpl.Detach()
+}
+
+//SetEqualer assigns the value provided to the underlying attribute of this
+//type, only if the chooser of this SelectableAttribute is true.  If the chooser
+//is false, this call is ignored.
+func (s *SelectableAttribute) SetEqualer(e Equaler) {
+	if s.chooser.Demand().(BoolEqualer).B {
+		s.attr.SetEqualer(e)
+	}
+}
+
+//SetDebugName is useful when examining debug messages from seven5 itself.
+func (s *SelectableAttribute) SetDebugName(n string) {
+	s.AttributeImpl.SetDebugName(n)
+	s.chooser.SetDebugName(fmt.Sprintf("%s-chooser", n))
+	s.attr.SetDebugName(fmt.Sprintf("%s-attr", n))
+}
+
+//SetSelected sets the selected state of this attribute to the value provided.
+func (s *SelectableAttribute) SetSelected(b bool) {
+	s.chooser.SetEqualer(BoolEqualer{B: b})
+}
+
+//Selected returns the current selected state.
+func (s *SelectableAttribute) Selected() bool {
+	return s.chooser.Demand().(BoolEqualer).B
+}
+
+//Demand returns the value of the attribute that is selectable if the chooser
+//is true, otherwise the constant value provided at construction time.
+func (s *SelectableAttribute) Demand() Equaler {
+	return s.AttributeImpl.Demand()
 }

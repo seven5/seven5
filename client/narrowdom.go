@@ -274,8 +274,11 @@ func (self *testOpsImpl) Prepend(childrennd ...NarrowDom) {
 	}
 }
 
+//we have to walk the children provided in reverse order so their order is
+//preserved on repeated calls to prepend
 func (self jqueryWrapper) Prepend(childrennd ...NarrowDom) {
-	for _, nd := range childrennd {
+	for i := len(childrennd) - 1; i >= 0; i-- {
+		nd := childrennd[i]
 		wrapper := nd.(jqueryWrapper)
 		self.jq.Prepend(wrapper.jq)
 	}

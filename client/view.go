@@ -111,7 +111,7 @@ func BindEqual(attr Attribute) option {
 	return addBuilder(valueAttrBuilder(attr, nil))
 }
 
-//BindEqual constrains the attribute provided to be a function of the value of
+//Bind constrains the attribute provided to be a function of the value of
 //the tag this call is located in.  Typically, this is an INPUT tag.  Data flows
 //_from_ the input text that the user types to the attribute via this constraint
 //given, not the other way around.  There is a strange, but useful, edge case

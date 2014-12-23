@@ -18,6 +18,8 @@ const (
 	EAGER      = 2
 
 	last = EAGER
+
+	DEBUG_MESSAGES = false
 )
 
 var eagerQueue = []*AttributeImpl{}
@@ -48,7 +50,9 @@ func newEdge(src node, dest node) *edgeImpl {
 //drop edge removes the edge between two nodes.  It walks the
 //edges in the outgoing list of the source node.
 func dropEdge(src node, dest node) {
-	//console.Log("dropping edge from ", src.id(), "->", dest.id())
+	if DEBUG_MESSAGES {
+		print("dropping edge from ", src.id(), "->", dest.id())
+	}
 	src.removeOut(dest.id())
 	dest.removeIn(src.id())
 	dest.markDirty()
@@ -260,7 +264,9 @@ func (self *AttributeImpl) markDirty() {
 		e.dest().markDirty()
 	})
 
-	//print("mark dirty ---", self.name, "is eager?", self.nType == EAGER)
+	if DEBUG_MESSAGES {
+		print("mark dirty ---", self.name, "is eager?", self.nType == EAGER)
+	}
 	if self.nType == EAGER {
 		eagerQueue = append(eagerQueue, self)
 	}
@@ -272,7 +278,10 @@ func (self *AttributeImpl) assign(newval Equaler, wantSideEffect bool) Equaler {
 	if wantSideEffect && self.sideEffectFn != nil {
 		self.sideEffectFn(newval)
 	}
-	//print("assign ", self.name, "<--", newval)
+
+	if DEBUG_MESSAGES {
+		print("assign ", self.name, "<--", newval)
+	}
 
 	//update the value
 	self.curr = newval
@@ -337,7 +346,9 @@ func (self *AttributeImpl) SetEqualer(i Equaler) {
 func (self *AttributeImpl) Demand() Equaler {
 	self.demandCount++
 
-	//print("Demand called ", self.id(), " (", self.name, ") with dirty ", self.dirty(), "\n")
+	if DEBUG_MESSAGES {
+		print("Demand called ", self.id(), " (", self.name, ") with dirty ", self.dirty(), "\n")
+	}
 	//first if we are not dirty, return our stored value
 	if !self.dirty() {
 		return self.curr
@@ -363,7 +374,9 @@ func (self *AttributeImpl) Demand() Equaler {
 		}
 	})
 
-	//print("inside demand ", self.id(), " (", self.name, ") anyMarks = ", anyMarks, "\n")
+	if DEBUG_MESSAGES {
+		print("inside demand ", self.id(), " (", self.name, ") anyMarks = ", anyMarks, "\n")
+	}
 
 	//if nobody actually returned a different value, then we
 	//don't need to reevaluate
@@ -375,8 +388,11 @@ func (self *AttributeImpl) Demand() Equaler {
 	self.evalCount++
 	var newval Equaler
 
-	//print("inside demand ", self.id(), " (", self.name, ") self.valueFn = ",
-	//	self.valueFn, ",", self.constraint, "\n")
+	if DEBUG_MESSAGES {
+		print("inside demand ", self.id(), " (", self.name, ") self.valueFn = ",
+			self.valueFn, ",", self.constraint, "\n")
+	}
+
 	if self.valueFn != nil && self.constraint == nil {
 		newval = self.valueFn()
 	} else {
