@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/jquery"
@@ -43,7 +44,6 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 	elem := t.Elem()
 	if elem.Kind() != reflect.Struct {
 		return fmt.Errorf("expected pointer to struct, but got pointer to  %v", elem.Kind())
-
 	}
 	v := reflect.ValueOf(ptrToStruct)
 	v = v.Elem()
@@ -53,9 +53,27 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 		if fn == "-" || jsonBlob.Get(fn) == js.Undefined || jsonBlob.Get(fn) == nil {
 			continue
 		}
+
+		//
+		// Time is really useful
+		//
+		if f.Type().Name() == "Time" && f.Type().PkgPath() == "time" {
+			str := jsonBlob.Get(fn).Str()
+			//2015-01-17T17:48:30.346218Z
+			//2006-01-02T15:04:05.999999999Z
+			t, err := time.Parse(time.RFC3339Nano, str)
+			if err != nil {
+				print("warning: could not convert string", str, ":", err)
+			} else {
+				f.Set(reflect.ValueOf(t))
+			}
+			continue
+		}
 		switch f.Type().Kind() {
 		case reflect.Int64:
 			f.SetInt(jsonBlob.Get(fn).Int64())
+		case reflect.Int:
+			f.SetInt(int64(jsonBlob.Get(fn).Int()))
 		case reflect.String:
 			f.SetString(jsonBlob.Get(fn).Str())
 		case reflect.Float64:
