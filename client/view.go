@@ -35,6 +35,7 @@ func Event(name EventName, fn EventFunc) option {
 func Style(s string) option {
 	return func(self *ViewImpl) *ViewImpl {
 		self.style = self.style
+		return self
 	}
 }
 
