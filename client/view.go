@@ -268,6 +268,9 @@ func OL(obj ...interface{}) *ViewImpl {
 func BUTTON(obj ...interface{}) *ViewImpl {
 	return tag("button", obj...)
 }
+func PRE(obj ...interface{}) *ViewImpl {
+	return tag("pre", obj...)
+}
 
 func tag(tagName string, obj ...interface{}) *ViewImpl {
 	p := &ViewImpl{tag: tagName}
