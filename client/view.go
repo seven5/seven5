@@ -13,6 +13,7 @@ type ViewImpl struct {
 	tag      string
 	id       string
 	classes  []string
+	style    []string
 	children []*ViewImpl
 	text     string
 	builders []builder
@@ -28,6 +29,12 @@ func Event(name EventName, fn EventFunc) option {
 			fn:   fn,
 		})
 		return self
+	}
+}
+
+func Style(s string) option {
+	return func(self *ViewImpl) *ViewImpl {
+		self.style = self.style
 	}
 }
 
@@ -146,6 +153,7 @@ func ParseHtml(t string) NarrowDom {
 func (p *ViewImpl) Build() NarrowDom {
 	id := ""
 	classes := ""
+	styles := ""
 	if p.id != "" {
 		id = fmt.Sprintf(" id='%s'", p.id)
 	}
@@ -153,11 +161,15 @@ func (p *ViewImpl) Build() NarrowDom {
 	if p.classes != nil {
 		classes = fmt.Sprintf(" class='%s'", strings.Join(p.classes, " "))
 	}
+	if p.style != "" {
+		styles = fmt.Sprintf(" style='%s'", p.style)
+	}
+
 	var t string
 	if p.text == "" {
-		t = fmt.Sprintf("<%s%s%s/>", p.tag, id, classes)
+		t = fmt.Sprintf("<%s%s%s%s/>", p.tag, id, classes, styles)
 	} else {
-		t = fmt.Sprintf("<%s%s%s>%s</%s>", p.tag, id, classes, p.text, p.tag)
+		t = fmt.Sprintf("<%s%s%s%s>%s</%s>", p.tag, id, classes, styles, p.text, p.tag)
 	}
 	nDom := ParseHtml(t)
 	for _, child := range p.children {
