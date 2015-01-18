@@ -13,7 +13,7 @@ type ViewImpl struct {
 	tag      string
 	id       string
 	classes  []string
-	style    []string
+	style    string
 	children []*ViewImpl
 	text     string
 	builders []builder
