@@ -282,11 +282,20 @@ func tag(tagName string, obj ...interface{}) *ViewImpl {
 			continue
 		}
 		v, ok := obj[i].(*ViewImpl)
-		if v == nil {
+		if v == nil && ok {
 			continue
 		}
 		if ok {
 			p.children = append(p.children, v)
+			continue
+		}
+		varr, isArray := obj[i].([]*ViewImpl)
+		if isArray {
+			for _, v := range varr {
+				if v != nil {
+					p.children = append(p.children, v)
+				}
+			}
 			continue
 		}
 		panic(fmt.Sprintf("unable to understand type of parameter: %v (%T %d) to %s", obj[i], obj[i], i, tagName))
