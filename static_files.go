@@ -61,7 +61,7 @@ func (s *SimpleStaticFilesServer) gopath(w http.ResponseWriter, r *http.Request,
 //ServeHTTP retuns a static file or a not found error. This function meets
 //the requirement of net/http#Handler.
 func (s *SimpleStaticFilesServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("test=%v, %s, prefix=%", s.testMode, r.URL.String(), strings.HasPrefix(r.URL.String(), prefix))
+	log.Printf("test=%v, %+v, prefix=%v", s.testMode, r, strings.HasPrefix(r.URL.String(), prefix))
 	if s.testMode && strings.HasPrefix(r.URL.String(), prefix) {
 		s.gopath(w, r, r.URL.String()[len(prefix):])
 		return
