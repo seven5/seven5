@@ -58,7 +58,7 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 		// Time is really useful
 		//
 		if f.Type().Name() == "Time" && f.Type().PkgPath() == "time" {
-			str := jsonBlob.Get(fn).Str()
+			str := jsonBlob.Get(fn).String()
 			//2015-01-17T17:48:30.346218Z
 			//2006-01-02T15:04:05.999999999Z
 			t, err := time.Parse(time.RFC3339Nano, str)
@@ -75,13 +75,13 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 		case reflect.Int:
 			f.SetInt(int64(jsonBlob.Get(fn).Int()))
 		case reflect.String:
-			f.SetString(jsonBlob.Get(fn).Str())
+			f.SetString(jsonBlob.Get(fn).String())
 		case reflect.Float64:
 			f.SetFloat(jsonBlob.Get(fn).Float())
 		case reflect.Bool:
 			f.SetBool(jsonBlob.Get(fn).Bool())
 		default:
-			print("warning: %s", fn, " has a type other than int64, string, float64 or bool")
+			//print("warning: %s", fn, " has a type other than int64, string, float64 or bool")
 		}
 	}
 	return nil
@@ -117,7 +117,7 @@ func PutExisting(i interface{}, root string, id string,
 	}).
 		Fail(func(p1 js.Object) {
 		if failure != nil {
-			failure(p1.Get("status").Int(), p1.Get("responseText").Str())
+			failure(p1.Get("status").Int(), p1.Get("responseText").String())
 		}
 	})
 
@@ -160,7 +160,7 @@ func PostNew(i interface{}, root string, success SuccessNewFunc, failure Failure
 	}).
 		Fail(func(p1 js.Object) {
 		if failure != nil {
-			failure(p1.Get("status").Int(), p1.Get("responseText").Str())
+			failure(p1.Get("status").Int(), p1.Get("responseText").String())
 		}
 	})
 
