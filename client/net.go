@@ -13,7 +13,7 @@ import (
 )
 
 type FailureFunc func(int, string)
-type SuccessNewFunc func(int64)
+type SuccessNewFunc func(interface{})
 type SuccessPutFunc func(js.Object)
 
 func getFieldName(f reflect.StructField) string {
@@ -94,7 +94,6 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 //by this routine, it can be the string representation of an integer or a UDID.
 func PutExisting(i interface{}, root string, id string,
 	success SuccessPutFunc, failure FailureFunc) error {
-
 	var w bytes.Buffer
 	enc := json.NewEncoder(&w)
 	err := enc.Encode(i)
@@ -134,28 +133,49 @@ func typeToUrlName(i interface{}) string {
 
 //PostNew sends an instance of a wire type to the server.  It returns an error
 //only if the Post could not be sent.  The success or failure are indications are
-//communicated through the callback functions.
-func PostNew(i interface{}, root string, success SuccessNewFunc, failure FailureFunc) error {
+//communicated through the callback functions.  If it was a success, the object
+//that was passed in (ptr to struct) will be cloned and the new value actually
+//created supplied to the success function.  In the unlikely event we fail
+//to decode the result from the server, we call the fail func with 406
+//and the error.
+func PostNew(ptrToStruct interface{}, root string, success SuccessNewFunc, failure FailureFunc) error {
+
+	t := reflect.TypeOf(ptrToStruct)
+	if t.Kind() != reflect.Ptr {
+		panic(fmt.Sprintf("expected ptr to struct but got %T", ptrToStruct))
+	}
+	if t.Elem().Kind() != reflect.Struct {
+		panic(fmt.Sprintf("expected ptr to struct but got ptr to %T", t.Elem().Kind()))
+	}
+
 	var w bytes.Buffer
 	enc := json.NewEncoder(&w)
-	err := enc.Encode(i)
+	err := enc.Encode(ptrToStruct)
 	if err != nil {
 		return fmt.Errorf("error encoding post msg: %v ", err)
 	}
-	urlname := typeToUrlName(i)
+	urlname := typeToUrlName(ptrToStruct)
+	print("serialized", w.String(), urlname)
 	jquery.Ajax(
 		map[string]interface{}{
 			"contentType": "application/json",
-			"dataType":    "json",
+			"dataType":    "text",
 			"type":        "POST",
 			"url":         fmt.Sprintf("%s/%s", root, urlname),
 			"data":        w.String(),
 			"cache":       false,
 		}).
 		Then(func(valueCreated js.Object) {
-		id := valueCreated.Get("Id").Int64()
 		if success != nil {
-			success(id)
+			output := reflect.New(t.Elem())
+			rd := strings.NewReader(valueCreated.String())
+			dec := json.NewDecoder(rd)
+			i := output.Interface()
+			if err := dec.Decode(i); err != nil {
+				failure(406, err.Error())
+				return
+			}
+			success(i)
 		}
 	}).
 		Fail(func(p1 js.Object) {
