@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	prefix = "gopath"
+	prefix = "/gopath"
 )
 
 //SimpleStaticFileServer is a simple implementation of a file server
@@ -62,7 +62,7 @@ func (s *SimpleStaticFilesServer) gopath(w http.ResponseWriter, r *http.Request,
 //the requirement of net/http#Handler.
 func (s *SimpleStaticFilesServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.testMode && strings.HasPrefix(r.URL.String(), prefix) {
-		s.gopath(w, r, r.URL.String()[len(prefix):])
+		s.gopath(w, r, strings.TrimPrefix(r.URL.String(), prefix))
 		return
 	}
 	log.Printf("[STATIC CONTENT (%s)]: %v", s.staticDir, r.URL.String())
