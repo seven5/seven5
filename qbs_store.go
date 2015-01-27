@@ -17,8 +17,8 @@ type QbsStore struct {
 }
 
 // NewQbsStoreFromDSN creates a *QbsStore from a DSN; DSNs can be created
-// directly with ParamsToDSN or from the environment EnvironmentUrlToDSN (via
-// the DATABASE_URL environment var).
+// directly with ParamsToDSN or from the environment with GetDSNOrDie, via
+// the DATABASE_URL environment var.
 func NewQbsStoreFromDSN(dsn *qbs.DataSourceName) *QbsStore {
 	qbs.RegisterWithDataSourceName(dsn)
 	result := &QbsStore{
@@ -51,7 +51,7 @@ func ParamsToDSN(dbname string, driver string, user string) *qbs.DataSourceName 
 
 //This function returns the datasource name for the DATABASE_URL
 //in the environment. If the value cannot be found, this panics.
-func EnvironmentUrlToDSN() *qbs.DataSourceName {
+func GetDSNOrDie() *qbs.DataSourceName {
 	db := os.Getenv("DATABASE_URL")
 	if db == "" {
 		panic("no DATABASE_URL found, cannot connect to a *QbsStore")

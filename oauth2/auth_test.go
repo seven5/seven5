@@ -8,21 +8,15 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	s5 "github.com/seven5/seven5"
+	"github.com/seven5/seven5/mock"
 )
 
 const (
 	SCOPE  = "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email "
 	PROMPT = "auto" //can be "force" or "auto"
 )
-
-/*-------------------------------------------------------------------------------*/
-
-func TestHerokuName(T *testing.T) {
-	n := HerokuName("fleazil")
-	if n != "https://fleazil.herokuapp.com" {
-		fmt.Printf("Unexpected name for heroku app fleazil: %s", n)
-	}
-}
 
 /*-------------------------------------------------------------------------------*/
 var (
@@ -60,21 +54,21 @@ func TestAuthGoogleLogin(t *testing.T) {
 
 	//authconn is a wrapper around the google auth connector with all mock methods, except AuthURL
 	//pm is a mock for testing that we get a call to LoginLandingPage
-	pm := NewMockPageMapper(ctrl)
-	sm := NewMockSessionManager(ctrl)
-	cm := NewSimpleCookieMapper(appName)
+	pm := s5.NewMockPageMapper(ctrl)
+	sm := s5.NewMockSessionManager(ctrl)
+	cm := s5.NewSimpleCookieMapper(appName)
 	serveMux, authconn := createDispatcherWithMocks(ctrl, pm, cm, sm)
 
-	session := NewMockSession(ctrl)
+	session := s5.NewMockSession(ctrl)
 	session.EXPECT().SessionId().Return(sid).AnyTimes()
 	//when we succeed at logging in, it filters down to the session
 	sm.EXPECT().Generate(gomock.Any(), gomock.Any(), gomock.Any(), st, code).Return(session, nil)
 
 	//consumed by the google object under test
-	deploy := NewMockDeploymentEnvironment(ctrl)
+	deploy := mock.NewMockDeploymentEnvironment(ctrl)
 	deploy.EXPECT().RedirectHost(gomock.Any()).Return(fmt.Sprintf("http://localhost:%d", port))
 
-	detail := NewMockOauthClientDetail(ctrl)
+	detail := s5.NewMockOauthClientDetail(ctrl)
 	detail.EXPECT().ClientId(gomock.Any()).Return(id)
 	detail.EXPECT().ClientSecret(gomock.Any()).Return(seekret)
 
@@ -270,8 +264,8 @@ func TestAuthCallbackError(t *testing.T) {
 	loser := "you are a loser"
 	state := "jabba da hut/:)" //make sure we are decoding correctly by adding strange chars
 
-	pageMapper := NewSimplePageMapper(three, "notused", "notused")
-	cookieMapper := NewMockCookieMapper(ctrl)
+	pageMapper := s5.NewSimplePageMapper(three, "notused", "notused")
+	cookieMapper := s5.NewMockCookieMapper(ctrl)
 	serveMux, authConn := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper, nil)
 	go func() {
 		http.ListenAndServe(fmt.Sprintf(":%d", port), serveMux)
@@ -328,9 +322,9 @@ func TestAuthLogout(t *testing.T) {
 	//check mocks at end
 	defer ctrl.Finish()
 
-	pageMapper := NewSimplePageMapper("notused", "notused", two)
-	sm := NewMockSessionManager(ctrl)
-	cookieMapper := NewSimpleCookieMapper(appName)
+	pageMapper := s5.NewSimplePageMapper("notused", "notused", two)
+	sm := s5.NewMockSessionManager(ctrl)
+	cookieMapper := s5.NewSimpleCookieMapper(appName)
 	serveMux, _ := createDispatcherWithMocks(ctrl, pageMapper, cookieMapper, sm)
 
 	sm.EXPECT().Destroy(gomock.Any()).Return(nil)
