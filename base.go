@@ -8,16 +8,10 @@ import ()
 //* The application will keep a session associated with the cookie for each "logged in" user (in memory)
 //* Json is used to encode and decode the wire types
 //* Rest resources dispatched by this object are mapped to /rest in the URL space.
-//You can pass a SessionManager to this method if you want to use your own implementation and this
-//is common for applications that involve users.
-func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatcher {
-	var sm SessionManager
+//You must pass an already created session manager into this method
+//(see NewSimpleSessionManager(...))
+func NewBaseDispatcher(appName string, sm SessionManager) *BaseDispatcher {
 	prefix := "/rest"
-	if optionalSm != nil {
-		sm = optionalSm
-	} else {
-		sm = NewSimpleSessionManager()
-	}
 	cm := NewSimpleCookieMapper(appName)
 	result := &BaseDispatcher{}
 	io := &RawIOHook{&JsonDecoder{}, &JsonEncoder{}, cm}

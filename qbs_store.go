@@ -90,7 +90,7 @@ func StringToDialect(n string) qbs.Dialect {
 	case "sqlite3":
 		return qbs.NewSqlite3()
 	}
-	panic(fmt.Sprintf("unable to deal with db dialact provided %s", n))
+	panic(fmt.Sprintf("unable to deal with db dialect provided %s", n))
 }
 
 //NewQbsDefaultOrmTransactionPolicy returns a new default implementation of policy
@@ -103,9 +103,11 @@ func NewQbsDefaultOrmTransactionPolicy() *QbsDefaultOrmTransactionPolicy {
 
 //StartTransaction returns a new qbs object after creating the transaction.
 func (self *QbsDefaultOrmTransactionPolicy) StartTransaction(q *qbs.Qbs) *qbs.Qbs {
-	if err := q.Begin(); err != nil {
-		panic(err)
-	}
+	q.Log = true
+	//if err := q.Begin(); err != nil {
+	//	log.Printf("error trying to start xaction: q=%#v %T %#v", q.Dialect, err, err)
+	//	panic(err)
+	//}
 	return q
 }
 
@@ -116,6 +118,7 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 	if err != nil {
 		switch e := err.(type) {
 		case *Error:
+			log.Printf("got an known error: %+v", e)
 			if e.StatusCode >= 400 {
 				rerr := tx.Rollback()
 				if rerr != nil {
@@ -123,6 +126,7 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 				}
 			}
 		default:
+			log.Printf("got an unknown errer: %+v", e)
 			rerr := tx.Rollback()
 			if rerr != nil {
 				return nil, rerr
@@ -130,9 +134,9 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 			return nil, HTTPError(http.StatusInternalServerError, fmt.Sprintf("%v", err))
 		}
 	} else {
-		if cerr := tx.Commit(); cerr != nil {
-			return nil, cerr
-		}
+		//if cerr := tx.Commit(); cerr != nil {
+		//	return nil, cerr
+		//}
 	}
 	return value, err
 }

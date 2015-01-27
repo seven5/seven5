@@ -216,6 +216,7 @@ func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *t
 			T.Fatalf("sanity check at start failed: %d", obj.testCallCount)
 		}
 	}
+	T.Logf("launching serever...%s", portSpec)
 	go func() {
 		http.ListenAndServe(portSpec, serveMux)
 	}()
@@ -243,8 +244,10 @@ func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *t
 		messageData = messageDataUID
 	}
 	for i, callCount := range []int{1, 2, 3, 4, 5} {
+		T.Logf("make req %s,%s", messageData[i][0], messageData[i][1])
 		req := makeReq(T, messageData[i][0], messageData[i][1], messageData[i][2])
 		resp, err := client.Do(req)
+		T.Logf("reponse to  req %v,%v", resp, err)
 		checkResponse(T, err, resp)
 		if udid != nil {
 			if udid.testCallCount != callCount {

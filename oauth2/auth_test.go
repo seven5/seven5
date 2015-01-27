@@ -1,4 +1,4 @@
-package seven5
+package oauth2
 
 import (
 	"code.google.com/p/gomock/gomock"

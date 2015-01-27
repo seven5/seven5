@@ -428,6 +428,7 @@ func (self *RawDispatcher) DispatchSegment(mux *ServeMux, w http.ResponseWriter,
 					http.Error(w, "Not authorized (INDEX)", http.StatusUnauthorized)
 					return
 				}
+				log.Printf("what is the bundle xxxx %+v", bundle)
 				result, err := rez.index.Index(bundle)
 				if err != nil {
 					self.SendError(err, w, "Internal error on Index")

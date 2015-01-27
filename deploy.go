@@ -20,10 +20,11 @@ type HerokuDeploy struct {
 
 //NewHerokuDeploy returns a new HerokuDeploy object that implements DeploymentEnvironment.
 //The first parameter is the _host_ name on heroku, typically like damp-sierra-7161.
-//The second parameter is the application's name locally, like foobie.
-func NewHerokuDeploy(herokuName string) *HerokuDeploy {
+//The second parameter is the application's name locally, like myproject.
+func NewHerokuDeploy(herokuName string, appName string) *HerokuDeploy {
 	result := &HerokuDeploy{
 		herokuName: herokuName,
+		appName:    appName,
 	}
 	return result
 }

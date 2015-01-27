@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"reflect"
+	"time"
 )
 
 //IOHook is an interface provided as a convenience to those who want to override
@@ -92,14 +94,30 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 		if err != nil && err != NO_SUCH_COOKIE {
 			return nil, err
 		}
-		var find_err error
+		var findErr error
 		if sm != nil {
-			session, find_err = sm.Find(id)
-			if find_err != nil {
-				return nil, find_err
+			var sr *SessionReturn
+			log.Printf("XXXXXXXX ABOUT TO FIND %s", id)
+			sr, findErr = sm.Find(id)
+			log.Printf("XXXXXXXX FOUND %+v %v", sr, findErr)
+			if findErr != nil {
+				return nil, findErr
 			}
-			if session == nil && err != NO_SUCH_COOKIE {
+			if sr == nil && err != NO_SUCH_COOKIE {
 				self.CookieMap.RemoveCookie(w)
+			}
+			if sr != nil && sr.UniqueId != "" {
+				//create a new one?
+				ud, genErr := sm.Generate(sr.UniqueId)
+				if genErr != nil {
+					return nil, genErr
+				} else if ud != nil {
+					var assignErr error
+					session, assignErr = sm.Assign(sr.UniqueId, ud, time.Time{})
+					if assignErr != nil {
+						return nil, assignErr
+					}
+				}
 			}
 		}
 	}
