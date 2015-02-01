@@ -66,7 +66,7 @@ func (self *ServeMux) Dispatch(pattern string, dispatcher Dispatcher) {
 		defer func() {
 			if err := recover(); err != nil {
 				fmt.Fprintf(os.Stderr, "++++++++++++ PANIC +++++++++++++++++++\n")
-				buf := make([]byte, 48000)
+				buf := make([]byte, 16384)
 				l := runtime.Stack(buf, false)
 				fmt.Fprintf(os.Stderr, "%s\n", string(buf[:l]))
 				fmt.Fprintf(os.Stderr, "++++++++++++++++++++++++++++++++++++++\n")

@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-var goroutineChannel chan *sessionPacket
-
 const (
 	s5CookiePrefix = "s5" //helps for detecting keys have changed and shuffling attacks
 )
@@ -34,7 +32,7 @@ type Generator interface {
 }
 
 //SessionManager is a type that most applications should not need to implement.  It handles the particular
-//session semantics in connection with the establishment of Oauth sessions and mapping browser cookies
+//session semantics in connection with the establishment of user sessions and mapping browser cookies
 //to sessions.  SessionManager implementations _must_ be safe to be accessed from multiple
 //goroutines.  Because the SessionManager can be accessed a via the pbundle interface, there
 //will be multiple goroutines handling requests that could call through this interface.  The
@@ -42,10 +40,10 @@ type Generator interface {
 //implementors.
 type SessionManager interface {
 	Assign(id string, ud interface{}, expires time.Time) (Session, error)
-	Generate(id string) (interface{}, error)
 	Find(id string) (*SessionReturn, error)
 	Destroy(id string) error
 	Update(Session, interface{}) (Session, error)
+	Generate(string) (interface{}, error)
 }
 
 //Session is the minimal interface to a session.  Most applications should not need to implement this
@@ -119,14 +117,25 @@ func NewSimpleSessionManager(g Generator) *SimpleSessionManager {
 		log.Fatalf("expected SERVER_SESSION_KEY decoded length to be %d, but was %d", aes.BlockSize, l)
 	}
 	key := buf[0:l]
-	if goroutineChannel == nil {
-		goroutineChannel = make(chan *sessionPacket)
-		go handleSessionChecks(goroutineChannel, key)
-	}
-	return &SimpleSessionManager{
-		out:       goroutineChannel,
+
+	result := &SimpleSessionManager{
+		out:       make(chan *sessionPacket),
 		generator: g,
 	}
+	go handleSessionChecks(result.out, key)
+	return result
+}
+
+//NewDumbSessionManager returns a session manager that makes no attempt
+//to conceal the client session id from the client, so this is probably only
+//useful for tests.
+func NewDumbSessionManager() *SimpleSessionManager {
+	result := &SimpleSessionManager{
+		out:       make(chan *sessionPacket),
+		generator: nil,
+	}
+	go handleSessionChecks(result.out, []byte{})
+	return result
 }
 
 //counter is useful for tests
@@ -168,56 +177,81 @@ type SessionReturn struct {
 //process each one.
 func handleSessionChecks(ch chan *sessionPacket, key []byte) {
 	hash := make(map[string]Session)
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		log.Fatalf("unable to get AES cipher: %v", err)
+
+	var err error
+	var block cipher.Block
+
+	if len(key) != 0 {
+		block, err = aes.NewCipher(key)
+		if err != nil {
+			log.Fatalf("unable to get AES cipher: %v", err)
+		}
 	}
 
+	var result *SessionReturn
 	for {
 		pkt := <-ch
 		packetsProcessed++
 
+		result = nil //safety
 		switch pkt.op {
+
 		case _SESSION_OP_DEL:
 			_, ok := hash[pkt.sessionId]
 			if ok {
 				delete(hash, pkt.sessionId)
 			}
-			pkt.ret <- nil
+			result = nil
 		case _SESSION_OP_CREATE:
-			sessionId := computeRawSessionId(pkt.uniqueInfo, pkt.expires)
-			sid := encryptSessionId(sessionId, block)
+			var sid string
+			if block == nil {
+				sid = pkt.uniqueInfo
+			} else {
+				sessionId := computeRawSessionId(pkt.uniqueInfo, pkt.expires)
+				sid = encryptSessionId(sessionId, block)
+			}
 			s := NewSimpleSession(pkt.userData, sid)
 			hash[sid] = s
-			pkt.ret <- &SessionReturn{Session: s}
+			result = &SessionReturn{Session: s}
 		case _SESSION_OP_UPDATE:
 			_, ok := hash[pkt.sessionId]
 			if !ok {
-				pkt.ret <- nil
+				result = nil
 			} else {
 				s := NewSimpleSession(pkt.userData, pkt.sessionId)
-				pkt.ret <- &SessionReturn{Session: s}
+				result = &SessionReturn{Session: s}
 			}
 		case _SESSION_OP_FIND:
 			s, ok := hash[pkt.sessionId]
 			if !ok {
+				if block == nil {
+					//this is the dodgy bit
+					result = &SessionReturn{UniqueId: pkt.sessionId}
+					break
+				}
 				uniq, ok := decryptSessionId(pkt.sessionId, block)
 				if !ok {
-					pkt.ret <- nil
-					continue
+					result = nil
+					break
 				}
-				pkt.ret <- &SessionReturn{UniqueId: uniq}
+				result = &SessionReturn{UniqueId: uniq}
 			} else {
+				if block == nil {
+					result = &SessionReturn{Session: s}
+					break
+				}
 				//expired?
 				_, ok := decryptSessionId(pkt.sessionId, block)
 				if !ok {
 					delete(hash, pkt.sessionId)
-					pkt.ret <- nil
+					result = nil
 				} else {
-					pkt.ret <- &SessionReturn{Session: s}
+					result = &SessionReturn{Session: s}
 				}
 			}
 		}
+		pkt.ret <- result
+
 	}
 }
 

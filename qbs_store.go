@@ -45,6 +45,8 @@ func ParamsToDSN(dbname string, driver string, user string) *qbs.DataSourceName 
 	dsn := &qbs.DataSourceName{}
 	dsn.DbName = dbname
 	dsn.Dialect = StringToDialect(driver)
+	dsn.Host = "localhost"
+	dsn.Port = "5432"
 	dsn.Username = user
 	return dsn
 }
@@ -76,6 +78,7 @@ func GetDSNOrDie() *qbs.DataSourceName {
 	if set {
 		dsn.Password = p
 	}
+
 	dsn.Username = u.User.Username()
 	dsn.Dialect = StringToDialect(u.Scheme)
 	return dsn
@@ -103,11 +106,12 @@ func NewQbsDefaultOrmTransactionPolicy() *QbsDefaultOrmTransactionPolicy {
 
 //StartTransaction returns a new qbs object after creating the transaction.
 func (self *QbsDefaultOrmTransactionPolicy) StartTransaction(q *qbs.Qbs) *qbs.Qbs {
-	q.Log = true
-	//if err := q.Begin(); err != nil {
-	//	log.Printf("error trying to start xaction: q=%#v %T %#v", q.Dialect, err, err)
-	//	panic(err)
-	//}
+	if err := q.Begin(); err != nil {
+		if err.Error() == "EOF" {
+			log.Printf("It's likely there is something listening on your server port that isn't the database you expected.")
+		}
+		panic(err)
+	}
 	return q
 }
 
@@ -118,7 +122,6 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 	if err != nil {
 		switch e := err.(type) {
 		case *Error:
-			log.Printf("got an known error: %+v", e)
 			if e.StatusCode >= 400 {
 				rerr := tx.Rollback()
 				if rerr != nil {
@@ -126,7 +129,6 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 				}
 			}
 		default:
-			log.Printf("got an unknown errer: %+v", e)
 			rerr := tx.Rollback()
 			if rerr != nil {
 				return nil, rerr
@@ -134,9 +136,9 @@ func (self *QbsDefaultOrmTransactionPolicy) HandleResult(tx *qbs.Qbs, value inte
 			return nil, HTTPError(http.StatusInternalServerError, fmt.Sprintf("%v", err))
 		}
 	} else {
-		//if cerr := tx.Commit(); cerr != nil {
-		//	return nil, cerr
-		//}
+		if cerr := tx.Commit(); cerr != nil {
+			return nil, cerr
+		}
 	}
 	return value, err
 }

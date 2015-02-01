@@ -50,7 +50,9 @@ func (self *allowResource) Allow(id int64, method string, pb PBundle) bool {
 }
 
 func TestAllow(t *testing.T) {
-	base := NewBaseDispatcher("myappname", nil)
+	sm := NewDumbSessionManager()
+	cm := NewSimpleCookieMapper("myappname")
+	base := NewBaseDispatcher(sm, cm)
 
 	serveMux := NewServeMux()
 	serveMux.Dispatch("/rest/", base)
