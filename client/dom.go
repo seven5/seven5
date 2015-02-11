@@ -221,6 +221,7 @@ var (
 	VALUE       = newAttrName("value")
 	SIZE        = newAttrName("size")
 	MAXLENGTH   = newAttrName("maxlength")
+	TARGET      = newAttrName("target")
 
 	CHECKED  = newPropName("checked")
 	SELECTED = newPropName("selected")
