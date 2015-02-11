@@ -29,6 +29,7 @@ const (
 	INPUT_EVENT
 	MOUSE_ENTER
 	MOUSE_LEAVE
+	SELECT
 )
 
 func (self EventName) String() string {
@@ -43,6 +44,8 @@ func (self EventName) String() string {
 		return jquery.DBLCLICK
 	case FOCUS:
 		return jquery.FOCUS
+	case SELECT:
+		return jquery.SELECT
 	case FOCUSIN:
 		return jquery.FOCUSIN
 	case FOCUSOUT:
