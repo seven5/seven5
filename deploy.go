@@ -67,6 +67,12 @@ func (self *HerokuDeploy) RedirectHost() string {
 	return fmt.Sprintf(HEROKU_HOST, self.herokuName)
 }
 
+// Url returns the string that points to the application itself.  Note that
+// this will not have a / on the end.
+func (self *HerokuDeploy) Url() string {
+	return "http://" + self.RedirectHost()
+}
+
 //DeploymentEnvironment encodes information that cannot be obtained from the source code but can only
 //be determined from "outside" the application.  This is here to provide a
 //a vague hope of supporting deployments that are not based on environment
