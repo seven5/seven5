@@ -82,7 +82,7 @@ func (self *SimplePasswordHandler) Check(username, pwd string) (Session, error) 
 //
 // Me returns the currently logged in user to the client.
 //
-func (self *SimplePasswordHandler) Me(w http.ResponseWriter, r *http.Request) {
+func (self *SimplePasswordHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
 	w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
 	val, err := self.cm.Value(r)
