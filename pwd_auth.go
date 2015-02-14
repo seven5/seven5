@@ -40,7 +40,7 @@ type ValidatingSessionManager interface {
 	ValidateCredentials(username, password string) (string, interface{}, error)
 	SendUserDetails(i interface{}, w http.ResponseWriter) error
 	GenerateResetRequest(string) (string, error)
-	UseResetRequest(string, string) (bool, error)
+	UseResetRequest(string, string, string) (bool, error)
 }
 
 //SimplePasswordHandler is a utility for handling login-logout and authentication
@@ -122,79 +122,6 @@ func (self *SimplePasswordHandler) Me(w http.ResponseWriter, r *http.Request) {
 	return
 
 }
-
-/*
-func (self *SimplePasswordHandler) PasswordReset(w http.ResponseWriter, r *http.Request,
-	auth SimpleAuthStruct, sessionId string) {
-	q, err := qbs.GetQbs()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer q.Close()
-	var req selma.PasswordResetRequest
-	cond := qbs.NewEqualCondition("user_record", auth.UserUdid).AndEqual("request", auth.ResetRequestUdid)
-	if err := q.Condition(cond).Find(&req); err != nil {
-		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	if _, err := q.Delete(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	var user selma.UserRecord
-	if err := q.WhereEqual("user_udid", auth.UserUdid).Find(&user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	user.Password = auth.Password
-	if _, err := q.Save(&user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("[AUTH] used request %s to reset password for user %s (session is %s)",
-		auth.ResetRequestUdid, user.EmailAddr, sessionId)
-
-	//we are done here
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("{}")) //need to prevent the client-side dying
-
-}
-
-func (self *SimplePasswordSessionManager) pwResetReq(w http.ResponseWriter, r *http.Request, auth selma.SimpleAuthStruct) {
-	q, err := qbs.GetQbs()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer q.Close()
-
-	var user selma.UserRecord
-	if err := q.WhereEqual("email_addr", auth.Username).Find(&user); err != nil {
-		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-	log.Printf("[AUTH] password reset request for %s", user.EmailAddr)
-	_, err = util.NewPasswordReset(&user, time.Now(), s5.UDID(), s5.UDID())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	//we are done here
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("{}")) //need to prevent the client-side dying
-}*/
 
 func (self *SimplePasswordHandler) AuthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
