@@ -333,6 +333,10 @@ func (self *SimpleSessionManager) Destroy(id string) error {
 //confirmed that at some point in the past that sesison existed for this user.
 func (self *SimpleSessionManager) Find(id string) (*SessionReturn, error) {
 
+	if id == "" {
+		log.Printf("[SESSION] likely programming error, called find with id=\"\"")
+		return nil, nil
+	}
 	ch := make(chan *SessionReturn)
 
 	pkt := &sessionPacket{

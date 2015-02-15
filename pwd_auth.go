@@ -18,9 +18,9 @@ const (
 	AUTH_OP_PWD_RESET_REQ = "pwdresetreq"
 )
 
-//SimpleAuthStruct is passed from client to server to request login, login
+//PasswordAuthParameters is passed from client to server to request login, login
 //or to use (consume) a reset request.
-type SimpleAuthStruct struct {
+type PasswordAuthParameters struct {
 	Username         string
 	Password         string
 	ResetRequestUdid string
@@ -139,7 +139,7 @@ func (self *SimplePasswordHandler) AuthHandler(w http.ResponseWriter, r *http.Re
 	//DECODE INPUT FROM CLIENT
 	b := bytes.NewBuffer(buf[:n])
 	dec := json.NewDecoder(b)
-	var auth SimpleAuthStruct
+	var auth PasswordAuthParameters
 	err = dec.Decode(&auth)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -149,9 +149,6 @@ func (self *SimplePasswordHandler) AuthHandler(w http.ResponseWriter, r *http.Re
 	if err != nil && err != NO_SUCH_COOKIE {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-	}
-	if err == nil {
-		log.Printf("[AUTH] user is already logged in with session %v (%s), continuing...", val, auth.Op)
 	}
 
 	//
@@ -175,11 +172,14 @@ func (self *SimplePasswordHandler) AuthHandler(w http.ResponseWriter, r *http.Re
 	//LOGOUT?
 	//
 	if auth.Op == AUTH_OP_LOGOUT {
-		self.cm.RemoveCookie(w)
-		self.vsm.Destroy(val)
-		log.Printf("[AUTH] user with session %s logged out ", val)
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}")) //prevent client side dying
+		if err == NO_SUCH_COOKIE {
+			http.Error(w, "not logged in", http.StatusBadRequest)
+		} else {
+			self.cm.RemoveCookie(w)
+			self.vsm.Destroy(val)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("{}")) //prevent client side dying
+		}
 		return
 	}
 

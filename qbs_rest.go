@@ -141,6 +141,43 @@ func (self *qbsWrapped) Post(value interface{}, pb PBundle) (interface{}, error)
 	})
 }
 
+//AllowWrite is a pass-through the wrapped object's AllowWrite, if present.
+func (self *qbsWrapped) AllowWrite(pb PBundle) bool {
+	allow, ok := self.post.(AllowWriter)
+	if !ok {
+		return true
+	}
+	return allow.AllowWrite(pb)
+}
+
+//AllowRead is a pass-through the wrapped object's AllowRead, if present.
+func (self *qbsWrapped) AllowRead(pb PBundle) bool {
+	allow, ok := self.index.(AllowReader)
+	if !ok {
+		return true
+	}
+	return allow.AllowRead(pb)
+}
+
+//Allow is a pass-through the wrapped object's Allow, if present.
+func (self *qbsWrapped) Allow(id int64, method string, pb PBundle) bool {
+	var obj interface{}
+	switch method {
+	case "GET":
+		obj = self.find
+	case "PUT":
+		obj = self.put
+	case "DELETE":
+		obj = self.del
+	}
+	allow, ok := obj.(Allower)
+	if !ok {
+		return true
+	}
+	return allow.Allow(id, method, pb)
+
+}
+
 //
 // WRAPPED UDID
 //
@@ -194,6 +231,43 @@ func (self *qbsWrappedUdid) Put(id string, value interface{}, pb PBundle) (inter
 	return self.applyPolicy(pb, func(tx *qbs.Qbs) (interface{}, error) {
 		return self.put.PutQbs(id, value, pb, tx)
 	})
+}
+
+//AllowWrite is a pass-through the wrapped object's AllowWrite, if present.
+func (self *qbsWrappedUdid) AllowWrite(pb PBundle) bool {
+	allow, ok := self.post.(AllowWriter)
+	if !ok {
+		return true
+	}
+	return allow.AllowWrite(pb)
+}
+
+//AllowRead is a pass-through the wrapped object's AllowRead, if present.
+func (self *qbsWrappedUdid) AllowRead(pb PBundle) bool {
+	allow, ok := self.index.(AllowReader)
+	if !ok {
+		return true
+	}
+	return allow.AllowRead(pb)
+}
+
+//Allow is a pass-through the wrapped object's Allow, if present.
+func (self *qbsWrappedUdid) Allow(udid string, method string, pb PBundle) bool {
+	var obj interface{}
+	switch method {
+	case "GET":
+		obj = self.find
+	case "PUT":
+		obj = self.put
+	case "DELETE":
+		obj = self.del
+	}
+	allow, ok := obj.(AllowerUdid)
+	if !ok {
+		return true
+	}
+	return allow.Allow(udid, method, pb)
+
 }
 
 //

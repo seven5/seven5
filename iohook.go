@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -97,25 +96,30 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 		var findErr error
 		if sm != nil {
 			var sr *SessionReturn
-			log.Printf("XXXXXXXX ABOUT TO FIND %s", id)
-			sr, findErr = sm.Find(id)
-			log.Printf("XXXXXXXX FOUND %+v %v", sr, findErr)
-			if findErr != nil {
-				return nil, findErr
-			}
-			if sr == nil && err != NO_SUCH_COOKIE {
-				self.CookieMap.RemoveCookie(w)
-			}
-			if sr != nil && sr.UniqueId != "" {
-				//create a new one?
-				ud, genErr := sm.Generate(sr.UniqueId)
-				if genErr != nil {
-					return nil, genErr
-				} else if ud != nil {
-					var assignErr error
-					session, assignErr = sm.Assign(sr.UniqueId, ud, time.Time{})
-					if assignErr != nil {
-						return nil, assignErr
+			if err != NO_SUCH_COOKIE {
+				sr, findErr = sm.Find(id)
+				if findErr != nil {
+					return nil, findErr
+				}
+				if sr == nil {
+					self.CookieMap.RemoveCookie(w)
+				}
+				if sr != nil {
+					if sr.UniqueId != "" {
+						//create a new one?
+						ud, genErr := sm.Generate(sr.UniqueId)
+						if genErr != nil {
+							return nil, genErr
+						} else if ud != nil {
+							var assignErr error
+							session, assignErr = sm.Assign(sr.UniqueId, ud, time.Time{})
+							if assignErr != nil {
+								return nil, assignErr
+							}
+						}
+					} else {
+						//we have a session
+						session = sr.Session
 					}
 				}
 			}

@@ -1,7 +1,5 @@
 package seven5
 
-import ()
-
 //NewBaseDispatcher returns a raw dispatcher that has several defaults set.
 //* The Allow() interfaces are used for authorization checks
 //* The application will keep a single cookie on the browser (that's why the cookie mapper is passed in)
