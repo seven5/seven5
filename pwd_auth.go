@@ -19,7 +19,8 @@ const (
 )
 
 //PasswordAuthParameters is passed from client to server to request login, login
-//or to use (consume) a reset request.
+//or to use (consume) a reset request.  XXX Ugh, this has to be manually copied
+//over to the client side library. XXX
 type PasswordAuthParameters struct {
 	Username         string
 	Password         string
@@ -54,7 +55,7 @@ type SimplePasswordHandler struct {
 //
 // NewSimplePasswordHandler returns a password handler utility object that is
 // associated with the SessionManager provided.  Normally the caller will want
-// to bind /me" to Me(), /login to Login() and /logout to Logout().
+// to bind /me" to MeHandler, /auth to AuthHandler.
 //
 func NewSimplePasswordHandler(vsm ValidatingSessionManager, cm CookieMapper) *SimplePasswordHandler {
 	return &SimplePasswordHandler{
@@ -85,6 +86,7 @@ func (self *SimplePasswordHandler) Check(username, pwd string) (Session, error) 
 func (self *SimplePasswordHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cache-Control", "no-cache, must-revalidate") //HTTP 1.1
 	w.Header().Add("Pragma", "no-cache")                         //HTTP 1.0
+
 	val, err := self.cm.Value(r)
 	if err != nil && err != NO_SUCH_COOKIE {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
