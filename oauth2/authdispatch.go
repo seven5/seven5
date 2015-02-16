@@ -1,4 +1,4 @@
-package seven5
+package oauth2
 
 import (
 	"fmt"
@@ -140,16 +140,18 @@ func (self *AuthDispatcher) Connect(conn OauthConnector, clientTok string, code 
 		http.Redirect(w, r, self.PageMap.ErrorPage(conn, err.Error()), http.StatusTemporaryRedirect)
 		return nil
 	}
-	session, err := self.SessionMgr.Generate(connection, v, r, state, code)
-	if err != nil {
-		error_msg := fmt.Sprintf("failed to create session")
-		http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
-		return nil
-	}
+	/*
+		session, err := self.SessionMgr.Generate(connection, v, r, state, code)
+		if err != nil {
+			error_msg := fmt.Sprintf("failed to create session")
+			http.Redirect(w, r, self.PageMap.ErrorPage(conn, error_msg), http.StatusTemporaryRedirect)
+			return nil
+		}
 
-	if session != nil {
-		self.CookieMap.AssociateCookie(w, session)
-	}
+		if session != nil {
+			self.CookieMap.AssociateCookie(w, session)
+		}
+	*/
 
 	http.Redirect(w, r, self.PageMap.LoginLandingPage(conn, state, code), http.StatusTemporaryRedirect)
 	return nil
@@ -157,43 +159,6 @@ func (self *AuthDispatcher) Connect(conn OauthConnector, clientTok string, code 
 
 func toWebUIPath(s string) string {
 	return fmt.Sprintf("/out%s", s)
-}
-
-func IsUDID(s string) bool {
-	if len(s) != 36 {
-		return false
-	}
-	parts := strings.Split(s, "-")
-	if len(parts) != 5 {
-		return false
-	}
-	for k, v := range map[int]int{0: 8, 1: 4, 2: 4, 3: 4, 4: 12} {
-		if len(parts[k]) != v {
-			return false
-		}
-	}
-	for _, r := range s {
-		switch r {
-		case 'a', 'b', 'c', 'd', 'e', 'f', '-', 'A', 'B', 'C', 'D', 'E', 'F', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		default:
-			return false
-		}
-	}
-	return true
-}
-
-func UDID() string {
-	f, err := os.Open("/dev/urandom")
-	if err != nil {
-		panic(fmt.Sprintf("failed to get /dev/urandom! %s", err))
-	}
-	b := make([]byte, 16)
-	_, err = f.Read(b)
-	if err != nil {
-		panic(fmt.Sprintf("failed to read  16 bytes from /dev/urandom! %s", err))
-	}
-	f.Close()
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
 
 //AuthDispatcherFromBase is a convenience method that creates an auth dispatcher from an already

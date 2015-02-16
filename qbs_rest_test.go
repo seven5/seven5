@@ -202,7 +202,7 @@ func setupDispatcher() (*RawDispatcher, *ServeMux) {
 }
 
 func setupTestStore() *QbsStore {
-	dsn := ParamsToDSN("seven5test", "", "")
+	dsn := GetDSNOrDie()
 	return NewQbsStoreFromDSN(dsn)
 }
 
@@ -216,6 +216,7 @@ func checkNetworkCalls(T *testing.T, portSpec string, serveMux *ServeMux, obj *t
 			T.Fatalf("sanity check at start failed: %d", obj.testCallCount)
 		}
 	}
+	T.Logf("launching serever...%s", portSpec)
 	go func() {
 		http.ListenAndServe(portSpec, serveMux)
 	}()

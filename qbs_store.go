@@ -17,8 +17,8 @@ type QbsStore struct {
 }
 
 // NewQbsStoreFromDSN creates a *QbsStore from a DSN; DSNs can be created
-// directly with ParamsToDSN or from the environment EnvironmentUrlToDSN (via
-// the DATABASE_URL environment var).
+// directly with ParamsToDSN or from the environment with GetDSNOrDie, via
+// the DATABASE_URL environment var.
 func NewQbsStoreFromDSN(dsn *qbs.DataSourceName) *QbsStore {
 	qbs.RegisterWithDataSourceName(dsn)
 	result := &QbsStore{
@@ -45,13 +45,15 @@ func ParamsToDSN(dbname string, driver string, user string) *qbs.DataSourceName 
 	dsn := &qbs.DataSourceName{}
 	dsn.DbName = dbname
 	dsn.Dialect = StringToDialect(driver)
+	dsn.Host = "localhost"
+	dsn.Port = "5432"
 	dsn.Username = user
 	return dsn
 }
 
 //This function returns the datasource name for the DATABASE_URL
 //in the environment. If the value cannot be found, this panics.
-func EnvironmentUrlToDSN() *qbs.DataSourceName {
+func GetDSNOrDie() *qbs.DataSourceName {
 	db := os.Getenv("DATABASE_URL")
 	if db == "" {
 		panic("no DATABASE_URL found, cannot connect to a *QbsStore")
@@ -76,6 +78,7 @@ func EnvironmentUrlToDSN() *qbs.DataSourceName {
 	if set {
 		dsn.Password = p
 	}
+
 	dsn.Username = u.User.Username()
 	dsn.Dialect = StringToDialect(u.Scheme)
 	return dsn
@@ -90,7 +93,7 @@ func StringToDialect(n string) qbs.Dialect {
 	case "sqlite3":
 		return qbs.NewSqlite3()
 	}
-	panic(fmt.Sprintf("unable to deal with db dialact provided %s", n))
+	panic(fmt.Sprintf("unable to deal with db dialect provided %s", n))
 }
 
 //NewQbsDefaultOrmTransactionPolicy returns a new default implementation of policy
@@ -104,6 +107,9 @@ func NewQbsDefaultOrmTransactionPolicy() *QbsDefaultOrmTransactionPolicy {
 //StartTransaction returns a new qbs object after creating the transaction.
 func (self *QbsDefaultOrmTransactionPolicy) StartTransaction(q *qbs.Qbs) *qbs.Qbs {
 	if err := q.Begin(); err != nil {
+		if err.Error() == "EOF" {
+			log.Printf("It's likely there is something listening on your server port that isn't the database you expected.")
+		}
 		panic(err)
 	}
 	return q

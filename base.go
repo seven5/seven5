@@ -1,24 +1,15 @@
 package seven5
 
-import ()
-
 //NewBaseDispatcher returns a raw dispatcher that has several defaults set.
 //* The Allow() interfaces are used for authorization checks
-//* The application will keep a single cookie on the browser (that's why the name is passed in)
-//* The application will keep a session associated with the cookie for each "logged in" user (in memory)
+//* The application will keep a single cookie on the browser (that's why the cookie mapper is passed in)
+//* The application will keep a session associated with the cookie for each "logged in" user (via the SessionManager)
 //* Json is used to encode and decode the wire types
 //* Rest resources dispatched by this object are mapped to /rest in the URL space.
-//You can pass a SessionManager to this method if you want to use your own implementation and this
-//is common for applications that involve users.
-func NewBaseDispatcher(appName string, optionalSm SessionManager) *BaseDispatcher {
-	var sm SessionManager
+//You must pass an already created session manager into this method
+//(see NewSimpleSessionManager(...))
+func NewBaseDispatcher(sm SessionManager, cm CookieMapper) *BaseDispatcher {
 	prefix := "/rest"
-	if optionalSm != nil {
-		sm = optionalSm
-	} else {
-		sm = NewSimpleSessionManager()
-	}
-	cm := NewSimpleCookieMapper(appName)
 	result := &BaseDispatcher{}
 	io := &RawIOHook{&JsonDecoder{}, &JsonEncoder{}, cm}
 	result.RawDispatcher = NewRawDispatcher(io, sm, result, prefix)

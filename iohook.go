@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"time"
 )
 
 //IOHook is an interface provided as a convenience to those who want to override
@@ -92,14 +93,35 @@ func (self *RawIOHook) BundleHook(w http.ResponseWriter, r *http.Request, sm Ses
 		if err != nil && err != NO_SUCH_COOKIE {
 			return nil, err
 		}
-		var find_err error
+		var findErr error
 		if sm != nil {
-			session, find_err = sm.Find(id)
-			if find_err != nil {
-				return nil, find_err
-			}
-			if session == nil && err != NO_SUCH_COOKIE {
-				self.CookieMap.RemoveCookie(w)
+			var sr *SessionReturn
+			if err != NO_SUCH_COOKIE {
+				sr, findErr = sm.Find(id)
+				if findErr != nil {
+					return nil, findErr
+				}
+				if sr == nil {
+					self.CookieMap.RemoveCookie(w)
+				}
+				if sr != nil {
+					if sr.UniqueId != "" {
+						//create a new one?
+						ud, genErr := sm.Generate(sr.UniqueId)
+						if genErr != nil {
+							return nil, genErr
+						} else if ud != nil {
+							var assignErr error
+							session, assignErr = sm.Assign(sr.UniqueId, ud, time.Time{})
+							if assignErr != nil {
+								return nil, assignErr
+							}
+						}
+					} else {
+						//we have a session
+						session = sr.Session
+					}
+				}
 			}
 		}
 	}
