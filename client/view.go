@@ -18,6 +18,7 @@ type ViewImpl struct {
 	text     string
 	builders []builder
 	event    []*eventHandler
+	ndom     NarrowDom
 }
 
 type option func(*ViewImpl) *ViewImpl
@@ -146,15 +147,28 @@ func ParseHtml(t string) NarrowDom {
 	if TestMode {
 		nDom = newTestOps()
 	} else {
-		nDom = wrap(jquery.NewJQuery(parsed[0]))
+		if len(parsed) > 1 {
+			div := jquery.NewJQuery(jquery.ParseHTML("<div/>"))
+			div.Append(parsed...)
+			return wrap(div)
+		} else {
+			nDom = wrap(jquery.NewJQuery(parsed[0]))
+		}
 	}
 	return nDom
 }
 
+// Build converts a tree of *ViewImpls to a NarrowDom tree.
 func (p *ViewImpl) Build() NarrowDom {
 	id := ""
 	classes := ""
 	styles := ""
+
+	//short circuit all this building if the node is already built
+	if p.ndom != nil {
+		return p.ndom
+	}
+
 	if p.id != "" {
 		id = fmt.Sprintf(" id='%s'", p.id)
 	}
@@ -195,6 +209,17 @@ func (p *ViewImpl) Build() NarrowDom {
 		}
 	}
 	return nDom
+}
+
+//HtmlConstant is a wrapper for creating an entire subtree from HTML text.  It makes
+//no attempt to guarantee that the provided text is safe or sensible or
+//anything.  This takes a constant not an attribute because it's not clear that
+//we can meaningfully do anything other than just add the HTML provided as text
+//to the DOM.
+func HtmlConstant(s string) *ViewImpl {
+	return &ViewImpl{
+		ndom: ParseHtml(s),
+	}
 }
 
 func IMG(obj ...interface{}) *ViewImpl {
@@ -287,7 +312,18 @@ func PRE(obj ...interface{}) *ViewImpl {
 func OPTION(obj ...interface{}) *ViewImpl {
 	return tag("option", obj...)
 }
-
+func TABLE(obj ...interface{}) *ViewImpl {
+	return tag("table", obj...)
+}
+func TR(obj ...interface{}) *ViewImpl {
+	return tag("tr", obj...)
+}
+func TD(obj ...interface{}) *ViewImpl {
+	return tag("td", obj...)
+}
+func TH(obj ...interface{}) *ViewImpl {
+	return tag("th", obj...)
+}
 func tag(tagName string, obj ...interface{}) *ViewImpl {
 	p := &ViewImpl{tag: tagName}
 

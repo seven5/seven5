@@ -12,9 +12,169 @@ import (
 	"github.com/gopherjs/jquery"
 )
 
-type FailureFunc func(int, string)
-type SuccessNewFunc func(interface{})
-type SuccessPutFunc func(js.Object)
+// AjaxError is returned on the error channel after a call to an Ajax method.
+type AjaxError struct {
+	StatusCode int
+	Message    string
+}
+
+//AjaxPut behaves indentically to AjaxPost other than using the method PUT.
+func AjaxPut(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
+	return putOrPost(ptrToStruct, path, "PUT")
+}
+
+//AjaxPost sends an instance of a wire type to the server.  The first argument
+//should be a wire type and must be a pointer to a struct or this function
+//will panic. The value sent to the server is supplied in the first argument.
+//The two returned values are a content channel and an error channel.  If the
+//call succeeds, the content channel will be sent a different instance of the
+//same type as the first argument. If the result from the server cannot be understood
+//as the type of the first argument, the special error code 418 will be sent
+//on the error channel.  If we fail to encode the object to be sent, the error
+//code 420 will be sent on the error channel and no call to the server is made.
+func AjaxPost(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
+	return putOrPost(ptrToStruct, path, "POST")
+}
+
+//AjaxIndex retreives a collection of wire types from the server.
+//If the first argument is not a pointer to a slice of pointer to struct,
+//it will panic.  The first element should be a slice of wire types.
+//The returned values are a content channel and an error channel.  The content
+//channel will receive the same type as your first argument if anything.  The error
+//channel is used for non-200 http responses and the special error code 418
+//is used to indicate that the received json from the server could not be successfully
+//parsed as the type of the first argument.
+func AjaxIndex(ptrToSliceOfPtrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
+	isPointerToSliceOfPointerToStructOrPanic(ptrToSliceOfPtrToStruct)
+	contentCh := make(chan interface{})
+	errCh := make(chan AjaxError)
+	ajaxRawChannels(ptrToSliceOfPtrToStruct, "", contentCh, errCh, "GET", path)
+	return contentCh, errCh
+}
+
+//AjaxGet retreives an instance of a wire type from the server and decodes the result as
+//Json. If the first argument is not a pointer to a struct, it will panic.
+//The first argument should be a wire type that you expect to receive in the success
+//case.  The returned values are a content channel and an error channel.  The content
+//channel will receive the same type as your first argument if anything.  The error
+//channel is used for non-200 http responses and the special error code 418
+//is used to indicate that the received json from the server could not be successfully
+//parsed as the type of the first argument.
+func AjaxGet(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
+	isPointerToStructOrPanic(ptrToStruct)
+	contentCh := make(chan interface{})
+	errCh := make(chan AjaxError)
+	ajaxRawChannels(ptrToStruct, "", contentCh, errCh, "GET", path)
+	return contentCh, errCh
+}
+
+func ajaxRawChannels(output interface{}, body string, contentChan chan interface{}, errChan chan AjaxError,
+	method string, path string) error {
+
+	m := map[string]interface{}{
+		"contentType": "application/json",
+		"dataType":    "text",
+		"type":        method,
+		"url":         path,
+		"cache":       false,
+	}
+	if body != "" {
+		m["data"] = body
+	}
+
+	jquery.Ajax(m).
+		Then(func(valueCreated *js.Object) {
+		rd := strings.NewReader(valueCreated.String())
+		dec := json.NewDecoder(rd)
+		if err := dec.Decode(output); err != nil {
+			go func() {
+				errChan <- AjaxError{418, err.Error()}
+			}()
+			return
+		}
+		go func() {
+			contentChan <- output
+		}()
+	}).
+		Fail(func(p1 *js.Object) {
+		go func() {
+			errChan <- AjaxError{p1.Get("status").Int(), p1.Get("responseText").String()}
+		}()
+	})
+
+	return nil
+}
+
+//
+// HELPERS
+//
+
+func typeToUrlName(i interface{}) string {
+	name, ok := i.(string)
+	if !ok {
+		name = fmt.Sprintf("%T", i)
+	}
+	pair := strings.Split(name, ".")
+	if len(pair) != 2 {
+		panic(fmt.Sprintf("unable to understand type name: %s", name))
+	}
+	return strings.ToLower(pair[1])
+}
+
+func encodeBody(i interface{}) (string, error) {
+	//encode body
+	var w bytes.Buffer
+	enc := json.NewEncoder(&w)
+	err := enc.Encode(i)
+	if err != nil {
+		return "", fmt.Errorf("error encoding body: %v ", err)
+	}
+	return w.String(), nil
+}
+
+func isPointerToStructOrPanic(i interface{}) reflect.Type {
+	t := reflect.TypeOf(i)
+	if t.Kind() != reflect.Ptr {
+		panic(fmt.Sprintf("expected ptr to struct but got %T", i))
+	}
+	if t.Elem().Kind() != reflect.Struct {
+		panic(fmt.Sprintf("expected ptr to struct but got ptr to %v", t.Elem().Kind()))
+	}
+	return t
+}
+
+func isPointerToSliceOfPointerToStructOrPanic(i interface{}) reflect.Type {
+	t := reflect.TypeOf(i)
+	if t.Kind() != reflect.Ptr {
+		panic(fmt.Sprintf("expected ptr to slice of ptr to struct but got %T", i))
+	}
+	if t.Elem().Kind() != reflect.Slice {
+		panic(fmt.Sprintf("expected ptr to SLICE of ptr to struct but got ptr to %v", t.Elem().Kind()))
+	}
+	if t.Elem().Elem().Kind() != reflect.Ptr {
+		panic(fmt.Sprintf("expected ptr to slice of PTR to struct but got ptr to slice of %v", t.Elem().Elem().Kind()))
+	}
+	if t.Elem().Elem().Elem().Kind() != reflect.Struct {
+		panic(fmt.Sprintf("expected ptr to slice of ptr to STRUCT but got ptr to slice of ptr to %v", t.Elem().Elem().Elem().Kind()))
+	}
+	return t
+}
+
+func putOrPost(ptrToStruct interface{}, path string, method string) (chan interface{}, chan AjaxError) {
+	t := isPointerToStructOrPanic(ptrToStruct)
+	output := reflect.New(t.Elem())
+	contentCh := make(chan interface{})
+	errCh := make(chan AjaxError)
+	body, err := encodeBody(ptrToStruct)
+	if err != nil {
+		go func() {
+			errCh <- AjaxError{420, err.Error()}
+		}()
+	} else {
+		ajaxRawChannels(output.Interface(), body, contentCh, errCh, method, path)
+	}
+	return contentCh, errCh
+}
 
 func getFieldName(f reflect.StructField) string {
 	name := f.Tag.Get("json")
@@ -36,7 +196,16 @@ func getFieldName(f reflect.StructField) string {
 	}
 	return f.Name
 }
-func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
+
+//
+// DEPRECATED
+//
+
+//UnpackJson has been deprecated in favor of the Ajax methods.  This method
+//is a naive json unpacker that uses reflection on the go struct to convert
+//javascript values.  It cannot handle arbitrary types of fields, cannot handle
+//nested structures, nor can it handle the UnmarshalJson interface.
+func UnpackJson(ptrToStruct interface{}, jsonBlob *js.Object) error {
 	t := reflect.TypeOf(ptrToStruct)
 	if t.Kind() != reflect.Ptr {
 		return fmt.Errorf("expected pointer to struct, but got %v", t.Kind())
@@ -84,105 +253,5 @@ func UnpackJson(ptrToStruct interface{}, jsonBlob js.Object) error {
 			//print("warning: %s", fn, " has a type other than int64, string, float64 or bool")
 		}
 	}
-	return nil
-}
-
-//PutExisting sends a new version of the object given by id to the server.
-//It returns an error only if the put could not be started, otherwise success
-//or failure are communicated throught the callback functions.  The root should
-//be the root of the rest heirarchy, probably "/rest".  The id is not examined
-//by this routine, it can be the string representation of an integer or a UDID.
-func PutExisting(i interface{}, root string, id string,
-	success SuccessPutFunc, failure FailureFunc) error {
-	var w bytes.Buffer
-	enc := json.NewEncoder(&w)
-	err := enc.Encode(i)
-	if err != nil {
-		return fmt.Errorf("error encoding put msg: %v ", err)
-	}
-
-	urlname := typeToUrlName(i)
-	jquery.Ajax(
-		map[string]interface{}{
-			"contentType": "application/json",
-			"dataType":    "json",
-			"type":        "PUT",
-			"url":         fmt.Sprintf("%s/%s/%s", root, urlname, id),
-			"data":        w.String(),
-			"cache":       false,
-		}).
-		Then(func(v js.Object) {
-		success(v)
-	}).
-		Fail(func(p1 js.Object) {
-		if failure != nil {
-			failure(p1.Get("status").Int(), p1.Get("responseText").String())
-		}
-	})
-
-	return nil
-}
-func typeToUrlName(i interface{}) string {
-	name := fmt.Sprintf("%T", i)
-	pair := strings.Split(name, ".")
-	if len(pair) != 2 {
-		panic(fmt.Sprintf("unable to understand type name: %s", name))
-	}
-	return strings.ToLower(pair[1])
-}
-
-//PostNew sends an instance of a wire type to the server.  It returns an error
-//only if the Post could not be sent.  The success or failure are indications are
-//communicated through the callback functions.  If it was a success, the object
-//that was passed in (ptr to struct) will be cloned and the new value actually
-//created supplied to the success function.  In the unlikely event we fail
-//to decode the result from the server, we call the fail func with 406
-//and the error.
-func PostNew(ptrToStruct interface{}, root string, success SuccessNewFunc, failure FailureFunc) error {
-
-	t := reflect.TypeOf(ptrToStruct)
-	if t.Kind() != reflect.Ptr {
-		panic(fmt.Sprintf("expected ptr to struct but got %T", ptrToStruct))
-	}
-	if t.Elem().Kind() != reflect.Struct {
-		panic(fmt.Sprintf("expected ptr to struct but got ptr to %T", t.Elem().Kind()))
-	}
-
-	var w bytes.Buffer
-	enc := json.NewEncoder(&w)
-	err := enc.Encode(ptrToStruct)
-	if err != nil {
-		return fmt.Errorf("error encoding post msg: %v ", err)
-	}
-	urlname := typeToUrlName(ptrToStruct)
-	print("serialized", w.String(), urlname)
-	jquery.Ajax(
-		map[string]interface{}{
-			"contentType": "application/json",
-			"dataType":    "text",
-			"type":        "POST",
-			"url":         fmt.Sprintf("%s/%s", root, urlname),
-			"data":        w.String(),
-			"cache":       false,
-		}).
-		Then(func(valueCreated js.Object) {
-		if success != nil {
-			output := reflect.New(t.Elem())
-			rd := strings.NewReader(valueCreated.String())
-			dec := json.NewDecoder(rd)
-			i := output.Interface()
-			if err := dec.Decode(i); err != nil {
-				failure(406, err.Error())
-				return
-			}
-			success(i)
-		}
-	}).
-		Fail(func(p1 js.Object) {
-		if failure != nil {
-			failure(p1.Get("status").Int(), p1.Get("responseText").String())
-		}
-	})
-
 	return nil
 }

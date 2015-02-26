@@ -51,7 +51,7 @@ func (s *SimpleStaticFilesServer) gopath(w http.ResponseWriter, r *http.Request,
 		if err != nil {
 			continue
 		}
-		log.Printf("serving gopath content  %s: /%v", gopath, desired)
+		log.Printf("[GOPATH CONTENT] %s", filepath.Join(gopath, desired))
 		http.ServeFile(w, r, filepath.Join(gopath, desired))
 		return
 	}

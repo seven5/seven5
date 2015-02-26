@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -40,7 +41,7 @@ func (self *HerokuDeploy) GetQbsStore() *QbsStore {
 //IsTest returns true if the environment variable localname_TEST is set to
 //a value that's not "".
 func (self *HerokuDeploy) IsTest() bool {
-	t := os.Getenv(self.appName + "_TEST")
+	t := os.Getenv(strings.ToUpper(self.appName) + "_TEST")
 	return t != ""
 }
 

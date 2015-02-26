@@ -3,6 +3,7 @@ package seven5
 import (
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -17,6 +18,7 @@ type PBundle interface {
 	DestroySession() error
 	ParentValue(interface{}) interface{}
 	SetParentValue(reflect.Type, interface{})
+	IntQueryParameter(string, int64) int64
 }
 
 type simplePBundle struct {
@@ -99,6 +101,21 @@ func (self *simplePBundle) ParentValue(wire interface{}) interface{} {
 //use, the call takes the _type_ of the client wire type, not an example of it.
 func (self *simplePBundle) SetParentValue(t reflect.Type, value interface{}) {
 	self.parent[t] = value
+}
+
+//IntQueryParameter returns the value of the query parameter name with a
+//default value of def.  The default value is used if either the parameter
+//is not present, or cannot be parsed as an int.
+func (self *simplePBundle) IntQueryParameter(name string, def int64) int64 {
+	raw, ok := self.Query(name)
+	if !ok {
+		return def
+	}
+	i, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return def
+	}
+	return i
 }
 
 //NewSimplePBundle needs to hold a reference to the session manager as well
