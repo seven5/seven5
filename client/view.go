@@ -287,7 +287,18 @@ func PRE(obj ...interface{}) *ViewImpl {
 func OPTION(obj ...interface{}) *ViewImpl {
 	return tag("option", obj...)
 }
-
+func TABLE(obj ...interface{}) *ViewImpl {
+	return tag("table", obj...)
+}
+func TR(obj ...interface{}) *ViewImpl {
+	return tag("tr", obj...)
+}
+func TD(obj ...interface{}) *ViewImpl {
+	return tag("td", obj...)
+}
+func TH(obj ...interface{}) *ViewImpl {
+	return tag("th", obj...)
+}
 func tag(tagName string, obj ...interface{}) *ViewImpl {
 	p := &ViewImpl{tag: tagName}
 
