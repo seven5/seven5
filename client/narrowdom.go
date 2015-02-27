@@ -46,7 +46,7 @@ func wrap(j jquery.JQuery) NarrowDom {
 //broken in some way as it subverts the typing and goes down into
 //the implementation.  It's always better to fix the NarrowDom to have
 //the feature, if possible.
-func WrapJQuery(j query.JQuery) NarrowDom {
+func WrapJQuery(j jquery.JQuery) NarrowDom {
 	return wrap(j)
 }
 
