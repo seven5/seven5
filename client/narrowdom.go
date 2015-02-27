@@ -43,8 +43,9 @@ func wrap(j jquery.JQuery) NarrowDom {
 
 //Wrap takes a Jquery object and converts it to a NarrowDom instance.  The
 //use of this function usually indicates that the NarrowDom interface is
-//broken in some way as it really subverts the typing and goes down into
-//the implementation.
+//broken in some way as it subverts the typing and goes down into
+//the implementation.  It's always better to fix the NarrowDom to have
+//the feature, if possible.
 func WrapJQuery(j query.JQuery) NarrowDom {
 	return wrap(j)
 }
