@@ -36,8 +36,17 @@ type jqueryWrapper struct {
 	jq jquery.JQuery
 }
 
+//this is the private interface
 func wrap(j jquery.JQuery) NarrowDom {
 	return jqueryWrapper{j}
+}
+
+//Wrap takes a Jquery object and converts it to a NarrowDom instance.  The
+//use of this function usually indicates that the NarrowDom interface is
+//broken in some way as it really subverts the typing and goes down into
+//the implementation.
+func WrapJQuery(j query.JQuery) NarrowDom {
+	return wrap(j)
 }
 
 type testOpsImpl struct {
