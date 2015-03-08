@@ -171,17 +171,20 @@ func putPostDel(ptrToStruct interface{}, path string, method string, sendBody bo
 	t := isPointerToStructOrPanic(ptrToStruct)
 	output := reflect.New(t.Elem())
 	var body string
+
+	contentCh := make(chan interface{})
+	errCh := make(chan AjaxError)
+
 	if sendBody {
-		body, err := encodeBody(ptrToStruct)
+		var err error
+		body, err = encodeBody(ptrToStruct)
 		if err != nil {
 			go func() {
 				errCh <- AjaxError{420, err.Error()}
 			}()
-			return
+			return contentCh, errCh
 		}
 	}
-	contentCh := make(chan interface{})
-	errCh := make(chan AjaxError)
 	ajaxRawChannels(output.Interface(), body, contentCh, errCh, method, path)
 	return contentCh, errCh
 }
