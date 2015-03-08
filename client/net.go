@@ -20,7 +20,14 @@ type AjaxError struct {
 
 //AjaxPut behaves indentically to AjaxPost other than using the method PUT.
 func AjaxPut(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
-	return putOrPost(ptrToStruct, path, "PUT")
+	return putPostDel(ptrToStruct, path, "PUT", true)
+}
+
+//AjaxDelete behaves indentically to AjaxPost other than using the method DELETE
+//and not sending the object to be deleted's contents, just its id. First parameter
+//here is just for the type.
+func AjaxDelete(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
+	return putPostDel(ptrToStruct, path, "DELETE", false)
 }
 
 //AjaxPost sends an instance of a wire type to the server.  The first argument
@@ -33,7 +40,7 @@ func AjaxPut(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxE
 //on the error channel.  If we fail to encode the object to be sent, the error
 //code 420 will be sent on the error channel and no call to the server is made.
 func AjaxPost(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
-	return putOrPost(ptrToStruct, path, "POST")
+	return putPostDel(ptrToStruct, path, "POST", true)
 }
 
 //AjaxIndex retreives a collection of wire types from the server.
@@ -160,19 +167,22 @@ func isPointerToSliceOfPointerToStructOrPanic(i interface{}) reflect.Type {
 	return t
 }
 
-func putOrPost(ptrToStruct interface{}, path string, method string) (chan interface{}, chan AjaxError) {
+func putPostDel(ptrToStruct interface{}, path string, method string, sendBody bool) (chan interface{}, chan AjaxError) {
 	t := isPointerToStructOrPanic(ptrToStruct)
 	output := reflect.New(t.Elem())
+	var body string
+	if sendBody {
+		body, err := encodeBody(ptrToStruct)
+		if err != nil {
+			go func() {
+				errCh <- AjaxError{420, err.Error()}
+			}()
+			return
+		}
+	}
 	contentCh := make(chan interface{})
 	errCh := make(chan AjaxError)
-	body, err := encodeBody(ptrToStruct)
-	if err != nil {
-		go func() {
-			errCh <- AjaxError{420, err.Error()}
-		}()
-	} else {
-		ajaxRawChannels(output.Interface(), body, contentCh, errCh, method, path)
-	}
+	ajaxRawChannels(output.Interface(), body, contentCh, errCh, method, path)
 	return contentCh, errCh
 }
 
