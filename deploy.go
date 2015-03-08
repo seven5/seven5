@@ -90,9 +90,4 @@ type DeploymentEnvironment interface {
 	//RedirectHost is needed in cases where you are using oauth because this must sent to the
 	//"other side" of the handshake without any extra knowlege.
 	RedirectHost() string
-	//GetAppValue returns a value from the environment.
-	GetAppValue(string) string
-	//MustAppValue is the same as GetAppValue but the result must be a non ""
-	//or the code panics
-	MustAppValue(string) string
 }

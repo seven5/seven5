@@ -66,6 +66,7 @@ func (self *ServeMux) Dispatch(pattern string, dispatcher Dispatcher) {
 		defer func() {
 			if err := recover(); err != nil {
 				fmt.Fprintf(os.Stderr, "++++++++++++ PANIC +++++++++++++++++++\n")
+				fmt.Fprintf(os.Stderr, "++++++++++++ ORIGINAL ERROR: %v ++++++++++++n", err)
 				buf := make([]byte, 16384)
 				l := runtime.Stack(buf, false)
 				fmt.Fprintf(os.Stderr, "%s\n", string(buf[:l]))
@@ -74,7 +75,7 @@ func (self *ServeMux) Dispatch(pattern string, dispatcher Dispatcher) {
 				if self.err != nil {
 					self.err.PanicDispatch(err, w, r)
 				} else {
-					fmt.Fprintf(os.Stderr, "re-panic: %s\n", err)
+					fmt.Fprintf(os.Stderr, "++++++++++++ FORCING ANOTHER PANIC: %v ++++++++++++\n", err)
 					panic(err)
 				}
 			}
