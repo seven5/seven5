@@ -81,7 +81,7 @@ func (s *SimpleStaticFilesServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 }
 
 type StaticComponent interface {
-	Page(Session, []string, bool) ComponentResult
+	Page(PBundle, []string, bool) ComponentResult
 	//part of the fixed URL space, not including preceding slash
 	UrlPrefix() string
 }
@@ -95,10 +95,14 @@ type ComponentResult struct {
 	Path             string //only used if 200
 }
 
+//ComponentMatcher takes a requested URL and converts it to a static filename.
+//Because the semantics of the transformation may involve things other than
+//URL path (such as current session), Match is called with the fully constructed
+//PBundle.
 type ComponentMatcher interface {
 	http.Handler
 	FormFilepath(lang, ui, path string) string
-	Match(session Session, path string) ComponentResult
+	Match(pb PBundle, path string) ComponentResult
 }
 
 type SimpleComponentMatcher struct {
@@ -150,7 +154,7 @@ func (c *SimpleComponentMatcher) isKnownLang(l string) bool {
 // RULE: not supply a language/ui, then none is displayed to the user by
 // RULE: virtue of not being present in the returned result from this call.
 //
-func (c *SimpleComponentMatcher) Match(session Session, path string) ComponentResult {
+func (c *SimpleComponentMatcher) Match(pb PBundle, path string) ComponentResult {
 
 	parts := strings.Split(path, "/")
 	slashTerminated := strings.HasSuffix(path, "/")
@@ -203,11 +207,6 @@ outer:
 
 		//more than two parts
 		soFar = "/" + filepath.Join(parts[0], parts[1])
-	} else {
-		//not a known lang, pick a default lang and mode
-		//XXX should be doing this based on browser language setting
-		//XXX should be doing this based on mobile browser or not
-		soFar = "/en/web"
 	}
 
 	//soFar and dispatchable have been set already, we can start
@@ -218,13 +217,13 @@ processing:
 		//we have at least one more component
 		for _, component := range c.comp {
 			if component.UrlPrefix() == dispatchable[0] {
-				r := component.Page(session, dispatchable[1:], slashTerminated)
+				r := component.Page(pb, dispatchable[1:], slashTerminated)
 				switch r.Status {
 				case 0:
 					//nothing to do want to skip this processing and just
 					//ignore this part
 				case CONTINUE:
-					soFar = filepath.Join(soFar, r.ContinueAt)
+					soFar = "/" + filepath.Join(soFar, r.ContinueAt)
 					dispatchable = dispatchable[r.ContinueConsumed:]
 					continue processing
 				case http.StatusOK:
@@ -240,6 +239,9 @@ processing:
 		}
 
 		//nobody wants it in the dispatching position, so just try to fetch it
+		if soFar == "" {
+			soFar = "/"
+		}
 		fetchable := filepath.Join(soFar, filepath.Join(dispatchable...))
 		if slashTerminated {
 			fetchable = fetchable + "/index.html"
@@ -295,7 +297,14 @@ func (self *SimpleComponentMatcher) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 
 	//session, if there is one, is assigned here to the correct session
-	result := self.Match(session, r.URL.Path)
+	pbundle, err := NewSimplePBundle(r, session, self.sm)
+	if err != nil {
+		log.Printf("[SERVE] error trying to create parameter bundle (%s): %v", r.URL.Path, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	result := self.Match(pbundle, r.URL.Path)
 	if result.Status != http.StatusOK {
 		if result.Status == http.StatusMovedPermanently {
 			http.Redirect(w, r, result.Redir, result.Status)

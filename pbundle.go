@@ -147,3 +147,19 @@ func ToSimpleMap(m map[string][]string) map[string]string {
 	}
 	return result
 }
+
+//NewTestPBundle makes a Pbundle from the given constants.  Note that you
+//can supply a session manager of nil and the consumer of this object doesn't
+//try to update the current session, this is ok.
+func NewTestPBundle(headers map[string]string, query map[string]string, session Session,
+	mgr SessionManager, output map[string]string, parent map[reflect.Type]interface{}) PBundle {
+
+	return &simplePBundle{
+		h:      headers,
+		q:      query,
+		s:      session,
+		mgr:    mgr,
+		out:    output,
+		parent: parent,
+	}
+}
