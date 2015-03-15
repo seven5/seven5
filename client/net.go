@@ -66,7 +66,8 @@ func AjaxIndex(ptrToSliceOfPtrToStruct interface{}, path string) (chan interface
 //channel will receive the same type as your first argument if anything.  The error
 //channel is used for non-200 http responses and the special error code 418
 //is used to indicate that the received json from the server could not be successfully
-//parsed as the type of the first argument.
+//parsed as the type of the first argument.  The error code 0 indicates that the
+//server could not be contacted at all.
 func AjaxGet(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxError) {
 	isPointerToStructOrPanic(ptrToStruct)
 	contentCh := make(chan interface{})
