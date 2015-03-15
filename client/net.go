@@ -105,7 +105,12 @@ func ajaxRawChannels(output interface{}, body string, contentChan chan interface
 	}).
 		Fail(func(p1 *js.Object) {
 		go func() {
-			errChan <- AjaxError{p1.Get("status").Int(), p1.Get("responseText").String()}
+			ajaxerr := AjaxError{p1.Get("status").Int(), p1.Get("responseText").String()}
+			if p1.Get("status").Int() == 0 {
+				ajaxerr.StatusCode = 0
+				ajaxerr.Message = "Server not reachable"
+			}
+			errChan <- ajaxerr
 		}()
 	})
 
