@@ -89,8 +89,11 @@ func NewHtmlId(tag, id string) HtmlId {
 		}
 	}
 	jq := jquery.NewJQuery(tag + "#" + id)
-	if jq.Length != 1 {
-		panic(fmt.Sprintf("probably your HTML and your code are out of sync: %s", tag+"#"+id))
+	if jq.Length == 0 {
+		panic(fmt.Sprintf("probably your HTML and your code are out of sync: %s not found", tag+"#"+id))
+	}
+	if jq.Length > 1 {
+		panic(fmt.Sprintf("probably your HTML and your code are out of sync: %s not unique", tag+"#"+id))
 	}
 	return htmlIdImpl{
 		tag:   tag,
