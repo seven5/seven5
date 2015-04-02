@@ -476,13 +476,13 @@ func (self *SimpleComponentMatcher) ServeHTTP(w http.ResponseWriter, r *http.Req
 		if rtn != nil {
 			//we got a return value, is it just unique id?
 			if rtn.Session == nil {
-				user, err := self.sm.Generate(rtn.UniqueId)
+				sd, err := self.sm.Generate(rtn.UniqueId)
 				if err != nil {
 					log.Printf("[SERVE] error trying to reconstruct session (%s): %v", r.URL.Path, err)
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
-				session, err = self.sm.Assign(rtn.UniqueId, user, time.Time{})
+				session, err = self.sm.Assign(rtn.UniqueId, sd, time.Time{})
 				if err != nil {
 					log.Printf("[SERVE] error trying to assign session (%s): %v", r.URL.Path, err)
 					w.WriteHeader(http.StatusInternalServerError)
@@ -506,8 +506,10 @@ func (self *SimpleComponentMatcher) ServeHTTP(w http.ResponseWriter, r *http.Req
 	result := self.Match(pbundle, r.URL.Path)
 	if result.Status != http.StatusOK {
 		if result.Status == http.StatusMovedPermanently {
+			log.Printf("[REDIR] %+v -> %v", r.URL, result.Redir)
 			http.Redirect(w, r, result.Redir, result.Status)
 		} else {
+			log.Printf("[ERROR] %+v -> %d %v", r.URL, result.Status, result.Message)
 			http.Error(w, result.Message, result.Status)
 		}
 	} else {

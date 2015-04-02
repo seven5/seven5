@@ -157,7 +157,7 @@ func (self *SimplePasswordHandler) AuthHandler(w http.ResponseWriter, r *http.Re
 	//PW RESET REQ? (Can be done without being logged in)
 	//
 	if auth.Op == AUTH_OP_PWD_RESET_REQ {
-		resetUdid, err := self.vsm.GenerateResetRequest(auth.UserUdid)
+		resetUdid, err := self.vsm.GenerateResetRequest(auth.Username)
 		if err != nil {
 			WriteError(w, err)
 			log.Printf("[AUTH] error returned from GenerateResetRequest %v", err)

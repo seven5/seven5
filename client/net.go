@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/jquery"
@@ -214,63 +213,4 @@ func getFieldName(f reflect.StructField) string {
 		return jsonPreferred
 	}
 	return f.Name
-}
-
-//
-// DEPRECATED
-//
-
-//UnpackJson has been deprecated in favor of the Ajax methods.  This method
-//is a naive json unpacker that uses reflection on the go struct to convert
-//javascript values.  It cannot handle arbitrary types of fields, cannot handle
-//nested structures, nor can it handle the UnmarshalJson interface.
-func UnpackJson(ptrToStruct interface{}, jsonBlob *js.Object) error {
-	t := reflect.TypeOf(ptrToStruct)
-	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("expected pointer to struct, but got %v", t.Kind())
-	}
-	elem := t.Elem()
-	if elem.Kind() != reflect.Struct {
-		return fmt.Errorf("expected pointer to struct, but got pointer to  %v", elem.Kind())
-	}
-	v := reflect.ValueOf(ptrToStruct)
-	v = v.Elem()
-	for i := 0; i < elem.NumField(); i++ {
-		f := v.Field(i)
-		fn := getFieldName(elem.Field(i))
-		if fn == "-" || jsonBlob.Get(fn) == js.Undefined || jsonBlob.Get(fn) == nil {
-			continue
-		}
-
-		//
-		// Time is really useful
-		//
-		if f.Type().Name() == "Time" && f.Type().PkgPath() == "time" {
-			str := jsonBlob.Get(fn).String()
-			//2015-01-17T17:48:30.346218Z
-			//2006-01-02T15:04:05.999999999Z
-			t, err := time.Parse(time.RFC3339Nano, str)
-			if err != nil {
-				print("warning: could not convert string", str, ":", err)
-			} else {
-				f.Set(reflect.ValueOf(t))
-			}
-			continue
-		}
-		switch f.Type().Kind() {
-		case reflect.Int64:
-			f.SetInt(jsonBlob.Get(fn).Int64())
-		case reflect.Int:
-			f.SetInt(int64(jsonBlob.Get(fn).Int()))
-		case reflect.String:
-			f.SetString(jsonBlob.Get(fn).String())
-		case reflect.Float64:
-			f.SetFloat(jsonBlob.Get(fn).Float())
-		case reflect.Bool:
-			f.SetBool(jsonBlob.Get(fn).Bool())
-		default:
-			//print("warning: %s", fn, " has a type other than int64, string, float64 or bool")
-		}
-	}
-	return nil
 }
