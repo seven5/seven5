@@ -54,7 +54,7 @@ func AjaxIndex(ptrToSliceOfPtrToStruct interface{}, path string) (chan interface
 	isPointerToSliceOfPointerToStructOrPanic(ptrToSliceOfPtrToStruct)
 	contentCh := make(chan interface{})
 	errCh := make(chan AjaxError)
-	ajaxRawChannels(ptrToSliceOfPtrToStruct, "", contentCh, errCh, "GET", path)
+	AjaxRawChannels(ptrToSliceOfPtrToStruct, "", contentCh, errCh, "GET", path, nil)
 	return contentCh, errCh
 }
 
@@ -71,12 +71,14 @@ func AjaxGet(ptrToStruct interface{}, path string) (chan interface{}, chan AjaxE
 	isPointerToStructOrPanic(ptrToStruct)
 	contentCh := make(chan interface{})
 	errCh := make(chan AjaxError)
-	ajaxRawChannels(ptrToStruct, "", contentCh, errCh, "GET", path)
+	AjaxRawChannels(ptrToStruct, "", contentCh, errCh, "GET", path, nil)
 	return contentCh, errCh
 }
 
-func ajaxRawChannels(output interface{}, body string, contentChan chan interface{}, errChan chan AjaxError,
-	method string, path string) error {
+//AjaxRawChannels is the lower level interface to the "raw" Ajax call.  Most users
+//should use AjaxGet, AjaxPost, AjaxIndex or AjaxPut.
+func AjaxRawChannels(output interface{}, body string, contentChan chan interface{}, errChan chan AjaxError,
+	method string, path string, extraHeaders map[string]interface{}) error {
 
 	m := map[string]interface{}{
 		"contentType": "application/json",
@@ -87,6 +89,9 @@ func ajaxRawChannels(output interface{}, body string, contentChan chan interface
 	}
 	if body != "" {
 		m["data"] = body
+	}
+	if extraHeaders != nil {
+		m["headers"] = extraHeaders
 	}
 
 	jquery.Ajax(m).
@@ -190,7 +195,7 @@ func putPostDel(ptrToStruct interface{}, path string, method string, sendBody bo
 			return contentCh, errCh
 		}
 	}
-	ajaxRawChannels(output.Interface(), body, contentCh, errCh, method, path)
+	AjaxRawChannels(output.Interface(), body, contentCh, errCh, method, path, nil)
 	return contentCh, errCh
 }
 
