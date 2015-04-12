@@ -518,6 +518,14 @@ func (self *SimpleComponentMatcher) ServeHTTP(w http.ResponseWriter, r *http.Req
 			return
 		}
 		finalPath := self.FormFilepath("en", "web", result.Path)
+		if self.isTest {
+			path := GopathSearch(result.Path)
+			if path != "" {
+				log.Printf("[GOPATH] %v -> %v", r.URL, path)
+				http.ServeFile(w, r, path)
+				return
+			}
+		}
 		log.Printf("[SERVE] %+v -> %v", r.URL, finalPath)
 		http.ServeFile(w, r, finalPath)
 		return

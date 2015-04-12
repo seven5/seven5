@@ -71,6 +71,20 @@ func GopathLookup(w http.ResponseWriter, r *http.Request, desired string) {
 	http.NotFound(w, r)
 }
 
+//Return the path to the file that has the desired content, or return "" if
+//the file cannot be found.
+func GopathSearch(desired string) string {
+	gopathSegments := strings.Split(os.Getenv("GOPATH"), ":")
+	for _, gopath := range gopathSegments {
+		_, err := os.Stat(filepath.Join(gopath, "src", desired))
+		if err != nil {
+			continue
+		}
+		return filepath.Join(gopath, "src", desired)
+	}
+	return ""
+}
+
 //ServeHTTP retuns a static file or a not found error. This function meets
 //the requirement of net/http#Handler.
 func (s *SimpleStaticFilesServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
