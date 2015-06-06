@@ -114,8 +114,8 @@ func (self *todoApp) Start() {
 	//Setup an event handler for the primary input field. The called func
 	//creates model instance and puts in the list of todos.
 	// JQUERY: Any use of jquery is suspect as it allows many non type-safe operations.
-	primaryInput.Event(s5.CHANGE, func(j jquery.JQuery, event jquery.Event) {
-		if !self.createTodo(j.Val()) {
+	primaryInput.Dom().On(s5.CHANGE, func(event jquery.Event) {
+		if !self.createTodo(primaryInput.Dom().Val()) {
 			event.PreventDefault()
 		}
 	})
@@ -126,8 +126,9 @@ func (self *todoApp) Start() {
 	//child of span#todo-count (so we can't use HtmlId) and because
 	//that object is directly in the HTML file.
 	// JQUERY: Any use of jquery is suspect as it allows many non type-safe operations.
-	todoCountSelect := todoCount.Select().Children("strong")
-	s5.Equality(c.NewTextAttr(todoCountSelect), self.numNotDone)
+	selector := jquery.NewJQuery(todoCount.TagName() + "#" + todoCount.Id())
+	todoCountSelect := selector.Children("strong")
+	s5.Equality(s5.NewTextAttr(s5.WrapJQuery(todoCountSelect)), self.numNotDone)
 
 	//We need to attach the self.plural string to the proper place
 	//in the dom.
@@ -158,7 +159,7 @@ func (self *todoApp) Start() {
 	//dom element. We just walk the list of objects building a kill list,
 	//then we destroy all the items in the kill list
 	//JQUERY: Neither of the jquery params are used.
-	clearCompleted.Event(c.CLICK, func(jquery.JQuery, jquery.Event) {
+	clearCompleted.Dom().On(s5.CLICK, func(jquery.Event) {
 		all := self.todos.All()
 		if len(all) == 0 {
 			return
@@ -180,7 +181,7 @@ func (self *todoApp) Start() {
 	//marked done, unless they are all marked done in which they should all
 	//be umarked
 	//JQUERY: Neither of the jquery params are used.
-	toggleAll.Event(s5.CLICK, func(jquery.JQuery, jquery.Event) {
+	toggleAll.Dom().On(s5.CLICK, func(jquery.Event) {
 		desired := true
 		//Compare the output of the constraints to see if all are done
 		if self.todos.LengthAttribute().Value() == self.numDone.Value() {
@@ -203,7 +204,7 @@ func (self *todoApp) createTodo(v string) bool {
 	if result == "" {
 		return false
 	}
-	primaryInput.Select().SetVal("")
+	primaryInput.Dom().SetVal("")
 	//note: we just push it into the list and let the constraint system
 	//note: take over in terms of updating the display
 	todo := newTodo(result)
@@ -230,7 +231,7 @@ func newApp() *todoApp {
 }
 
 //helper function for getting the done attribute out of our model
-func (self *todoApp) pullDone(m c.Model) s5.Attribute {
+func (self *todoApp) pullDone(m s5.Model) s5.Attribute {
 	return m.(*todo).done
 }
 
@@ -259,7 +260,7 @@ func (self *todoApp) dependsOnAll() {
 			}
 			return p, s5.IntEqualer{p}
 		},
-		c.IntEqualer{0}, //if we transition to an empty list, what result do we want?
+		s5.IntEqualer{0}, //if we transition to an empty list, what result do we want?
 	)
 
 	//
@@ -327,7 +328,7 @@ func (self *todoApp) dependsOnAll() {
 //Add() is the method that is called in response to an element being
 //added to the collection (self.todos).  This is the "magic" turns an
 //instance of todo into a view.
-func (self *todoApp) Add(length int, newObj c.Model) {
+func (self *todoApp) Add(length int, newObj s5.Model) {
 	model := newObj.(*todo)
 
 	//note: There are two legal things that can be passed to any
@@ -359,11 +360,11 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 					//INPUT: has a CSS class "toggle" to make it look nice
 					s5.Class(toggle),
 					//INPUT: we force the "type" of this to be the constant "checkbox" (possibly overkill)
-					s5.HtmlAttrEqual(s5.TYPE, c.NewStringSimple("checkbox")),
+					s5.HtmlAttrEqual(s5.TYPE, s5.NewStringSimple("checkbox")),
 					//INPUT: make the checked attr be equal to the model's done
 					s5.PropEqual(s5.CHECKED, model.done),
 					//INPUT: when clicked, it toggles the value on the model
-					s5.Event(s5.CHANGE, func(ignored jquery.JQuery, e jquery.Event) {
+					s5.Event(s5.CHANGE, func(e jquery.Event) {
 						model.done.Set(!model.done.Value())
 					}),
 				),
@@ -372,10 +373,10 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 					//LABEL: model to the label's displayed text.
 					s5.TextEqual(model.name),
 					//LABEL: Double clicking on the label causes edit mode
-					s5.Event(s5.DBLCLICK, func(ignored jquery.JQuery, ignored2 jquery.Event) {
+					s5.Event(s5.DBLCLICK, func(jquery.Event) {
 						model.editing.Set(true)
 						//XXX UGH, don't have a handle to the input object
-						in := s5.HtmlIdFromModel("INPUT", model).Select()
+						in := s5.HtmlIdFromModel("INPUT", model).Dom()
 						in.SetVal(model.name.Value())
 						in.Focus()
 						in.Select()
@@ -387,7 +388,7 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 					//BUTTON: click function that calls remove on the list
 					//BUTTON: element that was used to create this whole structure
 					//JQUERY: Neither of the jquery params are used.
-					s5.Event(s5.CLICK, func(jquery.JQuery, jquery.Event) {
+					s5.Event(s5.CLICK, func(jquery.Event) {
 						//note: we are calling remove on the *collection* which
 						//note: will end up calling the Remove() method of our
 						//note: joiner.  If we don't tell the collection that the
@@ -412,18 +413,18 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 				//INPUT:whole thing
 				//JQUERY: This uses the jquery selector to get the value of the input.
 				//JQUERY: This uses the event object to get the keyboard code.
-				s5.Event(c.KEYDOWN, func(j jquery.JQuery, e jquery.Event) {
+				s5.Event(s5.KEYDOWN, func(e jquery.Event) {
 					//note: This type of "event handler" is the glue that
 					//note: connects a user action to something that manipulates
 					//note: the model.  Most event handlers do not need to
-					//note: manipulate the view as well (although that can be done
-					//note: through the j parameter) because they have constraints
-					//note: that connect the model to the view.  This event
-					//note: handler touches the view (j) primarily because it needs
-					//note: to manipulate the focus, which is not expressed
-					//note: in constraints.
+					//note: manipulate the view as well because they have constraints
+					//note: that connect the model to the view.
 					switch e.Which {
 					case 13:
+						//This conversion is a no-op other than the go language type.
+						//The e.Target value is ALREADY a jquery object, but it's not
+						//typed correctly for this function to use conveniently.
+						j := s5.WrapJQuery(jquery.NewJQuery(e.Target))
 						v := strings.Trim(j.Val(), CUTSET)
 						//check for the special case of making a name==""
 						if v == "" {
@@ -436,13 +437,13 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 						fallthrough
 					case 27:
 						model.editing.Set(false)
-						primaryInput.Select().Focus()
+						primaryInput.Dom().Focus()
 					}
 				}),
 			), //INPUT
 		).Build()
 
-	listContainer.Select().Append(tree)
+	listContainer.Dom().Append(tree)
 }
 
 //Remove is called when the oldObj is removed from the collection. It
@@ -451,7 +452,7 @@ func (self *todoApp) Add(length int, newObj c.Model) {
 func (self *todoApp) Remove(IGNORED int, oldObj s5.Model) {
 	model := oldObj.(*todo)
 	finder := s5.HtmlIdFromModel("li", model)
-	finder.Select().Remove()
+	finder.Dom().Remove()
 }
 
 //Go-level entry point, normally code is put in the Start() method that

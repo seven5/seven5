@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -35,6 +37,15 @@ func main() {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	})
-	log.Printf("waiting on :8898")
-	log.Fatalf("%s", http.ListenAndServe(":8898", nil))
+	port := 8898
+	if os.Getenv("PORT") != "" {
+		portraw := os.Getenv("PORT")
+		p, err := strconv.ParseInt(portraw, 10, 64)
+		if err != nil {
+			log.Fatalf("Can't understand PORT environment var: %s", portraw)
+		}
+		port = int(p)
+	}
+	log.Printf(fmt.Sprintf("waiting on :%d", port))
+	log.Fatalf("%s", http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }

@@ -30,6 +30,9 @@ type NarrowDom interface {
 	Prepend(...NarrowDom)
 	Before(NarrowDom)
 	Remove()
+	Focus()
+	Blur()
+	Select()
 }
 
 type jqueryWrapper struct {
@@ -233,6 +236,31 @@ func (self *testOpsImpl) RemoveClass(s string) {
 func (self jqueryWrapper) RemoveClass(s string) {
 	self.jq.RemoveClass(s)
 }
+
+func (self *testOpsImpl) Focus() {
+	panic("not implemented: focus")
+}
+
+func (self jqueryWrapper) Focus() {
+	self.jq.Focus()
+}
+
+func (self *testOpsImpl) Blur() {
+	panic("not implemented:blur")
+}
+
+func (self jqueryWrapper) Blur() {
+	self.jq.Blur()
+}
+
+func (self *testOpsImpl) Select() {
+	panic("not implemented:select")
+}
+
+func (self jqueryWrapper) Select() {
+	self.jq.Select()
+}
+
 func (self *testOpsImpl) Clear() {
 	self.children = make([]*testOpsImpl, 10)
 }
