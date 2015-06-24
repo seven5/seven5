@@ -250,7 +250,11 @@ func (self *IndexOnlyComponent) Page(pb PBundle, path []string, trailingSlash bo
 	//just try to serve up the content
 	return ComponentResult{
 		Status:           CONTINUE,
+<<<<<<< HEAD
 		ContinueAt:       continuePoint,
+=======
+		ContinueAt:       self.plural,
+>>>>>>> attempt to fix problem reported by @teknico
 		ContinueConsumed: 1,
 	}
 
