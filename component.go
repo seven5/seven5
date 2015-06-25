@@ -64,9 +64,12 @@ func NewSimpleIdComponent(singular string, exists ExistsCheck, newcheck NewCheck
 
 //IndexOnlyComponent returns the page /plural/index.html for the requested
 //url /plural, /plural/, or /plural/index.html.  Note that this can still 404
-//if the actual file is not present.
+//if the actual file is not present.  For URLs requested like /plural/foo
+//then this will check to see if you supplied a singular and if you did,
+//it will use that for generating other urls.
 type IndexOnlyComponent struct {
 	plural    string
+	singular  string
 	indexPath string
 }
 
@@ -75,9 +78,11 @@ type IndexOnlyComponent struct {
 //all of these return the file provided in path.  For convenience, it is often
 //useful to map /plural/index.html to /singular/index.html so that all the files
 //for a given type are in the same directory, rather than having a single file
-//in the plural directory.
-func NewIndexOnlyComponent(plural string, path string) *IndexOnlyComponent {
-	return &IndexOnlyComponent{plural, path}
+//in the plural directory.  When you are doing the convenience mapping, you probably
+//want to supply a singular (something other than "") so that /plural/foo.js
+//will work also.
+func NewIndexOnlyComponent(plural string, singular string, path string) *IndexOnlyComponent {
+	return &IndexOnlyComponent{plural, singular, path}
 }
 
 //Page does the work of turning a path plus a PBundle into a ComponentResult. That
@@ -125,10 +130,10 @@ func (self *SimpleIdComponent) Page(pb PBundle, path []string, trailingSlash boo
 	rawId := path[0]
 	id, err := strconv.ParseInt(rawId, 10, 64)
 	if err != nil {
-		//handle the case of /post/new.js
+		//handle the case of /<singular>/new.js
 		return ComponentResult{
 			Status:           CONTINUE,
-			ContinueAt:       "post",
+			ContinueAt:       self.singular,
 			ContinueConsumed: 1,
 		}
 	}
@@ -237,10 +242,15 @@ func (self *IndexOnlyComponent) Page(pb PBundle, path []string, trailingSlash bo
 		}
 	}
 
+	continuePoint := self.plural
+	if self.singular != "" {
+		continuePoint = self.singular
+	}
+
 	//just try to serve up the content
 	return ComponentResult{
 		Status:           CONTINUE,
-		ContinueAt:       "post", //SINGULAR
+		ContinueAt:       continuePoint,
 		ContinueConsumed: 1,
 	}
 
