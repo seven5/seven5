@@ -535,7 +535,6 @@ func (self *SimpleComponentMatcher) ServeHTTP(w http.ResponseWriter, r *http.Req
 				return
 			}
 		}
-		log.Printf("[SERVE] no cache: %+v -> %v", r.URL, finalPath)
 		w.Header().Add("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Add("Pragma", "no-cache")
 		w.Header().Add("Expires", "0")
