@@ -368,7 +368,6 @@ func (c *SimpleComponentMatcher) Match(pb PBundle, path string) ComponentResult 
 	slashTerminated := strings.HasSuffix(path, "/")
 
 	/////remove any empty segments of the path
-
 	changed := true //starting condition
 outer:
 	for changed {
@@ -536,6 +535,9 @@ func (self *SimpleComponentMatcher) ServeHTTP(w http.ResponseWriter, r *http.Req
 				return
 			}
 		}
+		w.Header().Add("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Add("Pragma", "no-cache")
+		w.Header().Add("Expires", "0")
 		log.Printf("[SERVE] %+v -> %v", r.URL, finalPath)
 		http.ServeFile(w, r, finalPath)
 		return
