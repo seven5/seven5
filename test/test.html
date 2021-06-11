@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Mocha Tests</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha/mocha.css" />
+    <style>
+        @font-face {
+            font-family: 'josefinslabregular';
+            src: url('../../app/josefinslab-variablefont_wght-webfont.woff2') format('woff2'),
+            url('../../app/josefinslab-variablefont_wght-webfont.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+            /* font-variation-settings: 'wght' 375;*/
+        }
+        p{
+            font:josefinslabregular;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+<canvas id="seven5" width='400px' height='225px'></canvas>
+<!-- style="font-family:josefinslabregular" -->
+<div id="mocha"></div>
+<script src="https://unpkg.com/chai/chai.js"></script>
+<script src="https://unpkg.com/mocha/mocha.js"></script>
+
+<script class="mocha-init">
+    mocha.setup('bdd','color','enableSourceMaps');
+    mocha.checkLeaks();
+</script>
+<script src="/alltests.js"></script>
+<script class="mocha-exec">
+    mocha.run();
+</script>
+</body>
+</html>

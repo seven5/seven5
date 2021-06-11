@@ -1,0 +1,9 @@
+canvas {
+    width: calc(100vh * 1.77);
+    height: 100vh;
+    background: linear-gradient(42deg, rgba(224,223,226,1) 0%, rgba(208,210,214,1) 75%, rgba(204,205,205,1) 100%);
+}
+.no-over {
+    overflow-y: hidden;
+    overflow-x: hidden;
+}

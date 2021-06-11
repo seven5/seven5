@@ -1,0 +1,9 @@
+#don't execute this, source it into your shell
+#cwd must be the directory with the enable script
+
+#use exact path, not PATH=$PATH...  this is the "normal" part of the path.
+#use exact path so you can source this script any number of times.
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+## add tools dir
+export PATH=$PATH:${PWD}/tools

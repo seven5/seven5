@@ -1,0 +1,19 @@
+{
+  "bundle": {
+    "commonSourceDirectory": "../src",
+    "sourceFiles": [
+      "../src/render/context.ts"
+    ],
+    "js": {
+      "sections": [
+        {
+          "pos": 0,
+          "end": 13,
+          "kind": "prologue",
+          "data": "use strict"
+        }
+      ]
+    }
+  },
+  "version": "4.2.4"
+}
