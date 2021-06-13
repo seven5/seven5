@@ -242,7 +242,7 @@ func TestDetach(t *testing.T) {
 	//still get right value?
 	expectedProd = 1 * 20 * 3 * 4 * 5 * 6 * 7 * 8 * 9
 	if p.Value() != expectedProd {
-		t.Error("after changing a value, the product is wrong (%d)", p.Value())
+		t.Errorf("after changing a value, the product is wrong (%d)", p.Value())
 	}
 
 	//check edge lists
@@ -265,16 +265,16 @@ func TestDetach(t *testing.T) {
 	p.Detach()
 
 	if one.Value() != 1 {
-		fmt.Errorf("failed to compute constraint, got %d", one.Value())
+		t.Errorf("failed to compute constraint, got %d", one.Value())
 	}
 
 	for i, no := range num {
 		n := no.(node)
 		if i < 2 && n.numEdges() != 1 {
-			fmt.Errorf("still have constraint on first two %d", n.numEdges())
+			t.Errorf("still have constraint on first two %d", n.numEdges())
 		}
 		if i >= 2 && n.numEdges() != 0 {
-			fmt.Errorf("should have removed all edges now, but %d has %d", i, n.numEdges())
+			t.Errorf("should have removed all edges now, but %d has %d", i, n.numEdges())
 		}
 	}
 }
